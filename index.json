@@ -1,0 +1,163 @@
+{
+  "functions": {
+    "src.main.get_project_root": {
+      "file": "src\\main.py",
+      "line_start": 7,
+      "line_end": 9,
+      "signature": "def get_project_root():"
+    },
+    "src.main.test_dependencies": {
+      "file": "src\\main.py",
+      "line_start": 11,
+      "line_end": 20,
+      "signature": "def test_dependencies():"
+    },
+    "src.main.main": {
+      "file": "src\\main.py",
+      "line_start": 22,
+      "line_end": 44,
+      "signature": "def main():"
+    },
+    "src.test_mt5_connection.test_architecture": {
+      "file": "src\\test_mt5_connection.py",
+      "line_start": 31,
+      "line_end": 121,
+      "signature": "def test_architecture():"
+    },
+    "src.test_mt5_data.load_env_from_project_root": {
+      "file": "src\\test_mt5_data.py",
+      "line_start": 29,
+      "line_end": 39,
+      "signature": "def load_env_from_project_root():"
+    },
+    "src.test_mt5_data.probe_symbol": {
+      "file": "src\\test_mt5_data.py",
+      "line_start": 42,
+      "line_end": 126,
+      "signature": "def probe_symbol(data_layer, symbol_name):"
+    },
+    "src.test_mt5_data.main": {
+      "file": "src\\test_mt5_data.py",
+      "line_start": 129,
+      "line_end": 239,
+      "signature": "def main():"
+    },
+    "src.config.mt5_config.get_mt5_config": {
+      "file": "src\\config\\mt5_config.py",
+      "line_start": 28,
+      "line_end": 54,
+      "signature": "def get_mt5_config():"
+    },
+    "src.config.mt5_config.get_default_server": {
+      "file": "src\\config\\mt5_config.py",
+      "line_start": 56,
+      "line_end": 59,
+      "signature": "def get_default_server():"
+    },
+    "src.config.mt5_config.mask_sensitive_info": {
+      "file": "src\\config\\mt5_config.py",
+      "line_start": 61,
+      "line_end": 66,
+      "signature": "def mask_sensitive_info(config_dict):"
+    },
+    "src.data.mt5_data.MT5DataLayer.__init__": {
+      "file": "src\\data\\mt5_data.py",
+      "line_start": 22,
+      "line_end": 23,
+      "signature": "def __init__(self):"
+    },
+    "src.data.mt5_data.MT5DataLayer.get_symbol_info": {
+      "file": "src\\data\\mt5_data.py",
+      "line_start": 25,
+      "line_end": 48,
+      "signature": "def get_symbol_info(self, symbol_name):"
+    },
+    "src.data.mt5_data.MT5DataLayer.get_tick": {
+      "file": "src\\data\\mt5_data.py",
+      "line_start": 50,
+      "line_end": 68,
+      "signature": "def get_tick(self, symbol_name):"
+    },
+    "src.data.mt5_data.MT5DataLayer.get_rates": {
+      "file": "src\\data\\mt5_data.py",
+      "line_start": 70,
+      "line_end": 95,
+      "signature": "def get_rates(self, symbol_name, timeframe='M1', count=100):"
+    },
+    "src.data.mt5_data.MT5DataLayer.get_symbols_list": {
+      "file": "src\\data\\mt5_data.py",
+      "line_start": 97,
+      "line_end": 106,
+      "signature": "def get_symbols_list(self):"
+    },
+    "src.data.mt5_data.MT5DataLayer.find_forex_symbols": {
+      "file": "src\\data\\mt5_data.py",
+      "line_start": 108,
+      "line_end": 121,
+      "signature": "def find_forex_symbols(self, base='EUR', quote='USD'):"
+    },
+    "src.trading.mt5_connection.MT5Connection.__init__": {
+      "file": "src\\trading\\mt5_connection.py",
+      "line_start": 15,
+      "line_end": 19,
+      "signature": "def __init__(self):"
+    },
+    "src.trading.mt5_connection.MT5Connection.connect": {
+      "file": "src\\trading\\mt5_connection.py",
+      "line_start": 21,
+      "line_end": 75,
+      "signature": "def connect(self):"
+    },
+    "src.trading.mt5_connection.MT5Connection.get_symbol_info": {
+      "file": "src\\trading\\mt5_connection.py",
+      "line_start": 77,
+      "line_end": 103,
+      "signature": "def get_symbol_info(self, symbol_name):"
+    },
+    "src.trading.mt5_connection.MT5Connection.get_tick_data": {
+      "file": "src\\trading\\mt5_connection.py",
+      "line_start": 105,
+      "line_end": 126,
+      "signature": "def get_tick_data(self, symbol_name):"
+    },
+    "src.trading.mt5_connection.MT5Connection.get_rates": {
+      "file": "src\\trading\\mt5_connection.py",
+      "line_start": 128,
+      "line_end": 157,
+      "signature": "def get_rates(self, symbol_name, timeframe='M1', count=10):"
+    },
+    "src.trading.mt5_connection.MT5Connection.shutdown": {
+      "file": "src\\trading\\mt5_connection.py",
+      "line_start": 159,
+      "line_end": 165,
+      "signature": "def shutdown(self):"
+    }
+  },
+  "files": {
+    "src\\main.py": {
+      "last_modified": "2026-08-20T03:33:22",
+      "hash": "sha256:d00b5ee8fea84abe"
+    },
+    "src\\test_mt5_connection.py": {
+      "last_modified": "2026-08-20T03:32:22",
+      "hash": "sha256:503db3982b00050c"
+    },
+    "src\\test_mt5_data.py": {
+      "last_modified": "2026-08-20T04:30:58",
+      "hash": "sha256:861a10c8119118cf"
+    },
+    "src\\config\\mt5_config.py": {
+      "last_modified": "2026-08-20T04:23:51",
+      "hash": "sha256:b98e69d8b536997d"
+    },
+    "src\\data\\mt5_data.py": {
+      "last_modified": "2026-08-20T03:22:39",
+      "hash": "sha256:805396c4d428f44e"
+    },
+    "src\\trading\\mt5_connection.py": {
+      "last_modified": "2026-08-20T03:22:12",
+      "hash": "sha256:5971806f1a473efc"
+    }
+  },
+  "last_full_scan": "2026-08-20T13:04:17"
+}
