@@ -460,60 +460,6 @@
           "line_end": 705,
           "signature": "def main():"
         },
-        "experiment.exp5f_frozen_vs_dynamic_eq._build_swing_timeline": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 67,
-          "line_end": 86,
-          "signature": "def _build_swing_timeline(bars_15m: List[Bar], left: int=3, right: int=3) -> Tuple[List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._latest_swing_from_timeline": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 89,
-          "line_end": 99,
-          "signature": "def _latest_swing_from_timeline(events: List[Tuple[int, int, float]], keys: List[int], up_to_index: int) -> Optional[Tuple[int, float]]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._compute_research_eq": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 102,
-          "line_end": 108,
-          "signature": "def _compute_research_eq(swing_high: Optional[Tuple[int, float]], swing_low: Optional[Tuple[int, float]]) -> Optional[float]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq.run_test_a_dynamic_eq": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 113,
-          "line_end": 328,
-          "signature": "def run_test_a_dynamic_eq(symbol: str, bars_15m: List[Bar]) -> List[Dict[str, Any]]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._analyze_symbol": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 333,
-          "line_end": 379,
-          "signature": "def _analyze_symbol(symbol: str) -> Dict[str, Any]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._worker": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 382,
-          "line_end": 386,
-          "signature": "def _worker(symbol: str) -> Dict[str, Any]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._outcome_stats": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 391,
-          "line_end": 432,
-          "signature": "def _outcome_stats(trades: List[Dict], label: str) -> Dict[str, Any]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._fmt": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 435,
-          "line_end": 438,
-          "signature": "def _fmt(st: Dict) -> str:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq.main": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 443,
-          "line_end": 641,
-          "signature": "def main():"
-        },
         "experiment.gemini_benchmark._to_nexus_bar": {
           "file": "experiment\\gemini_benchmark.py",
           "line_start": 94,
@@ -560,60 +506,6 @@
           "file": "experiment\\gemini_benchmark.py",
           "line_start": 608,
           "line_end": 682,
-          "signature": "def main():"
-        },
-        "experiment.gemini_benchmark_eq._to_nexus_bar": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 97,
-          "line_end": 111,
-          "signature": "def _to_nexus_bar(bar: Bar) -> 'NexusBar':"
-        },
-        "experiment.gemini_benchmark_eq.compute_atr": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 114,
-          "line_end": 131,
-          "signature": "def compute_atr(bars: List[Bar], period: int=14) -> float:"
-        },
-        "experiment.gemini_benchmark_eq.resample_15m": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 134,
-          "line_end": 164,
-          "signature": "def resample_15m(bars_1m: List[Bar]) -> List[Bar]:"
-        },
-        "experiment.gemini_benchmark_eq._is_fresh_fvg": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 167,
-          "line_end": 181,
-          "signature": "def _is_fresh_fvg(fvg: NexusFVG, bars_15m: List[Bar], current_index: int) -> bool:"
-        },
-        "experiment.gemini_benchmark_eq.run_test_a": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 185,
-          "line_end": 504,
-          "signature": "def run_test_a(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
-        },
-        "experiment.gemini_benchmark_eq.run_test_b": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 508,
-          "line_end": 747,
-          "signature": "def run_test_b(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
-        },
-        "experiment.gemini_benchmark_eq.compute_stats": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 751,
-          "line_end": 828,
-          "signature": "def compute_stats(trades: List[BenchmarkTrade], starting_balance: float=STARTING_BALANCE_R) -> Dict[str, Any]:"
-        },
-        "experiment.gemini_benchmark_eq._run_symbol": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 832,
-          "line_end": 868,
-          "signature": "def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:"
-        },
-        "experiment.gemini_benchmark_eq.main": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 872,
-          "line_end": 993,
           "signature": "def main():"
         },
         "experiment.gemini_detector._to_nexus_bar": {
@@ -1017,12 +909,6 @@
           "line_start": 25,
           "line_end": 48,
           "signature": "def main():"
-        },
-        "src.test_mt5_connection.test_architecture": {
-          "file": "src\\test_mt5_connection.py",
-          "line_start": 29,
-          "line_end": 121,
-          "signature": "def test_architecture():"
         },
         "src.test_mt5_data.load_env_from_project_root": {
           "file": "src\\test_mt5_data.py",
@@ -2817,6 +2703,120 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._build_swing_timeline": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 67,
+          "line_end": 86,
+          "signature": "def _build_swing_timeline(bars_15m: List[Bar], left: int=3, right: int=3) -> Tuple[List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._latest_swing_from_timeline": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 89,
+          "line_end": 99,
+          "signature": "def _latest_swing_from_timeline(events: List[Tuple[int, int, float]], keys: List[int], up_to_index: int) -> Optional[Tuple[int, float]]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._compute_research_eq": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 102,
+          "line_end": 108,
+          "signature": "def _compute_research_eq(swing_high: Optional[Tuple[int, float]], swing_low: Optional[Tuple[int, float]]) -> Optional[float]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq.run_test_a_dynamic_eq": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 113,
+          "line_end": 328,
+          "signature": "def run_test_a_dynamic_eq(symbol: str, bars_15m: List[Bar]) -> List[Dict[str, Any]]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._analyze_symbol": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 333,
+          "line_end": 379,
+          "signature": "def _analyze_symbol(symbol: str) -> Dict[str, Any]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._worker": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 382,
+          "line_end": 386,
+          "signature": "def _worker(symbol: str) -> Dict[str, Any]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._outcome_stats": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 391,
+          "line_end": 432,
+          "signature": "def _outcome_stats(trades: List[Dict], label: str) -> Dict[str, Any]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._fmt": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 435,
+          "line_end": 438,
+          "signature": "def _fmt(st: Dict) -> str:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq.main": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 443,
+          "line_end": 641,
+          "signature": "def main():"
+        },
+        "experiment.gemini_benchmark_eq._to_nexus_bar": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 97,
+          "line_end": 111,
+          "signature": "def _to_nexus_bar(bar: Bar) -> 'NexusBar':"
+        },
+        "experiment.gemini_benchmark_eq.compute_atr": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 114,
+          "line_end": 131,
+          "signature": "def compute_atr(bars: List[Bar], period: int=14) -> float:"
+        },
+        "experiment.gemini_benchmark_eq.resample_15m": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 134,
+          "line_end": 164,
+          "signature": "def resample_15m(bars_1m: List[Bar]) -> List[Bar]:"
+        },
+        "experiment.gemini_benchmark_eq._is_fresh_fvg": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 167,
+          "line_end": 181,
+          "signature": "def _is_fresh_fvg(fvg: NexusFVG, bars_15m: List[Bar], current_index: int) -> bool:"
+        },
+        "experiment.gemini_benchmark_eq.run_test_a": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 185,
+          "line_end": 504,
+          "signature": "def run_test_a(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
+        },
+        "experiment.gemini_benchmark_eq.run_test_b": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 508,
+          "line_end": 747,
+          "signature": "def run_test_b(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
+        },
+        "experiment.gemini_benchmark_eq.compute_stats": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 751,
+          "line_end": 828,
+          "signature": "def compute_stats(trades: List[BenchmarkTrade], starting_balance: float=STARTING_BALANCE_R) -> Dict[str, Any]:"
+        },
+        "experiment.gemini_benchmark_eq._run_symbol": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 832,
+          "line_end": 868,
+          "signature": "def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:"
+        },
+        "experiment.gemini_benchmark_eq.main": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 872,
+          "line_end": 993,
+          "signature": "def main():"
+        },
+        "src.test_mt5_connection.test_architecture": {
+          "file": "src\\test_mt5_connection.py",
+          "line_start": 29,
+          "line_end": 121,
+          "signature": "def test_architecture():"
         }
       },
       "files": {
@@ -2868,17 +2868,9 @@
           "last_modified": "2026-08-25T14:35:27",
           "hash": "sha256:b62450cac8efa844"
         },
-        "experiment\\exp5f_frozen_vs_dynamic_eq.py": {
-          "last_modified": "2026-08-26T01:11:39",
-          "hash": "sha256:539de05423c6628c"
-        },
         "experiment\\gemini_benchmark.py": {
           "last_modified": "2026-08-26T01:11:39",
           "hash": "sha256:110c6bf2161306f5"
-        },
-        "experiment\\gemini_benchmark_eq.py": {
-          "last_modified": "2026-08-26T01:11:39",
-          "hash": "sha256:7f4d9ed3d6c68e4d"
         },
         "experiment\\gemini_detector.py": {
           "last_modified": "2026-08-21T20:25:39",
@@ -2943,10 +2935,6 @@
         "src\\main.py": {
           "last_modified": "2026-08-25T21:04:10",
           "hash": "sha256:477bfea986eeb413"
-        },
-        "src\\test_mt5_connection.py": {
-          "last_modified": "2026-08-25T21:04:10",
-          "hash": "sha256:18d8fc88a7d2d2be"
         },
         "src\\test_mt5_data.py": {
           "last_modified": "2026-08-25T19:59:08",
@@ -3095,9 +3083,21 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
+        },
+        "experiment\\exp5f_frozen_vs_dynamic_eq.py": {
+          "last_modified": "2026-08-26T01:11:39",
+          "hash": "sha256:539de05423c6628c"
+        },
+        "experiment\\gemini_benchmark_eq.py": {
+          "last_modified": "2026-08-26T01:11:39",
+          "hash": "sha256:7f4d9ed3d6c68e4d"
+        },
+        "src\\test_mt5_connection.py": {
+          "last_modified": "2026-08-25T21:04:10",
+          "hash": "sha256:18d8fc88a7d2d2be"
         }
       },
-      "last_full_scan": "2026-08-26T01:22:55"
+      "last_full_scan": "2026-08-26T01:24:30"
     }
   }
 }
