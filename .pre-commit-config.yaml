@@ -1,0 +1,71 @@
+# SNIPER_FOREX pre-commit configuration
+# Reference: nexus-mcp .pre-commit-config.yaml (adapted)
+#
+# NOTES on index.json:
+#   - index.json is the agent navigation/context system and must NOT be modified
+#     by any auto-fix hook (ruff, trailing-whitespace, end-of-file-fixer).
+#   - It IS validated as well-formed JSON via check-json hook.
+#   - Ruff and mypy exclude it via file pattern / --exclude flags.
+
+repos:
+  # ── Ruff — linter + formatter ────────────────────────────────────────────
+  # Handles: F821 (undefined), F841 (unused-var), E501 (line-too-long),
+  #          isort, pyupgrade, and autoformatting via ruff-format.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # ── Vulture — dead code / unused functions/variables ───────────────────────
+  # Scans src/ and experiment/ for unused code (min-confidence 80%).
+  # Excludes: tests/, scripts/, index.json
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.11
+    hooks:
+      - id: vulture
+        args: [--min-confidence, "80", --exclude, "tests/,scripts/,index.json", "src/", "experiment/"]
+
+  # ── mypy — type checking ───────────────────────────────────────────────────
+  # Runs on src/ and experiment/ with relaxed flags (no strict-optional,
+  # annotation-unchecked disabled). Uses --follow-imports=skip to avoid
+  # duplicate module resolution issues with git worktrees.
+  # Excludes: tests/, scripts/, index.json, .kilo/ worktrees
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        args: [
+          --follow-imports=skip,
+          --ignore-missing-imports,
+          --no-strict-optional,
+          --disable-error-code=annotation-unchecked,
+          --disable-error-code=misc,
+          --disable-error-code=has-type,
+          --disable-error-code=call-arg,
+          --disable-error-code=attr-defined,
+          --disable-error-code=arg-type,
+          --disable-error-code=assignment,
+          --disable-error-code=no-redef,
+        ]
+        files: ^(src/|experiment/)
+
+  # ── pre-commit-hooks — standard hygiene ────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Validate index.json is well-formed JSON (read-only check, no modification)
+      - id: check-json
+      # Strip trailing whitespace from all lines
+      - id: trailing-whitespace
+        exclude: ^index\.json$
+      # Ensure file ends with exactly one newline
+      - id: end-of-file-fixer
+        exclude: ^index\.json$
+      # Fail if merge conflict markers present
+      - id: check-merge-conflict
+      # Detect accidental .pyc or __pycache__ commits
+      - id: check-yaml
+      # Detect case-insensitive file duplicates
+      - id: check-case-conflict

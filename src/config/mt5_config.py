@@ -27,7 +27,7 @@ if _ENV_FILE.exists():
 
 def get_mt5_config():
     """Get MT5 configuration from environment variables.
-    
+
     Returns dict with configuration values.
     Credentials are read from environment at runtime, never hardcoded.
     .env file is loaded from project root before reading env vars.
@@ -42,7 +42,7 @@ def get_mt5_config():
         # Terminal path - optional, can be set at runtime
         "terminal_path": os.getenv("MT5_TERMINAL_PATH", ""),
     }
-    
+
     # Validate required credentials
     if not config["login"]:
         raise ValueError("MT5_LOGIN environment variable not set")
@@ -50,13 +50,15 @@ def get_mt5_config():
         raise ValueError("MT5_PASSWORD environment variable not set")
     if not config["server"]:
         raise ValueError("MT5_SERVER environment variable not set")
-    
+
     return config
+
 
 def get_default_server():
     """Get default MT5 server name (informational, not for security)."""
     # This is just a placeholder - actual server should come from env
     return os.getenv("MT5_SERVER", "ICMarketsSC-Demo")
+
 
 def mask_sensitive_info(config_dict):
     """Mask sensitive information for logging/display."""

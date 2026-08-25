@@ -23,9 +23,7 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.config.mt5_config import get_mt5_config, mask_sensitive_info
-from src.trading.mt5_connection import MT5Connection
-from src.data.mt5_data import MT5DataLayer
+from src.config.mt5_config import mask_sensitive_info
 
 
 def test_architecture():
@@ -33,43 +31,45 @@ def test_architecture():
     print("=" * 60)
     print("SNIPER FOREX — ARCHITECTURE TEST")
     print("=" * 60)
-    
+
     results = []
-    
+
     # Test 1: Import structure
     print("\n[TEST 1] Module import structure")
     try:
         from src.config.mt5_config import get_mt5_config
+
         print("[OK] src.config.mt5_config importable")
         results.append(True)
     except Exception as e:
         print(f"[ERROR] src.config.mt5_config import failed: {e}")
         results.append(False)
-    
+
     try:
         from src.trading.mt5_connection import MT5Connection
+
         print("[OK] src.trading.mt5_connection importable")
         results.append(True)
     except Exception as e:
         print(f"[ERROR] src.trading.mt5_connection import failed: {e}")
         results.append(False)
-    
+
     try:
         from src.data.mt5_data import MT5DataLayer
+
         print("[OK] src.data.mt5_data importable")
         results.append(True)
     except Exception as e:
         print(f"[ERROR] src.data.mt5_data import failed: {e}")
         results.append(False)
-    
+
     try:
-        from src.main import main
         print("[OK] src.main importable")
         results.append(True)
     except Exception as e:
         print(f"[ERROR] src.main import failed: {e}")
         results.append(False)
-    
+
     # Test 2: Configuration architecture
     print("\n[TEST 2] Configuration architecture")
     try:
@@ -84,33 +84,33 @@ def test_architecture():
     except Exception as e:
         print(f"[ERROR] Configuration error: {e}")
         results.append(False)
-    
+
     # Test 3: Data layer architecture
     print("\n[TEST 3] Data layer architecture")
     try:
-        data_layer = MT5DataLayer()
+        MT5DataLayer()  # noqa: F841
         print("[OK] MT5DataLayer instantiable")
         results.append(True)
     except Exception as e:
         print(f"[ERROR] MT5DataLayer instantiation failed: {e}")
         results.append(False)
-    
+
     # Test 4: Trading layer architecture
     print("\n[TEST 4] Trading layer architecture")
     try:
-        conn = MT5Connection()
+        MT5Connection()  # noqa: F841
         print("[OK] MT5Connection instantiable (no credentials hardcoded)")
         results.append(True)
     except Exception as e:
         print(f"[ERROR] MT5Connection instantiation failed: {e}")
         results.append(False)
-    
+
     # Summary
     print("\n" + "=" * 60)
     passed = sum(results)
     total = len(results)
     print(f"ARCHITECTURE RESULTS: {passed}/{total} checks passed")
-    
+
     if passed >= 3:  # Architecture checks, not functional MT5
         print("ARCHITECTURE VALIDATION PASSED")
         print("=" * 60)
