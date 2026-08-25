@@ -63,6 +63,39 @@ MaxDD% = max(DD%_t)  [across all t where peak_t > 0]
 
 ---
 
+## CHECKPOINT: MaxDD STARTING_BALANCE FIX — COMPLETE (2026-08-26)
+
+### Problem
+MaxDD% was showing 100% for all runs because `equity = 0.0; peak = 0.0`.
+First losing trade created `dd = peak - equity = 0 - (-R) = R/R = 100%`.
+
+### Root Cause
+`compute_stats()` initialized equity at 0 instead of `STARTING_BALANCE_R`.
+
+### Fix Applied
+- `gemini_benchmark_eq.py`: `equity = peak = starting_balance = 100.0`, `compute_stats(trades, starting_balance=100.0)`
+- `exp5f_frozen_vs_dynamic_eq.py`: `cum = peak = STARTING_BALANCE_R = 100.0`, `dd_pct / peak_pct * 100`
+- `gemini_benchmark.py`: `_is_fresh_fvg` O(n) slice `bars_15m[scan_from:current_index]`
+
+### Verified Results
+| Script | Trades | MaxDD% |
+|--------|--------|--------|
+| gemini_benchmark_eq.py (full 2.7yr) | 2904 | 2.90% |
+| exp5f_frozen_vs_dynamic_eq.py (180d) | 529/469 | 1.8–5.1% |
+
+### Dual Benchmark Architecture (2026-08-26)
+| Script | Purpose | Data Window |
+|--------|---------|-------------|
+| gemini_benchmark_eq.py | Full-data research motoru | Full (2.7yr) |
+| exp5f_frozen_vs_dynamic_eq.py | 180-day kontrollü karşılaştırma | 180-day sliding |
+
+### Commit
+- `0561b22` — fix: MaxDD%=100% bug — equity starts at 100R not 0
+- 3 files: gemini_benchmark_eq.py + exp5f_frozen_vs_dynamic_eq.py + gemini_benchmark.py
+- Pushed to origin/main
+
+---
+
 ## LIVE ↔ BACKTEST PARITY AUDIT — PASS (2026-08-22, read-only)
 
 ### 1. TIME SOURCE

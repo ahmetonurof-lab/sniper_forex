@@ -97,6 +97,24 @@ Do NOT use old pre-fix benchmark numbers for future comparisons.
 - No commit. No push.
 - Reference doc: docs/KNOWN_GOOD_BENCHMARK.md
 
+## CHECKPOINT: MaxDD STARTING_BALANCE FIX — COMPLETE (2026-08-26)
+
+### Problem
+MaxDD% was 100% because equity initialized at 0.0 instead of 100.0R.
+
+### Fix
+- gemini_benchmark_eq.py: `equity=peak=starting_balance=100.0`, `compute_stats(..., starting_balance=100.0)`
+- exp5f_frozen_vs_dynamic_eq.py: `cum=peak=STARTING_BALANCE_R=100.0`, `dd_pct/peak_pct*100`
+- gemini_benchmark.py: `_is_fresh_fvg` O(n) slice
+
+### Results
+- gemini_benchmark_eq.py: 2904 trades, DD%=2.90% (full 2.7yr data)
+- exp5f_frozen_vs_dynamic_eq.py: Frozen=529, Dynamic=469, DD%=1.8-5.1% (180-day window)
+- Trade logic unchanged (entry/exit/trailing/sizing identical)
+
+### Commit
+- `0561b22` — pushed to origin/main
+
 ## CHECKPOINT: MaxDD CHRONOLOGY FIX — COMPLETE (2026-08-25)
 
 ### Problem
