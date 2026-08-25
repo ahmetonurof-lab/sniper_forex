@@ -1,11 +1,7 @@
 """
-gemini_benchmark.py — Gemini ICT/SMC vs POST_SWEEP_FVG Benchmark.
+gemini_benchmark_eq.py — Frozen EQ Benchmark with MaxDD fix.
 
-Runs TWO tests with IDENTICAL exit/trailing engine:
-  A) POST_SWEEP_FVG — existing baseline
-  B) GEMINI_SWEEP_FVG_NO_IFVG — Gemini's additional ICT structure logic
-
-The ONLY difference: ENTRY SELECTION.
+Parallel: 6 workers via ProcessPoolExecutor.
 """
 
 from __future__ import annotations
@@ -15,6 +11,8 @@ import json
 import sys
 import time
 import statistics
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -44,7 +42,8 @@ from experiment.config import (  # noqa: E402
 from experiment.trailing_adapter import apply_trailing, check_exit, _norm_side  # noqa: E402
 from experiment.gemini_detector import detect_gemini_entry  # noqa: E402
 
-# ── NEXUS FVG module ──
+# ── Portfolio equity curve starting balance ──
+STARTING_BALANCE_R = 100.0
 _NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
 if _NEXUS_SNIPER_SRC not in sys.path:
     sys.path.insert(0, _NEXUS_SNIPER_SRC)
@@ -172,9 +171,7 @@ def _is_fresh_fvg(
 ) -> bool:
     """Strict freshness check for FVG."""
     scan_from = fvg.real_index + 2
-    for b in bars_15m:
-        if b.index < scan_from or b.index >= current_index:
-            continue
+    for b in bars_15m[scan_from:current_index]:
         if fvg.direction == "bullish":
             if b.low <= fvg.top:
                 return False
@@ -213,8 +210,15 @@ def run_test_a(
     trades: List[BenchmarkTrade] = []
     trade_counter = 0
 
+    # Pre-build full nexus_bars list once — O(n), not O(n²)
+    nexus_bars_full = [_to_nexus_bar(b) for b in bars_15m]
+
     start_idx = warmup + 1
+    _last_heartbeat = start_idx
     for i in range(start_idx, len(bars_15m)):
+        if i - _last_heartbeat >= 5000:
+            print(f"  [HEARTBEAT] {symbol} bar {i}/{len(bars_15m)}", flush=True)
+            _last_heartbeat = i
         bar = bars_15m[i]
 
         if i > start_idx:
@@ -320,11 +324,12 @@ def run_test_a(
         sweep_direction = (
             "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
         )
-        nexus_bars = [_to_nexus_bar(b) for b in bars_15m[: i + 1]]
+        lb = min(100, i + 1)
+        nexus_bars = nexus_bars_full[i + 1 - lb : i + 1]
 
         fvgs = _nexus_detect_fvgs(
             nexus_bars,
-            lookback=min(100, len(nexus_bars)),
+            lookback=lb,
             timeframe="15m",
             min_fvg_size=min_fvg_size,
             max_wick_ratio=FVG_WICK_RATIO_MAX,
@@ -743,7 +748,7 @@ def run_test_b(
 
 
 # ── Stats ──
-def compute_stats(trades: List[BenchmarkTrade]) -> Dict[str, Any]:
+def compute_stats(trades: List[BenchmarkTrade], starting_balance: float = STARTING_BALANCE_R) -> Dict[str, Any]:
     if not trades:
         return {
             "trades": 0,
@@ -773,8 +778,8 @@ def compute_stats(trades: List[BenchmarkTrade]) -> Dict[str, Any]:
 
     # Chronological equity curve using exit_timestamp
     sorted_trades = sorted(completed, key=lambda t: t.exit_timestamp)
-    equity = 0.0
-    peak = 0.0
+    equity = starting_balance
+    peak = starting_balance
     max_dd = 0.0
     max_dd_pct = 0.0
     for t in sorted_trades:
@@ -823,22 +828,73 @@ def compute_stats(trades: List[BenchmarkTrade]) -> Dict[str, Any]:
     }
 
 
+# ── Worker ──
+def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:
+    print(f"  [WORKER] {sym}: starting...", flush=True)
+    feather_dir = _PROJECT_ROOT / "data" / "icmarket_feather"
+    # Load 15m directly — no resampling needed
+    import pandas as pd
+    from src.strategy.models import Bar
+    feather_path = feather_dir / f"{sym}_15m.feather"
+    print(f"  [WORKER] {sym}: loading {feather_path}...", flush=True)
+    df = pd.read_feather(feather_path)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    timestamps = df["timestamp"].values
+    opens = df["open"].values.astype(float)
+    highs = df["high"].values.astype(float)
+    lows = df["low"].values.astype(float)
+    closes = df["close"].values.astype(float)
+    volumes = df["volume"].values.astype(float)
+    bars_15m = [
+        Bar(index=i, timestamp=pd.Timestamp(ts),
+            open=o, high=h, low=l, close=c, volume=v)
+        for i, ts, o, h, l, c, v in
+        zip(range(len(timestamps)), timestamps, opens, highs, lows, closes, volumes)
+    ]
+    print(f"  [WORKER] {sym}: loaded {len(bars_15m)} 15m bars, backtesting...", flush=True)
+    if dry_run:
+        bars_15m = bars_15m[:2000]
+    print(f"  [WORKER] {sym}: backtesting run_test_a({sym}, {len(bars_15m)} bars)...", flush=True)
+    import time
+    t0 = time.time()
+    if test_type == "POST_SWEEP_FVG":
+        trades = run_test_a(sym, bars_15m)
+        t1 = time.time()
+        print(f"  [WORKER] {sym}: run_test_a took {t1-t0:.1f}s", flush=True)
+    else:
+        trades = run_test_b(sym, bars_15m)
+    elapsed = time.time() - t0
+    print(f"  [WORKER] {sym}: done {len(trades)} trades in {elapsed:.1f}s", flush=True)
+    return [asdict(t) for t in trades]
+
+
 # ── Main ──
 def main():
     parser = argparse.ArgumentParser(description="Gemini vs POST_SWEEP_FVG Benchmark")
     parser.add_argument("symbols", nargs="*", help="Symbols (default: all)")
     parser.add_argument("--dry-run", action="store_true", help="Smoke test")
+    parser.add_argument(
+        "--workers", type=int, default=6, help="Parallel workers (default: 6)"
+    )
+    parser.add_argument(
+        "--test", default="POST_SWEEP_FVG", help="Test type (default: POST_SWEEP_FVG)"
+    )
+    parser.add_argument(
+        "--starting-balance",
+        type=float,
+        default=STARTING_BALANCE_R,
+        help=f"Starting balance in R for DD% calc (default: {STARTING_BALANCE_R})",
+    )
     args = parser.parse_args()
 
-    loader = DataLoader()
+    loader = DataLoader(feather_dir=_PROJECT_ROOT / "data" / "icmarket_feather")
     symbols = (
         [s.upper() for s in args.symbols] if args.symbols else loader.list_symbols()
     )
+    test_types = [args.test]
 
-    test_types = ["POST_SWEEP_FVG", "GEMINI_SWEEP_FVG"]
-
-    print("=== GEMINI vs POST_SWEEP_FVG BENCHMARK ===")
-    print(f"Symbols: {len(symbols)} | Tests: {test_types}")
+    print("=== FROZEN EQ BENCHMARK ===")
+    print(f"Symbols: {len(symbols)} | Test: {test_types} | Workers: {args.workers} | Starting: {args.starting_balance}R")
     print(f"{'DRY RUN' if args.dry_run else 'FULL RUN'}")
     print()
 
@@ -846,56 +902,78 @@ def main():
 
     for test_type in test_types:
         print(f"--- {test_type} ---")
-        test_trades = []
         t0 = time.time()
+        test_trades = []
 
-        for idx, sym in enumerate(symbols):
-            try:
-                bars_1m = loader.load(sym)
-                if args.dry_run:
-                    bars_1m = bars_1m[:8000]
-                bars_15m = resample_15m(bars_1m)
-
-                if test_type == "POST_SWEEP_FVG":
-                    trades = run_test_a(sym, bars_15m)
-                else:
-                    trades = run_test_b(sym, bars_15m)
-
-                test_trades.extend(trades)
-
-                if trades:
-                    w = sum(1 for t in trades if t.result in ("TP", "PROFIT_TRAIL"))
-                    ln = sum(1 for t in trades if t.result == "LOSS")
-                    pnl = sum(t.pnl_r for t in trades)
-                    tc = sum(t.trailing_count for t in trades)
-                    print(
-                        f"  [{idx+1:3d}/{len(symbols)}] {sym:12s} {len(trades):3d}T | {w:2d}W/{ln:2d}L | {pnl:+7.2f}R | {tc:3d} hops"
-                    )
-            except Exception as e:
-                print(f"  [{idx+1:3d}/{len(symbols)}] {sym:12s} ERROR: {e}")
+        print(f"  Submitting {len(symbols)} symbols to thread pool ({args.workers} workers)...", flush=True)
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = {
+                executor.submit(_run_symbol, sym, test_type, args.dry_run): sym
+                for sym in symbols
+            }
+            pbar = tqdm(total=len(symbols), desc="Processing", unit="sym", ncols=80)
+            print(f"  {len(futures)} futures submitted, waiting...", flush=True)
+            for future in as_completed(futures):
+                sym = futures[future]
+                try:
+                    trade_dicts = future.result()
+                    for td in trade_dicts:
+                        test_trades.append(BenchmarkTrade(**td))
+                except Exception as e:
+                    print(f"  ERROR {sym}: {e}")
+                pbar.update(1)
+            pbar.close()
 
         elapsed = time.time() - t0
-        stats = compute_stats(test_trades)
+        print(f"  Computing stats for {len(test_trades)} trades...", flush=True)
+        stats = compute_stats(test_trades, starting_balance=args.starting_balance)
         all_results[test_type] = {
             "stats": stats,
             "trades": test_trades,
             "elapsed": elapsed,
         }
+
+        completed = [t for t in test_trades if t.result != "OPEN"]
+        open_n = len(test_trades) - len(completed)
+        equity_trade_n = len([t for t in completed if t.exit_timestamp])
+
         print(
-            f"  [{test_type}] {stats['trades']}T | {stats['wins']}W/{stats['losses']}L | {stats['win_rate']:.1f}% WR | {stats['total_pnl']:+.2f}R | PF {stats['profit_factor']:.2f} | DD {stats['max_dd']:.2f}R | {stats['trailing_trades']} trailed ({stats['total_hops']} hops) | {elapsed:.1f}s"
+            f"  [{test_type}] {stats['trades']}T | {stats['wins']}W/{stats['losses']}L | "
+            f"{stats['win_rate']:.1f}% WR | {stats['total_pnl']:+.2f}R | PF {stats['profit_factor']:.2f} | "
+            f"DD {stats['max_dd']:.2f}R ({stats['max_dd_pct']:.2f}%) | "
+            f"OPEN {open_n} | equity_curve {equity_trade_n} | completed==equity {len(completed) == equity_trade_n} | "
+            f"{elapsed:.1f}s"
         )
         print()
+
+    # Per-symbol breakdown
+    print("\n=== PER-SYMBOL ===")
+    syms = {}
+    for t in test_trades:
+        syms.setdefault(t.symbol, []).append(t)
+    print(f"{'Symbol':<12} {'N':>5} {'WR%':>6} {'PnL':>10} {'AvgR':>8} {'PF':>6}")
+    print("-" * 50)
+    for sym in sorted(syms):
+        s = compute_stats(syms[sym], starting_balance=args.starting_balance)
+        print(
+            f"{sym:<12} {s['trades']:>5d} {s['win_rate']:>5.1f}% "
+            f"{s['total_pnl']:>+9.2f}R {s['avg_r']:>+7.4f} {s['profit_factor']:>5.2f}"
+        )
+    print()
 
     # Comparison
     print("=== COMPARISON ===")
     print(
-        f"{'Test':<22} {'Trades':>7} {'WR%':>6} {'PnL':>10} {'AvgR':>8} {'PF':>6} {'MaxDD':>8} {'MFE':>8} {'MAE':>8} {'Trail':>6}"
+        f"{'Test':<22} {'Trades':>7} {'WR%':>6} {'PnL':>10} {'AvgR':>8} {'PF':>6} "
+        f"{'MaxDD':>8} {'MaxDD%':>8} {'Trail':>6}"
     )
-    print("-" * 100)
+    print("-" * 105)
     for tt in test_types:
         s = all_results[tt]["stats"]
         print(
-            f"{tt:<22} {s['trades']:>7d} {s['win_rate']:>5.1f}% {s['total_pnl']:>+9.2f}R {s['avg_r']:>+7.4f} {s['profit_factor']:>5.2f} {s['max_dd']:>7.2f}R {s['avg_mfe']:>+7.4f} {s['avg_mae']:>+7.4f} {s['trailing_trades']:>6d}"
+            f"{tt:<22} {s['trades']:>7d} {s['win_rate']:>5.1f}% "
+            f"{s['total_pnl']:>+9.2f}R {s['avg_r']:>+7.4f} {s['profit_factor']:>5.2f} "
+            f"{s['max_dd']:>7.2f}R {s['max_dd_pct']:>7.2f}% {s['trailing_trades']:>6d}"
         )
 
     # Save
