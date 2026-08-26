@@ -1,424 +1,183 @@
-# Active Context
+# Active Context — Research Control Panel
 
-## CHECKPOINT: DOCUMENTATION / NAMING — EQ C vs EQ D (2026-08-26)
-
-### Status
-Renamed research engines for clarity. Created `docs/EQ_C_vs_EQ_D.md` comparison doc.
-
-### Renames
-- `experiment/gemini_benchmark_eq.py` → `experiment/main_research_c.py` (C = C2 EQ)
-- `experiment/research_variant_D_fvg_origin_eq_pure.py` → `experiment/main_research_d.py` (D = PURE D EQ)
-
-### Documentation Created
-- `docs/EQ_C_vs_EQ_D.md` — Formulas, results, comparison table, research status
-
-### Memory-Bank Updated
-- `memory-bank/activeContext.md` — This file
-- `memory-bank/progress.md` — Latest results recorded
-
-### Import/Reference Fixes
-- All docstring/comment references updated to new filenames
-- No logic changes — documentation/naming only
-
-### Verification
-- Zero strategy changes confirmed via `git diff`
+> Single source of truth for the MaxDD research line.
+> Last updated: 2026-08-27.
+> Canonical engines (`main_research_c_v1_0.py`, `main_research_d_v1_0.py`) are NEVER
+> edited for experiments. New behaviour lives in `experiment/exp_maxdd_*.py`
+> overlays until it is promoted to a new engine version.
 
 ---
 
-## CHECKPOINT: KNOWN-GOOD FROZEN BENCHMARK — PURE D (2026-08-26)
+## CURRENT STATE
 
-### Status
-PURE D — FVG-Origin EQ has been promoted to **KNOWN-GOOD FROZEN BENCHMARK**.
+### Main Research Engines (frozen baselines)
 
-- **Benchmark ID:** `PURE_D_FVG_ORIGIN_EQ`
-- **Artifact:** `results/benchmark/PURE_D_FVG_ORIGIN_EQ_benchmark.json`
-- **Canonical Engine:** `experiment/main_research_c.py` (UNCHANGED)
+| Engine | File | Version | Status |
+|---|---|---|---|
+| C | `experiment/main_research_c_v1_0.py` | **v1.0** — C2 EQ | FROZEN baseline |
+| D | `experiment/main_research_d_v1_0.py` | **v1.0** — PURE D EQ | FROZEN baseline |
 
-### Overall Results (2.7Y, 6-major, correct-chronology)
-| Metric | Value |
-|---|---|
-| Trades | 2847 |
-| WR | 66.1% |
-| TotalR | +2949.05R |
-| AvgR | +1.0358 |
-| PF | 4.05 |
-| MaxDD | 7.36R |
-| MaxDD% | 2.76% |
+> Old versions are never deleted. A new version (v1.x) is only created
+> when a verified change is promoted from an experiment overlay to the
+> research engine.
 
-### EQ Definition
-```
-d_eq = (leg_low + leg_high) / 2
-```
-Leg anchored at latest confirmed 1H structural swing at FVG formation.
-Position filter: bullish `fvg_top > d_eq` → REJECT; bearish `fvg_bottom < d_eq` → REJECT.
+### Confirmed C (C2) Results — 6 majors, 2.7Y, 15m
 
-### Promotion Rule
-A new variant must beat this benchmark in a head-to-head comparison via a separate process. This benchmark is not deleted if superseded; it is archived.
+| Variant | Trades | WR% | TotalR | AvgR | PF | MaxDD(R) | MaxDD(%) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| C1 Displacement (tested) | — | — | weaker than C2 | — | — | — | — |
+| **C2 baseline (C v1.0)** | 2302 | 69.37 | +2875.00 | +1.2489 | 5.08 | 8.00 | 2.73 |
+| C2 + DD Risk Scaling (overlay) | 2302 | 69.37 | +2827.55 | +1.2283 | 5.13 | 8.00 | **1.85** |
 
-### Immutability
-- Do not modify this benchmark artifact.
-- Do not add strategy rules, filters, or execution changes.
-- Future experiments MUST compare against this frozen benchmark.
+- DD Risk Scaling is a **post-hoc overlay** (`experiment/exp_maxdd_C_dd_risk_scaling.py`).
+  It has NOT been promoted to **C v1.1** — promotion requires a separate
+  decision after standalone validation.
+- C2 baseline numbers are the authoritative reference for every C-family
+  comparison. `main_research_c_v1_0.py` git diff is empty across all experiments.
 
----
+### Confirmed D (PURE D) Results — 6 majors, 2.7Y, 15m
 
-## PRIOR CHECKPOINT: MaxDD CHRONOLOGY FIX — COMPLETE (2026-08-25)
+| Variant | Trades | WR% | TotalR | AvgR | PF | MaxDD(R) | MaxDD(%) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **D v1.0 baseline** | 2847 | 66.1 | +2949.05 | +1.0358 | 4.05 | 7.36 | 2.76 |
 
-### Problem Identified
-Old `compute_stats()` sorted completed trades by `exit_bar_index` for portfolio equity curve construction. This was INCORRECT because `exit_bar_index` is a symbol-local index, not a global chronological position.
+- Artifact: `results/benchmark/PURE_D_FVG_ORIGIN_EQ_benchmark.json`
+- KNOWN-GOOD FROZEN BENCHMARK. Promotion rule: a new variant must beat
+  this in a head-to-head comparison to supersede it.
 
-### Correct Methodology
-```
-1. completed/realized trades only (OPEN trades excluded from equity curve)
-2. sort by actual exit_timestamp (from bars_15m data)
-3. build single portfolio equity curve chronologically
-4. running peak tracking
-5. peak-to-trough MaxDD calculation
-```
+### Rejected Experiments (C v1.0 line)
 
-### MaxDD_R Formula
-```
-equity_t = equity_(t-1) + pnl_r_t
-peak_t = max(peak_(t-1), equity_t)
-DD_t = peak_t - equity_t
-MaxDD_R = max(DD_t)  [across all t]
-```
+| ID | Experiment | Decision | Reason |
+|---|---|---|---|
+| A | Concurrent Exposure Cap = 3 | **REJECT** | non-binding (cap never reached); 0 blocked; no PnL/MaxDD change |
+| B | 3-Loss / 12-bar Circuit Breaker | **REJECT** | non-binding (mechanism verified; 105 triggers but 0 blocked — pause window never overlaps a real entry); 0 PnL/MaxDD change |
 
-### MaxDD% Formula
-```
-DD%_t = DD_t / peak_t * 100
-MaxDD% = max(DD%_t)  [across all t where peak_t > 0]
-```
-
-### Changes Made (experiment/main_research_c.py)
-1. `BenchmarkTrade` dataclass: added `exit_timestamp: float = 0.0`
-2. Four trade closing points now populate `exit_timestamp`:
-   - `run_test_a` normal exit: `bar.timestamp`
-   - `run_test_a` OPEN trade: `last_bar.timestamp`
-   - `run_test_b` normal exit: `bar.timestamp`
-   - `run_test_b` OPEN trade: `last_bar.timestamp`
-3. `compute_stats()` now sorts by `exit_timestamp` instead of `exit_bar_index`
-4. MaxDD% field added to return dict
-
-### What Was NOT Changed
-- Strategy/trade generation logic unchanged
-- `apply_trailing()`, `check_exit()`, PnL calculation all unchanged
-- Old benchmark result files not modified
-- Compare new MaxDD_R and MaxDD% against old values
-- Validate that the fix produces correct chronological ordering
+Both: mechanically verified, file = `experiment/exp_maxdd_*.py`. See
+`memory-bank/progress.md` for full per-experiment log.
 
 ---
 
-## CHECKPOINT: MaxDD STARTING_BALANCE FIX — COMPLETE (2026-08-26)
+## ROADMAP / TODO
 
-### Problem
-MaxDD% was showing 100% for all runs because `equity = 0.0; peak = 0.0`.
-First losing trade created `dd = peak - equity = 0 - (-R) = R/R = 100%`.
+### Phase 1 — C v1.0 MaxDD Research (single-variable overlays)
 
-### Root Cause
-`compute_stats()` initialized equity at 0 instead of `STARTING_BALANCE_R`.
+- [x] **A** — Concurrent Exposure Cap (REJECT / non-binding)
+- [x] **B** — 3-Loss / 12-bar Circuit Breaker (REJECT / non-binding)
+- [x] **C** — DD-Based Risk Scaling (MaxDD% 2.73 → 1.85; awaiting promotion decision)
+- [ ] **D** — Open Exposure / Total-Risk Cap ← **NEXT**
+- [ ] **E** — Time-of-Day Quality Filter
+- [ ] **Combination tests** — only after all single-variable experiments resolve
 
-### Fix Applied
-- `main_research_c.py`: `equity = peak = starting_balance = 100.0`, `compute_stats(trades, starting_balance=100.0)`
-- `exp5f_frozen_vs_dynamic_eq.py`: `cum = peak = STARTING_BALANCE_R = 100.0`, `dd_pct / peak_pct * 100`
-- `gemini_benchmark.py`: `_is_fresh_fvg` O(n) slice `bars_15m[scan_from:current_index]`
+### Phase 2 — D v1.0 MaxDD Research (mirror of Phase 1)
 
-### Verified Results
-| Script | Trades | MaxDD% |
-|--------|--------|--------|
-| main_research_c.py (full 2.7yr) | 2904 | 2.90% |
-| exp5f_frozen_vs_dynamic_eq.py (180d) | 529/469 | 1.8–5.1% |
+- [ ] A — Concurrent Exposure Cap
+- [ ] B — 3-Loss / 12-bar Circuit Breaker
+- [ ] C — DD-Based Risk Scaling
+- [ ] D — Open Exposure / Total-Risk Cap
+- [ ] E — Time-of-Day Quality Filter
 
-### Dual Benchmark Architecture (2026-08-26)
-| Script | Purpose | Data Window |
-|--------|---------|-------------|
-| main_research_c.py | Full-data research motoru | Full (2.7yr) |
-| exp5f_frozen_vs_dynamic_eq.py | 180-day kontrollü karşılaştırma | 180-day sliding |
+### Phase 3 — Champion Selection
 
-### Commit
-- `0561b22` — fix: MaxDD%=100% bug — equity starts at 100R not 0
-- 3 files: main_research_c.py + exp5f_frozen_vs_dynamic_eq.py + gemini_benchmark.py
-- Pushed to origin/main
+- [ ] Score C and D variants on a single objective score (MaxDD-first, then
+      PF / AvgR / WR / TotalR preservation)
+- [ ] Decide champion
+- [ ] OOS validation if needed
+- [ ] Promote winning engine to new version (C v1.x or D v1.x) — old
+      version preserved, new version created
 
 ---
 
-## LIVE ↔ BACKTEST PARITY AUDIT — PASS (2026-08-22, read-only)
+## NEXT ACTION
 
-### 1. TIME SOURCE
-- Dataset timestamps are naive MT5 server time.
-- ICMarketsSC-Demo live server verified against the dataset (same terminal,
-  same account 53012914 as manifest).
-- Current dataset period maps to UTC+3.
-- Active strategy uses server-time directly; NO timezone conversion anywhere
-  in the active pipeline (DataLoader / SessionManager / resample_15m).
+**NEXT = Phase 1 / D — C v1.0 üzerinde Open Exposure / Total-Risk Cap deneyi.**
 
-### 2. DATA PARITY — PASS
-- EURUSD: 4479/4479 overlapping bars vs live MT5, exact OHLC within float epsilon.
-- BTCUSD: 4479/4479 exact OHLC; tick_volume exact on both symbols.
-- Weekend/session structure matches (0 Sat/Sun FX bars on both axes).
+- Engine: C v1.0 (`experiment/main_research_c_v1_0.py`, UNTOUCHED).
+- Isolated variable: cap on total open R exposure across the portfolio
+  (or per-symbol). TBD in experiment design.
+- Method: post-hoc overlay on the C2 baseline trade stream, per-symbol or
+  portfolio, NO lookahead. Accept/reject entries based on current open
+  exposure.
+- Output: `results/research/expD_*_summary.json`, `expD_*_trades.json`.
+- File: `experiment/exp_maxdd_D_open_exposure.py` (new).
+- Compare: C2 baseline vs C2 + cap. Report trades, WR, TotalR, PF, MaxDD(R),
+  MaxDD(%), blocked count, per-symbol breakdown.
+- Decision criteria: REJECT if non-binding (cap never reached);
+  KEEP/PROMOTE if it reduces MaxDD(R) or MaxDD(%) without unacceptable PnL cost.
 
-### 3. EVENT PARITY — PASS
-- 24 representative events reconstructed successfully (multi-symbol,
-  both directions, CBDR + day sessions, winners + losers).
-- BASE∩EQ shared 987 events: direction / zone / entry / risk = 100% agreement.
-- The 4/150 CBDR-window anomaly and 2/987 sweep_bar_index anomaly were traced
-  to the comparison mapping/resampling method (resample_15m drops <3-bar
-  buckets), NOT to strategy behavior. Re-check with faithful mapping: 0 anomalies.
+When the experiment is done, in THIS file:
+- mark `[ ] D` → `[x] D` and add the result row to the experiment log
+  below;
+- update NEXT ACTION to the next pending item;
+- update FILE MAP if a new file was created.
 
-### 4. TRADE PARITY — PASS
-- Frozen direction-fix benchmark verified (results/benchmark/abfix_*).
-- PROFIT_TRAIL direction: 812/812 correct (long exits above, short below entry).
-- SL/TP geometry and expected R behavior verified (LOSS = -1.000R exact,
-  TP median = 1.800R exact); trailing lock-in beyond entry confirmed legitimate.
-- hold_bars parity confirmed within expected OPEN-trade exceptions.
+---
 
-### 5. PERMANENT ARCHITECTURAL RULE
-LIVE MT5 behavior is now the ground truth. The backtest/execution system must
-deterministically reproduce live MT5 behavior rather than merely approximate it.
+## EXPERIMENT LOG (this research line)
 
-### 6. FUTURE WORK RULE
-Any future strategy/backtest/execution change must preserve LIVE ↔ BACKTEST
-parity unless the deviation is explicitly intended, isolated, measured,
-and documented.
+| ID | Status | Decision | Key result | File |
+|---|---|---|---|---|
+| A | done | REJECT (non-binding) | 0 blocked; baseline unchanged | `experiment/exp_maxdd_A_concurrent_cap.py` |
+| B | done | REJECT (non-binding) | 105 triggers, 0 blocked; mechanically verified | `experiment/exp_maxdd_B_streak_breaker.py` |
+| C | done | MaxDD% 1.85 (pending promotion) | MaxDD% 2.73→1.85, TotalR −1.65% | `experiment/exp_maxdd_C_dd_risk_scaling.py` |
+| D | pending | — | — | (new file) |
 
-## INTERNAL SWEEP RESEARCH — CLOSED, BOTH VARIANTS REJECTED (2026-08-22)
+Full per-experiment detail (what tested, engine, dataset, isolated
+variable, result, decision, next test) lives in `memory-bank/progress.md`.
 
-Detection-only counterfactual on frozen EQ benchmark (read-only; no code,
-benchmark or execution changes; single disposable script, deleted after run).
+---
 
-### v1 — Loose internal sweep (20-bar lookback, pivot 1/1)
-- 1262/1262 trades replayed via `detect_internal_sweep` at recorded zone_index.
-- Pass rate 97.62% (1232/1262) → nearly non-binding filter.
-- Filtering the FALSE group (n=30, +36.9R) would WORSEN total performance.
-- Permutation p=0.075 (not significant); advantage flips sign H1 vs H2
-  (chronologically unstable).
-- **DECISION: REJECT.**
+## FILE MAP (active research files)
 
-### v2 — MSS-anchored internal sweep (sweep → MSS(body-close) → minor HH/LL → ISW → FVG)
-- Exact anchor reconstruction: 1262/1262 sweep anchors reproduced (replay rules:
-  session.update() from warmup+1 only; skipped during open trades [entry..exit];
-  session ATR frozen at warmup value). MSS = system's own body-close proxy.
-- All chain events bounded ≤ zone_index−1 (no post-FVG data used).
-- Coverage: MSS found 90.1%; FULL_CHAIN 63.8%.
-- avg R: FULL_CHAIN 0.559 < MSS_ONLY 0.610; NO_MSS best WR (64.8%) — chain
-  ordering INVERTED vs hypothesis. Permutation p=0.75 (no signal).
-- Applying the filter would remove ~38% of total R (~722R → ~449R).
-- Chronologically unstable (H1/H2 sign flip; F3 anomaly).
-- **DECISION: REJECT.**
+```text
+# Frozen baselines (NEVER edited for experiments)
+experiment/main_research_c_v1_0.py        = C v1.0  / C2 EQ baseline
+experiment/main_research_d_v1_0.py        = D v1.0  / PURE D EQ baseline
 
-### Permanent research conclusion
-- In the current NEXUS 15m entry structure, the minor HH/LL internal-sweep +
-  MSS chain carries NO incremental information for EQ-selected entries.
-- This research line is CLOSED. No parameter sweeps will be run on it.
+# C v1.0 MaxDD experiment overlays (Phase 1)
+experiment/exp_maxdd_A_concurrent_cap.py
+experiment/exp_maxdd_B_streak_breaker.py
+experiment/exp_maxdd_C_dd_risk_scaling.py
+# experiment/exp_maxdd_D_open_exposure.py        (NEXT — to be created)
 
-### Preserved state
-- Parity checkpoint above remains valid: DATA / EVENT / TRADE PARITY = PASS.
-- Frozen benchmark (results/benchmark/abfix_*) remains KNOWN-GOOD reference.
+# B replay audit
+experiment/audit_expB_replay.py      = Experiment B mechanism audit
+```
 
-## Current Phase: KNOWN-GOOD BENCHMARK FREEZE (2026-08-22)
+New experiment files are appended to the overlay list as they are created.
+Baseline files are never modified by experiments.
 
-### Direction-Dispatch Bug — FIXED (current reference)
-- Trade direction values reached execution as "bullish"/"bearish" while
-  execution/trailing branching expected "long"/"short" → LONG trades were
-  managed as SHORT (instant bar.high>=sl kill, TP unreachable, fake wins).
-- Normalization at execution boundary in experiment/ adapter layer:
-  `bullish → long`, `bearish → short` (`_norm_side()` in trailing_adapter.py).
-  Trade records keep direction labels; `src/` was NOT modified by this fix.
-- Validation: validate_direction_fix.py = **17/17 PASS**
-- Reference ADAUSD trade: entry=0.16620 SL=0.16537 TP=0.16768
-  → PROFIT_TRAIL @ 0.16813, +2.344R.
+---
 
-### Frozen benchmark (98 symbols, full data, 15m) — CURRENT REFERENCE
-EQ vs BASELINE:
-- 1471 → 1262 trades
-- WR 51.1% → 58.2%
-- +577.02R → +722.72R (+145.70R delta)
-- PF 1.80 → 2.37
-- DD 27.17R → 12.73R (~53% reduction)
-- EQ rejected candidates: 29,925
-Directional:
-- BASELINE bull 628T/305W/321L WR48.7% +316.67R PF1.99 | bear 843T/445W/398L WR52.8% +260.36R PF1.65
-- EQ bull 528T/290W/236L WR55.1% +414.44R PF2.76 | bear 734T/443W/290L WR60.4% +308.27R PF2.06
+## WORKING RULE (enforced every turn)
 
-### CRITICAL HISTORICAL WARNING
-Pre-fix execution results are INVALID as execution-behavior benchmarks because
-the direction-dispatch bug corrupted trailing behavior.
-Do NOT use old pre-fix benchmark numbers for future comparisons.
-Reference doc: docs/KNOWN_GOOD_BENCHMARK.md
+When an experiment is finished, in the SAME turn, update memory-bank:
 
-### Repository state (sterilization inventory completed)
-- No files deleted, no files moved, no code cleanup performed yet.
-- `src/` diff remains empty.
-- `index.json` is modified by an external indexing operation and remains
-  pending user decision.
-- No commit. No push.
+1. `memory-bank/activeContext.md` — mark todo `[ ]` → `[x]`, append result
+   row to the experiment log table, set NEXT ACTION to the next pending
+   item, update FILE MAP if a new file was created.
+2. `memory-bank/progress.md` — append a per-experiment entry with the
+   required fields:
+   - what was tested
+   - which engine (C v1.0 / D v1.0)
+   - which dataset (6 majors, 2.7Y, 15m, full)
+   - isolated variable (one)
+   - result (numbers)
+   - decision (KEEP / REJECT / INCONCLUSIVE / pending)
+   - next test
 
-## DD UNIVERSE AUDIT — COMPLETE (2026-08-22, read-only)
+Canonical engines are NEVER edited for experiments. Verified promotions
+create a new version (C v1.x, D v1.x); the old version is preserved.
 
-Analyzed frozen EQ benchmark (abfix_eq_trades.json, 1262 trades, 97/98 symbols).
+---
 
-### Key finding: No symbol meets the >=500-trade threshold
-- Max trades per symbol in current benchmark: 25 (variant_B, ACAD.NAS-24 / similar)
-- Median trades per symbol: ~16
-- The >=500-trade research universe requires longer data period or expanded symbol set
+## Replay causality note (carry-over)
 
-### Primary universe (MaxDD >= 1.0% AND >=500 trades): 0 symbols
-### Near-target (0.75% <= MaxDD < 1.0% AND >=500 trades): 0 symbols
-
-### DD distribution (all symbols with trades):
-- Min MaxDD%: 0.30%
-- Median MaxDD%: 0.66%
-- Max MaxDD%: 2.08%
-
-### Top 5 by MaxDD% (any trade count):
-- EURHKD: 2.08%, 17 trades
-- USDHKD: 2.01%, 10 trades
-- SGDJPY: 1.73%, 15 trades
-- ADAUSD: 1.52%, 20 trades
-- USDSGD: 1.49%, 16 trades
-
-### Symbols with MaxDD >= 1.0%: 26 / 97
-### Symbols with MaxDD >= 2.0%: 2 / 97
-
-Audit script: scripts/audit_dd_universe.py (read-only, does not modify benchmark)
-
-## Previous Phase: POST-PHASE 4 -- OPEN INVESTIGATION
-
-## Completed Phases
-
-### Phase 0: Bootstrap - COMPLETE
-- 7/7 architecture validation passed
-- Project structure verified
-- Minimal dependencies (MetaTrader5, python-dotenv)
-- Architecture: config -> data/trading -> strategy -> main
-- .env loading fixed from project root
-- No credentials hardcoded or committed
-
-### Phase 1: MT5 Real Data Probe - COMPLETE
-- Created src/test_mt5_data.py probe module
-- Probes real market data from IC Markets MT5 terminal
-- Symbol information, live tick data, OHLC bars (M1/M5/M15/H1)
-- Data quality validation (chronological, OHLC validity, bid/ask)
-- Clean shutdown lifecycle
-
-### Phase 2A: Strategy Specification - COMPLETE
-- Created docs/SNIPER_FOREX_STRATEGY_SPEC.md (377 lines)
-- 17-section comprehensive strategy specification
-- All SNIPER strategy concepts documented
-- No strategy code implemented (preserved conceptually)
-- All unresolved decisions explicitly marked as UNRESOLVED
-
-### Phase 2A.1: Spec Hardening - COMPLETE
-- Added clarification to Section 4 (Bias Rejection)
-- CBDR time window explicitly unresolved
-- Retrace terminology resolved (NO-FVG HOLD vs ATR FALLBACK)
-- Rejection paths documented
-- Per-symbol state isolation explicit
-- Daily reset/open-position interaction explicit
-- Timestamp timezone policy explicit
-
-### Phase 2B.2: Forex Backtest Infrastructure - COMPLETE
-- Created src/backtest/ module with 9 components
-- 22 comprehensive tests all passing
-
-### Data Acquisition - COMPLETE
-- 98 symbols from MT5, 3,085,613 M1 bars
-- Date range: 2026-07-21 to 2026-08-20
-- Raw: 165 MB CSV, Feather: 73.5 MB
-- Duplicates: 0, Invalid OHLC: 0
-- MT5 fix: initialize() requires explicit login/password/server
-
-### Phase 3: Real Data Strategy Baseline - COMPLETE
-- Baseline: CBDR sweep + FVG + first-touch + 1.8R TP
-- Full 98-symbol backtest: 1,845 trades, 59.3% WR, +1,221R
-- DataLoader optimized 15x
-- No-lookahead invariant enforced
-- Key: bias_locked mechanism = 1 sweep -> 1 trade per CBDR cycle
-
-### Phase 3.2: Liquidity Source Forensics - COMPLETE
-- Compared CBDR vs SESSION_HL vs SWING_HL (same dataset)
-- SESSION_HL and SWING_HL NEWLY DEFINED for this analysis
-
-| Source | Events | Trades | WR | PF | Avg R | Max DD |
-|--------|--------|--------|-----|-----|-------|--------|
-| CBDR | 1,826 | 1,826 | 76.2% | 5.77 | +1.13R | 4.0R |
-| SESSION_HL | 7,558 | 7,558 | 75.4% | 5.52 | +1.11R | 25.8R |
-| SWING_HL | 6,932 | 6,873 | 83.6% | 9.15 | +1.34R | 34.2R |
-
-Key finding: SWING_HL highest WR/PF. CBDR NOT proven uniquely superior.
-1-month data insufficient for statistical significance.
-
-### Phase 4: Sweep Lifecycle Forensics - COMPLETE
-
-Core Finding: 1 sweep = 1 trade (100%). CURRENT = ONE-SHOT = FRESH-SWEEP (all identical).
-Results: 1,845T, 59.35% WR, PF 2.628, +1,221R.
-All FVGs after sweep (100%), no sweep produces 2+ trades.
-Median ~20 bars sweep-to-FVG, entry 1 bar after FVG.
-bias_locked prevents multiple sweeps per CBDR cycle.
-
-## OPEN INVESTIGATION: CBDR Sweep vs FVG Origin
-
-Status: **HYPOTHESIS -- NOT VALIDATED**
-
-Question: Is CBDR sweep the CAUSE of subsequent FVG,
-or does FVG form independently after sweeps?
-
-What We Know:
-- 100% FVGs appear AFTER sweep bars
-- Median ~20 bars between sweep and FVG
-- Edge (59.35% WR) exists
-- CBDR sweep is current mandatory gate
-
-What We Do NOT Know:
-- Whether FVGs form at same rate WITHOUT preceding sweep
-- Whether FVG is caused by sweep displacement or independent continuation
-- Whether FVG is reversal or continuation pattern
-- Whether sweep-to-FVG distance correlates with edge
-- Whether CBDR is necessary or any sweep suffices
-
-Hypothesis (UNVALIDATED):
-Real edge may not be "sweep triggers FVG" but rather:
-- Bias + FVG continuation pattern
-- Sweep just confirms bias direction
-- FVG forms from independent price displacement
-- CBDR is useful bias filter, not cause of setup
-
-What Would Validate/Refute:
-- Test FVGs WITHOUT preceding sweep -> similar WR?
-- Measure FVG quality by sweep-to-FVG distance
-- Compare CBDR-gated vs unfiltered FVGs
-- Measure FVG size/distance vs PnL correlation
-
-Decision Status:
-- NOT DECIDED: remove CBDR as mandatory gate
-- NOT DECIDED: FVG reversal vs continuation
-- NOT DECIDED: sweep-to-FVG distance as quality signal
-- NOT DECIDED: CBDR necessary vs just convenient
-
-## NEXT STEPS
-1. Test FVG quality without CBDR gate (open investigation)
-2. Multi-source sweep integration
-3. Remove bias_locking constraint
-4. Download 3-6 month data for majors
-5. Validate 59.35% WR over longer period
-
-## Current Git Baseline
-- Repository: ahmetonurof-lab/sniper_forex
-- Branch: main
-
-## Strategy Layer Rules
-- Strategy must not directly import/call MT5
-- .env credentials are never committed
-- Strategy must be independently testable without MT5
-- Per-symbol strategy state isolation required
-- Do not invent unresolved strategy rules
-- Tests are behavioral contracts
-- No-lookahead invariant: decision at time T uses only data <= T
-
-## Tech Stack
-- Python 3.12.2
-- MetaTrader5 5.0.6090
-- python-dotenv
-- pandas, numpy
-- MT5 IC Markets demo environment
-- MT5 Server Time (timezone unverified)
+The Exp B replay sorts EXIT-before-ENTRY at the same bar. For trades with
+`entry_bar == exit_bar` (hold_bars=0, same-bar fill+exit), the EXIT is
+processed before that trade's ENTRY, so `if t.trade_id in accepted` is
+False and the EXIT is excluded from the loss streak. This is a **conscious
+causality rule** (a trade's result cannot be used to make decisions on the
+same bar it opened), not a bug. A pure-EXIT walk on the same data gives
+42 triggers; the function's accepted-aware walk gives 105 (authoritative).
+This note applies to any future replay that reuses the same event-stream
+pattern.

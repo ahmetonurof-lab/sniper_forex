@@ -25,7 +25,7 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 REPO = Path(r"C:\Users\Administrator\Desktop\sniper_forex")
-CANON = REPO / "experiment" / "main_research_c.py"
+CANON = REPO / "experiment" / "main_research_c_v1_0.py"
 VARIANT = REPO / "experiment" / "research_variant_D_fvg_origin_eq.py"
 SUMMARY_MD = REPO / "results" / "research" / "variant_D_fvg_origin_eq_summary.md"
 
@@ -44,13 +44,13 @@ def main():
     # 1. Canonical engine unchanged
     print("[1] Canonical engine unchanged")
     diff = subprocess.run(
-        ["git", "diff", "--no-color", "--", "experiment/main_research_c.py"],
+        ["git", "diff", "--no-color", "--", "experiment/main_research_c_v1_0.py"],
         cwd=str(REPO),
         capture_output=True,
         text=True,
     )
     status_out = subprocess.run(
-        ["git", "status", "--short", "--", "experiment/main_research_c.py"],
+        ["git", "status", "--short", "--", "experiment/main_research_c_v1_0.py"],
         cwd=str(REPO),
         capture_output=True,
         text=True,

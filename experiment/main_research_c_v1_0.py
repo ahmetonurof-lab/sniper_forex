@@ -1,5 +1,5 @@
 """
-main_research_c.py — Research C Engine: C2 EQ (Post-Sweep Displacement EQ)
+main_research_c_v1_0.py — Research C Engine: C2 EQ (Post-Sweep Displacement EQ)
 
 C2 EQ Formula: eq = (sweep_price + leg_mid) / 2.0
   where leg_mid = (max_high + min_low) / 2.0 across sweep→current window.
@@ -759,7 +759,9 @@ def run_test_b(
 
 
 # ── Stats ──
-def compute_stats(trades: List[BenchmarkTrade], starting_balance: float = STARTING_BALANCE_R) -> Dict[str, Any]:
+def compute_stats(
+    trades: List[BenchmarkTrade], starting_balance: float = STARTING_BALANCE_R
+) -> Dict[str, Any]:
     if not trades:
         return {
             "trades": 0,
@@ -846,6 +848,7 @@ def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:
     # Load 15m directly — no resampling needed
     import pandas as pd
     from src.strategy.models import Bar
+
     feather_path = feather_dir / f"{sym}_15m.feather"
     print(f"  [WORKER] {sym}: loading {feather_path}...", flush=True)
     df = pd.read_feather(feather_path)
@@ -857,16 +860,30 @@ def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:
     closes = df["close"].values.astype(float)
     volumes = df["volume"].values.astype(float)
     bars_15m = [
-        Bar(index=i, timestamp=pd.Timestamp(ts),
-            open=o, high=h, low=l, close=c, volume=v)
-        for i, ts, o, h, l, c, v in
-        zip(range(len(timestamps)), timestamps, opens, highs, lows, closes, volumes)
+        Bar(
+            index=i,
+            timestamp=pd.Timestamp(ts),
+            open=o,
+            high=h,
+            low=l,
+            close=c,
+            volume=v,
+        )
+        for i, ts, o, h, l, c, v in zip(  # noqa: E741
+            range(len(timestamps)), timestamps, opens, highs, lows, closes, volumes
+        )
     ]
-    print(f"  [WORKER] {sym}: loaded {len(bars_15m)} 15m bars, backtesting...", flush=True)
+    print(
+        f"  [WORKER] {sym}: loaded {len(bars_15m)} 15m bars, backtesting...", flush=True
+    )
     if dry_run:
         bars_15m = bars_15m[:2000]
-    print(f"  [WORKER] {sym}: backtesting run_test_a({sym}, {len(bars_15m)} bars)...", flush=True)
+    print(
+        f"  [WORKER] {sym}: backtesting run_test_a({sym}, {len(bars_15m)} bars)...",
+        flush=True,
+    )
     import time
+
     t0 = time.time()
     if test_type == "POST_SWEEP_FVG":
         trades = run_test_a(sym, bars_15m)
@@ -905,7 +922,9 @@ def main():
     test_types = [args.test]
 
     print("=== RESEARCH C — C2 EQ BENCHMARK ===")
-    print(f"Symbols: {len(symbols)} | Test: {test_types} | Workers: {args.workers} | Starting: {args.starting_balance}R")
+    print(
+        f"Symbols: {len(symbols)} | Test: {test_types} | Workers: {args.workers} | Starting: {args.starting_balance}R"
+    )
     print(f"{'DRY RUN' if args.dry_run else 'FULL RUN'}")
     print()
 
@@ -916,7 +935,10 @@ def main():
         t0 = time.time()
         test_trades = []
 
-        print(f"  Submitting {len(symbols)} symbols to thread pool ({args.workers} workers)...", flush=True)
+        print(
+            f"  Submitting {len(symbols)} symbols to thread pool ({args.workers} workers)...",
+            flush=True,
+        )
         with ThreadPoolExecutor(max_workers=args.workers) as executor:
             futures = {
                 executor.submit(_run_symbol, sym, test_type, args.dry_run): sym

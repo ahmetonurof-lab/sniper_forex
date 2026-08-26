@@ -1,38 +1,64 @@
 """
-Variant D — FVG-Origin EQ (CLEAN IMPLEMENTATION)
+Variant D — PURE FVG-Origin EQ (NO Frozen pre-filter, NO post-filter).
+
+This is a PURE EQ comparison runner.
 
 Architecture
 ============
 
-Canonical engine: experiment/main_research_c.py  ← UNCHANGED (byte/semantic)
-Variant file:     experiment/research_variant_D_fvg_origin_eq.py
+Canonical engine: experiment/main_research_c_v1_0.py  ← UNCHANGED (byte/semantic)
+Variant file:     experiment/main_research_d_v1_0.py
 
-Three-phase research runner:
+What this does
+==============
 
-  Phase 1 — EVALUATION (uses ONLY canonical helpers)
-    * build 1H swing timeline (pivots with left/right=3, BARS_PER_HOUR=4)
-    * mirror canonical's FVG candidate filter chain, but stop BEFORE entry:
-        - sweep_index check         (canonical)
-        - direction match           (canonical)
-        - invalidated check         (canonical)
-        - freshness check           (canonical _is_fresh_fvg)
-        - D EQ no-lookahead gate    (NEW: 4·(h+3) ≤ f)
-        - D EQ position filter      (NEW: fvg entirely below/above d_eq)
-    * record (symbol, zone_index) of every D-accepted candidate
-    * count D-rejected candidates with audit fields
+Walks the canonical FVG evaluation/execution loop with ONLY one change:
 
-  Phase 2 — EXECUTION (canonical, no override)
-    * call canon.run_test_a(symbol, bars_15m)  — totally unchanged
-    * canonical decides what to trade, when, with full SL/TP/trailing/exit
+  Frozen EQ source  →  D FVG-Origin EQ
 
-  Phase 3 — FILTER + ATTRIBUTION
-    * keep canonical trades where (symbol, zone_index) ∈ D-accepted set
-    * attach D EQ audit fields (recomputed deterministically for each trade)
-    * record every D-rejected candidate as an audit artefact
-    * compute stats via canonical compute_stats on the filtered trade list
+Everything else is verbatim canonical:
+  - sweep detection (canonical SessionManager)
+  - FVG detection (canonical _nexus_detect_fvgs)
+  - FVG direction filter (canonical)
+  - FVG freshness (canonical _is_fresh_fvg)
+  - entry touch check (canonical)
+  - entry timing: next-bar-open (canonical)
+  - SL/TP calculation (canonical, same constants)
+  - trailing (canonical apply_trailing)
+  - exit (canonical check_exit)
+  - stats (canonical compute_stats)
+  - starting balance (canonical STARTING_BALANCE_R = 100R)
 
-The only place D EQ appears in this file is the evaluation phase.
-No SessionManager monkey-patch. No body_low/body_high proxy. No cbdr injection.
+What this does NOT do
+=====================
+
+  - No Frozen EQ pre-filter
+  - No Frozen → D secondary veto
+  - No Frozen → D refinement
+  - No fallback to second FVG
+  - No special second-FVG logic
+  - No post-filter on canonical trades
+  - No SessionManager monkey-patch
+  - No body_low/body_high property proxy
+
+Why we walk the loop ourselves (not call canon.run_test_a)
+===========================================================
+
+canon.run_test_a() has Frozen EQ hardcoded in its FVG evaluation block
+(line ~352-364 in main_research_c_v1_0.py):
+  range_opposite = session.cbdr.body_low if ... else session.cbdr.body_high
+  eq = (last_sweep.sweep_price + range_opposite) / 2
+  if fvg.top > eq: continue   # Frozen EQ reject
+
+The spec (item #7) explicitly disqualifies post-filtering canonical trades:
+"Previous post-filter result is NOT a PURE D result."
+
+To get a TRUE PURE D result, we must walk the FVG evaluation loop with
+ONLY the EQ line swapped. The rest of the loop is verbatim canonical.
+
+This is the minimum required to swap the EQ source. No new strategy rules,
+no new sweep logic, no new FVG detector, no new SL/TP, no new trailing,
+no new exit, no new stats. Every other line of the loop is canon.
 """
 
 from __future__ import annotations
@@ -67,23 +93,32 @@ if hasattr(sys.stderr, "reconfigure"):
 _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.strategy.models import Bar  # noqa: E402
+from src.strategy.models import Bar, Direction  # noqa: E402
 
 # ── Canonical engine — import only, do NOT modify ──────────────────────────
-import experiment.main_research_c as _canon  # noqa: E402
-from experiment.main_research_c import (  # noqa: E402
+import experiment.main_research_c_v1_0 as _canon  # noqa: E402
+from experiment.main_research_c_v1_0 import (  # noqa: E402
     STARTING_BALANCE_R,
     BenchmarkTrade,
-    run_test_a as _canon_run_test_a,
     _nexus_detect_fvgs,
     _to_nexus_bar as _canon_to_nexus_bar,
     _is_fresh_fvg as _canon_is_fresh_fvg,
     compute_atr as _canon_compute_atr,
     compute_stats as _canon_compute_stats,
 )
+from experiment.trailing_adapter import (  # noqa: E402
+    apply_trailing,
+    check_exit,
+    _norm_side,
+)
 from experiment.config import (  # noqa: E402
+    TP_RR,
+    SL_ATR_MULT,
     FVG_MIN_SIZE_ATR_MULT,
     FVG_WICK_RATIO_MAX,
+    FVG_BUFFER_MULT,
+    FVG_BUFFER_MIN_FACTOR,
+    MIN_RISK_DIST_ATR_MULT,
     ATR_PERIOD,
     SESSION_START_HOUR,
     SESSION_END_HOUR,
@@ -146,7 +181,7 @@ def _build_1h_swing_timeline(
     Returns (high_events, high_keys, low_events, low_keys), each sorted by
     confirm_15m where:
       event = (confirm_15m, pivot_1h_index, price)
-      1H pivot h with right=3 → confirm_15m = 4·(h+3)
+      1H pivot h with right=3 → confirm_15m = 4·(h+4)-1
     """
     n_h = math.ceil(len(bars_15m) / BARS_PER_HOUR)
     if n_h < PIVOT_LEFT + PIVOT_RIGHT + 1:
@@ -182,7 +217,11 @@ def _build_1h_swing_timeline(
 
     he = sorted(
         [
-            (BARS_PER_HOUR * (sp.bar_index + PIVOT_RIGHT), sp.bar_index, sp.price)
+            (
+                BARS_PER_HOUR * (sp.bar_index + PIVOT_RIGHT + 1) - 1,
+                sp.bar_index,
+                sp.price,
+            )
             for sp in hr
             if sp.kind == "high"
         ],
@@ -190,7 +229,11 @@ def _build_1h_swing_timeline(
     )
     le = sorted(
         [
-            (BARS_PER_HOUR * (sp.bar_index + PIVOT_RIGHT), sp.bar_index, sp.price)
+            (
+                BARS_PER_HOUR * (sp.bar_index + PIVOT_RIGHT + 1) - 1,
+                sp.bar_index,
+                sp.price,
+            )
             for sp in lr
             if sp.kind == "low"
         ],
@@ -234,10 +277,10 @@ def compute_d_eq(
     filter failure mode.
 
     NO-LOOKAHEAD:
-      - 1H pivot at h confirmed at 15m bar 4·(h+3).
+      - 1H pivot at h confirmed at 15m bar 4·(h+4)-1.
       - FVG forms at 15m bar f, confirmed at f+1.
       - leg scan window [origin_1h·4, f+1) is fully ≤ f.
-      - We require 4·(h+3) ≤ f to use the swing.
+      - We require 4·(h+4)-1 ≤ f to use the swing.
     """
     if direction == "bullish":
         sw = _bisect_swing(lk, le, f)
@@ -258,7 +301,7 @@ def compute_d_eq(
                 reject_reason="no_pivot",
             )
         pivot_1h, swing_price = sw
-        confirm_15m = BARS_PER_HOUR * (pivot_1h + PIVOT_RIGHT)
+        confirm_15m = BARS_PER_HOUR * (pivot_1h + PIVOT_RIGHT + 1) - 1
         if confirm_15m > f:
             return DAudit(
                 symbol="",
@@ -331,7 +374,7 @@ def compute_d_eq(
             reject_reason="no_pivot",
         )
     pivot_1h, swing_price = sw
-    confirm_15m = BARS_PER_HOUR * (pivot_1h + PIVOT_RIGHT)
+    confirm_15m = BARS_PER_HOUR * (pivot_1h + PIVOT_RIGHT + 1) - 1
     if confirm_15m > f:
         return DAudit(
             symbol="",
@@ -396,56 +439,56 @@ def _d_position_filter(audit: DAudit, fvg_top: float, fvg_bottom: float) -> DAud
     if audit.decision == "REJECT":
         return audit
     if audit.direction == "bullish":
-        if fvg_top >= audit.d_eq:
+        if fvg_top > audit.d_eq:
             audit.decision = "REJECT"
-            audit.reject_reason = "fvg_at_or_above_eq"
+            audit.reject_reason = "fvg_above_eq"
     else:
-        if fvg_bottom <= audit.d_eq:
+        if fvg_bottom < audit.d_eq:
             audit.decision = "REJECT"
-            audit.reject_reason = "fvg_at_or_below_eq"
+            audit.reject_reason = "fvg_below_eq"
     return audit
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 1 — EVALUATION: count candidates + D EQ decisions
+# PURE D RUNNER — canonical FVG evaluation loop, ONLY the EQ source swapped
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _phase1_evaluate(
+def run_test_a_pure_d(
     symbol: str,
     bars_15m: List[Bar],
     he,
     hk,
     le,
     lk,
-) -> Tuple[
-    Dict[Tuple[str, int], DAudit],  # (symbol, zone_index) → audit
-    int,  # fvg_candidates
-    int,  # d_eq_accepted
-    int,  # d_eq_rejected
-]:
+) -> Tuple[List[BenchmarkTrade], Dict[Tuple[str, int], DAudit], Dict[str, int]]:
     """
-    Walk bars like canonical does (sweep detection → FVG detection → first 4
-    canonical filters), but stop at the EQ step. For each surviving FVG
-    candidate, compute D EQ and apply the D position filter.
+    Verbatim canonical FVG evaluation/execution loop from main_research_c_v1_0.run_test_a()
+    with the ONLY change being the EQ source.
 
-    This is the MINIMUM mirror of canonical needed to evaluate D EQ at the
-    right time. Sweep detection uses canonical SessionManager unchanged.
-    FVG detection uses canonical _nexus_detect_fvgs. Freshness uses canonical
-    _is_fresh_fvg. The only NEW logic is the D EQ gate and D position filter.
+    Canonical EQ:
+        range_opposite = session.cbdr.body_low / body_high
+        eq = (last_sweep.sweep_price + range_opposite) / 2
+        if fvg.top > eq: continue   (bullish sweep, long setup)
+        if fvg.bottom < eq: continue (bearish sweep, short setup)
+
+    PURE D EQ:
+        d_eq = (leg_low + leg_high) / 2
+        if fvg.top > d_eq: continue   (bullish FVG, long setup)
+        if fvg.bottom < d_eq: continue (bearish FVG, short setup)
+
+    Every other line — sweep, FVG detection, freshness, touch check,
+    entry timing, SL/TP, trailing, exit, stats — is verbatim canonical.
+
+    Returns (trades, audits, audit_counters).
     """
-    fvg_candidates = 0
-    d_accepted = 0
-    d_rejected = 0
-    audits: Dict[Tuple[str, int], DAudit] = {}
-
     if len(bars_15m) < 100:
-        return audits, 0, 0, 0
+        return [], {}, {"fvg_candidates": 0, "d_eq_accepted": 0, "d_eq_rejected": 0}
 
     warmup = min(100, len(bars_15m) - 10)
     atr_val = _canon_compute_atr(bars_15m[:warmup], period=ATR_PERIOD)
     if atr_val <= 0:
-        return audits, 0, 0, 0
+        return [], {}, {"fvg_candidates": 0, "d_eq_accepted": 0, "d_eq_rejected": 0}
 
     session = _canon.SessionManager(
         symbol=symbol,
@@ -458,10 +501,24 @@ def _phase1_evaluate(
 
     sweep_detected = False
     last_sweep = None
-    start_idx = warmup + 1
+    active_trade: Optional[dict] = None
+    trades: List[BenchmarkTrade] = []
+    trade_counter = 0
+
+    # Pre-build full nexus_bars list once — O(n), not O(n²)
     nexus_bars_full = [_canon_to_nexus_bar(b) for b in bars_15m]
 
+    fvg_candidates = 0
+    d_eq_accepted = 0
+    d_eq_rejected = 0
+    audits: Dict[Tuple[str, int], DAudit] = {}
+
+    start_idx = warmup + 1
+    _last_heartbeat = start_idx
     for i in range(start_idx, len(bars_15m)):
+        if i - _last_heartbeat >= 5000:
+            print(f"  [HEARTBEAT] {symbol} bar {i}/{len(bars_15m)}", flush=True)
+            _last_heartbeat = i
         bar = bars_15m[i]
 
         if i > start_idx:
@@ -475,6 +532,87 @@ def _phase1_evaluate(
 
         min_fvg_size = max(atr_val * FVG_MIN_SIZE_ATR_MULT, 1e-8)
 
+        if active_trade is not None:
+            apply_trailing(
+                bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol
+            )
+            exit_info = check_exit(bar, active_trade)
+            if exit_info is not None:
+                exit_price = exit_info["exit_price"]
+                result = exit_info["result"]
+                # Direction-dispatch fix: branch on normalized side ("long"/"short"),
+                # NOT on direction ("bullish"/"bearish") which never matched.
+                if _norm_side(active_trade["side"]) == "long":
+                    pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                        active_trade["entry_price"] - active_trade["initial_sl"]
+                    )
+                else:
+                    pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                        active_trade["sl"] - active_trade["entry_price"]
+                    )
+                if result == "LOSS":
+                    pnl_r = -1.0
+
+                if _norm_side(active_trade["side"]) == "long":
+                    mfe = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mae = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                else:
+                    mfe = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    mae = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["sl"] - active_trade["entry_price"])
+
+                record = BenchmarkTrade(
+                    trade_id=active_trade["trade_id"],
+                    symbol=symbol,
+                    test_type="PURE_D_FVG_ORIGIN_EQ",
+                    direction=active_trade["direction"],
+                    entry_price=active_trade["entry_price"],
+                    sl=active_trade["initial_sl"],
+                    tp=active_trade["initial_tp"],
+                    entry_bar_index=active_trade["entry_bar"],
+                    sweep_bar_index=active_trade["sweep_bar_index"],
+                    zone_index=active_trade.get("zone_index", 0),
+                    zone_creation_bar=active_trade.get("zone_creation_bar", 0),
+                    zone_top=active_trade.get("zone_top", 0),
+                    zone_bottom=active_trade.get("zone_bottom", 0),
+                    zone_size=active_trade.get("zone_size", 0),
+                    zone_size_atr=active_trade.get("zone_size_atr", 0),
+                    sweep_size_atr=active_trade.get("sweep_size_atr", 0),
+                    bars_sweep_to_zone=active_trade.get("bars_sweep_to_zone", 0),
+                    bars_zone_to_entry=active_trade.get("bars_zone_to_entry", 0),
+                    exit_price=exit_price,
+                    exit_bar_index=i,
+                    exit_timestamp=bar.timestamp,
+                    result=result,
+                    pnl_r=pnl_r,
+                    trailing_count=active_trade.get("trailing_count", 0),
+                    max_favorable=mfe,
+                    max_adverse=mae,
+                    hold_bars=i - active_trade["entry_bar"],
+                )
+                trades.append(record)
+                active_trade = None
+                continue
+
+            active_trade["max_price"] = max(
+                active_trade.get("max_price", bar.high), bar.high
+            )
+            active_trade["min_price"] = min(
+                active_trade.get("min_price", bar.low), bar.low
+            )
+            continue
+
         sweep = session.update(bar)
         if sweep is not None:
             sweep_detected = True
@@ -483,11 +621,13 @@ def _phase1_evaluate(
         if not sweep_detected or last_sweep is None:
             continue
 
-        # sweep direction (canonical style — Direction enum .value)
-        sweep_dir = last_sweep.direction.value
-
+        # ─── canonical sweep_direction (verbatim) ───
+        sweep_direction = (
+            "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
+        )
         lb = min(100, i + 1)
         nexus_bars = nexus_bars_full[i + 1 - lb : i + 1]
+
         fvgs = _nexus_detect_fvgs(
             nexus_bars,
             lookback=lb,
@@ -497,188 +637,223 @@ def _phase1_evaluate(
         )
 
         for fvg in fvgs:
-            # canonical filter 1: FVG after sweep
             if fvg.real_index <= last_sweep.bar_index:
                 continue
-            # canonical filter 2: direction match
-            if fvg.direction != sweep_dir:
+            if fvg.direction != sweep_direction:
                 continue
-            # canonical filter 3: not invalidated
             if fvg.invalidated:
                 continue
-            # canonical filter 4: freshness
             if not _canon_is_fresh_fvg(fvg, bars_15m, i):
                 continue
 
-            # ── FVG passes all canonical pre-EQ filters ──
+            # ────────────────────────────────────────────────────────────
+            #  PURE D EQ  (replaces canonical Frozen EQ block)
+            #
+            #  Canonical (main_research_c_v1_0.py ~lines 352-364):
+            #    range_opposite = session.cbdr.body_low  (bearish sweep)
+            #                  or session.cbdr.body_high (bullish sweep)
+            #    eq = (last_sweep.sweep_price + range_opposite) / 2
+            #    if last_sweep.direction == Direction.BULLISH:
+            #        if fvg.top > eq:  eq_rejected += 1; continue
+            #    else:
+            #        if fvg.bottom < eq: eq_rejected += 1; continue
+            #
+            #  PURE D replacement:
+            #    d_eq = (leg_low + leg_high) / 2
+            #    if fvg.top > d_eq:  REJECT  (bullish FVG, long setup)
+            #    if fvg.bottom < d_eq: REJECT (bearish FVG, short setup)
+            # ────────────────────────────────────────────────────────────
+
             key = (symbol, fvg.real_index)
-            if key in audits:
-                # Same FVG already evaluated on a previous bar — skip.
-                # The dedup-by-(symbol, real_index) ensures fvg_candidates
-                # counts UNIQUE FVG candidates, making the audit balance
-                # fvg_candidates == d_accepted + d_rejected meaningful.
+
+            # D decision is computed ONCE per unique FVG and then reused.
+            # IMPORTANT:
+            # Audit dedup must NEVER suppress canonical touch/entry evaluation
+            # on later bars. A previously accepted FVG must remain eligible for
+            # canonical touch/entry checks until the canonical loop naturally
+            # invalidates/exits it.
+            audit = audits.get(key)
+
+            if audit is None:
+                fvg_candidates += 1
+
+                audit = compute_d_eq(
+                    fvg.real_index,
+                    fvg.direction,
+                    he,
+                    hk,
+                    le,
+                    lk,
+                    bars_15m,
+                )
+
+                audit.symbol = symbol
+                audit.fvg_top = fvg.top
+                audit.fvg_bottom = fvg.bottom
+
+                audit = _d_position_filter(
+                    audit,
+                    fvg.top,
+                    fvg.bottom,
+                )
+
+                audits[key] = audit
+
+                if audit.decision == "ACCEPT":
+                    d_eq_accepted += 1
+                else:
+                    d_eq_rejected += 1
+
+            # D rejection is permanent for this FVG.
+            # But D acceptance does NOT create an execution trade by itself.
+            # The canonical touch/entry chain must still be evaluated on every
+            # later bar exactly as canonical run_test_a() does.
+            if audit.decision == "REJECT":
                 continue
-            fvg_candidates += 1
-            audit = compute_d_eq(
-                fvg.real_index,
-                fvg.direction,
-                he,
-                hk,
-                le,
-                lk,
-                bars_15m,
-            )
-            audit.symbol = symbol
-            audit.fvg_top = fvg.top
-            audit.fvg_bottom = fvg.bottom
-            audit = _d_position_filter(audit, fvg.top, fvg.bottom)
 
-            audits[key] = audit
-            if audit.decision == "ACCEPT":
-                d_accepted += 1
+            # DO NOT continue here for ACCEPT.
+            # Fall through to canonical touch/entry logic.
+
+            # ─── canonical touch check (verbatim) ───
+            if fvg.direction == "bullish":
+                if not (bar.low <= fvg.top and bar.low >= fvg.bottom - atr_val * 0.1):
+                    continue
             else:
-                d_rejected += 1
+                if not (bar.high >= fvg.bottom and bar.high <= fvg.top + atr_val * 0.1):
+                    continue
 
-    return audits, fvg_candidates, d_accepted, d_rejected
+            # ─── canonical entry timing: next-bar-open (verbatim) ───
+            if i + 1 >= len(bars_15m):
+                continue
+            entry_price = bars_15m[i + 1].open
 
+            # ─── canonical SL/TP calculation (verbatim) ───
+            fh = fvg.top - fvg.bottom
+            rp2 = atr_val * SL_ATR_MULT
+            if fvg.direction == "bullish":
+                ab = (
+                    max(
+                        fh * FVG_BUFFER_MIN_FACTOR,
+                        max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT)),
+                    )
+                    if fh > 0
+                    else rp2 * 2
+                )
+                sl = fvg.bottom - ab if fh > 0 else entry_price - rp2 * 2
+            else:
+                ab = (
+                    max(
+                        fh * FVG_BUFFER_MIN_FACTOR,
+                        max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT)),
+                    )
+                    if fh > 0
+                    else rp2 * 2
+                )
+                sl = fvg.top + ab if fh > 0 else entry_price + rp2 * 2
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 2+3 — EXECUTION (canonical) + FILTER + ATTRIBUTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@dataclass
-class DTrade:
-    """Filtered canonical trade + D EQ audit fields."""
-
-    trade_id: int
-    symbol: str
-    direction: str
-    entry_price: float
-    sl: float
-    tp: float
-    entry_bar_index: int
-    zone_index: int
-    zone_creation_bar: int
-    zone_top: float
-    zone_bottom: float
-    exit_price: float
-    exit_bar_index: int
-    exit_timestamp: float
-    result: str
-    pnl_r: float
-    hold_bars: int
-    max_favorable: float
-    max_adverse: float
-    trailing_count: int
-    # D EQ audit
-    d_pivot_1h_index: int = 0
-    d_pivot_1h_kind: str = ""
-    d_pivot_1h_price: float = 0.0
-    d_pivot_confirmation_1h: int = 0
-    d_leg_high: float = 0.0
-    d_leg_low: float = 0.0
-    d_eq: float = 0.0
-    d_decision: str = ""
-
-
-def _phase23_execute_and_filter(
-    symbol: str,
-    bars_15m: List[Bar],
-    audits: Dict[Tuple[str, int], DAudit],
-) -> Tuple[List[DTrade], int, int]:
-    """
-    Phase 2: run canonical run_test_a() — totally unchanged.
-    Phase 3: keep trades whose (symbol, zone_index) is D-ACCEPTED.
-    Return (kept_trades, n_accepted, n_rejected).
-    """
-    canon_trades = _canon_run_test_a(symbol, bars_15m)
-
-    n_accepted = sum(1 for a in audits.values() if a.decision == "ACCEPT")
-    n_rejected = sum(1 for a in audits.values() if a.decision != "ACCEPT")
-
-    kept: List[DTrade] = []
-    for ct in canon_trades:
-        key = (ct.symbol, ct.zone_index)
-        a = audits.get(key)
-        if a is None or a.decision != "ACCEPT":
-            continue  # D-rejected → drop canonical trade
-        kept.append(
-            DTrade(
-                trade_id=ct.trade_id,
-                symbol=ct.symbol,
-                direction=ct.direction,
-                entry_price=ct.entry_price,
-                sl=ct.sl,
-                tp=ct.tp,
-                entry_bar_index=ct.entry_bar_index,
-                zone_index=ct.zone_index,
-                zone_creation_bar=ct.zone_creation_bar,
-                zone_top=ct.zone_top,
-                zone_bottom=ct.zone_bottom,
-                exit_price=ct.exit_price,
-                exit_bar_index=ct.exit_bar_index,
-                exit_timestamp=(
-                    ct.exit_timestamp.timestamp()
-                    if hasattr(ct.exit_timestamp, "timestamp")
-                    else float(ct.exit_timestamp)
-                    if ct.exit_timestamp
-                    else 0.0
-                ),
-                result=ct.result,
-                pnl_r=ct.pnl_r,
-                hold_bars=ct.hold_bars,
-                max_favorable=ct.max_favorable,
-                max_adverse=ct.max_adverse,
-                trailing_count=ct.trailing_count,
-                d_pivot_1h_index=a.pivot_1h_index,
-                d_pivot_1h_kind=a.pivot_1h_kind,
-                d_pivot_1h_price=a.pivot_1h_price,
-                d_pivot_confirmation_1h=a.pivot_confirmation_1h,
-                d_leg_high=a.leg_high,
-                d_leg_low=a.leg_low,
-                d_eq=a.d_eq,
-                d_decision=a.decision,
+            rd = abs(entry_price - sl)
+            if rd <= 0:
+                sl = (
+                    entry_price - rp2 * 2
+                    if fvg.direction == "bullish"
+                    else entry_price + rp2 * 2
+                )
+                rd = abs(entry_price - sl)
+            tp = (
+                entry_price + rd * TP_RR
+                if fvg.direction == "bullish"
+                else entry_price - rd * TP_RR
             )
+
+            if rd < atr_val * MIN_RISK_DIST_ATR_MULT:
+                continue
+
+            # ─── canonical active_trade dict (verbatim) ───
+            trade_counter += 1
+            active_trade = {
+                "trade_id": trade_counter,
+                "side": _norm_side(fvg.direction),
+                "direction": fvg.direction,
+                "entry_price": entry_price,
+                "sl": sl,
+                "tp": tp,
+                "initial_sl": sl,
+                "initial_tp": tp,
+                "entry_bar": i + 1,
+                "sweep_bar_index": last_sweep.bar_index,
+                "zone_index": fvg.real_index,
+                "zone_creation_bar": fvg.real_index,
+                "zone_top": fvg.top,
+                "zone_bottom": fvg.bottom,
+                "zone_size": fvg.size,
+                "zone_size_atr": fvg.size / atr_val if atr_val > 0 else 0,
+                "sweep_size_atr": abs(
+                    last_sweep.sweep_price - last_sweep.reference_level
+                )
+                / atr_val
+                if atr_val > 0
+                else 0,
+                "bars_sweep_to_zone": fvg.real_index - last_sweep.bar_index,
+                "bars_zone_to_entry": i - fvg.real_index,
+                "trailing_count": 0,
+                "max_price": entry_price,
+                "min_price": entry_price,
+                "closed": False,
+            }
+            sweep_detected = False
+            last_sweep = None
+            break
+
+    # ─── canonical close open trade at end (verbatim) ───
+    if active_trade is not None and not active_trade.get("closed"):
+        last_bar = bars_15m[-1]
+        if _norm_side(active_trade["side"]) == "long":
+            exit_price = last_bar.close
+            pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                active_trade["entry_price"] - active_trade["initial_sl"]
+            )
+        else:
+            exit_price = last_bar.close
+            pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                active_trade["sl"] - active_trade["entry_price"]
+            )
+
+        record = BenchmarkTrade(
+            trade_id=active_trade["trade_id"],
+            symbol=symbol,
+            test_type="PURE_D_FVG_ORIGIN_EQ",
+            direction=active_trade["direction"],
+            entry_price=active_trade["entry_price"],
+            sl=active_trade["initial_sl"],
+            tp=active_trade["initial_tp"],
+            entry_bar_index=active_trade["entry_bar"],
+            sweep_bar_index=active_trade["sweep_bar_index"],
+            zone_index=active_trade.get("zone_index", 0),
+            zone_creation_bar=active_trade.get("zone_creation_bar", 0),
+            zone_top=active_trade.get("zone_top", 0),
+            zone_bottom=active_trade.get("zone_bottom", 0),
+            zone_size=active_trade.get("zone_size", 0),
+            zone_size_atr=active_trade.get("zone_size_atr", 0),
+            sweep_size_atr=active_trade.get("sweep_size_atr", 0),
+            bars_sweep_to_zone=active_trade.get("bars_sweep_to_zone", 0),
+            bars_zone_to_entry=active_trade.get("bars_zone_to_entry", 0),
+            exit_price=exit_price,
+            exit_bar_index=len(bars_15m) - 1,
+            exit_timestamp=last_bar.timestamp,
+            result="OPEN",
+            pnl_r=pnl_r,
+            trailing_count=active_trade.get("trailing_count", 0),
         )
+        trades.append(record)
 
-    return kept, n_accepted, n_rejected
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# STATS — adapt DTrade to canonical BenchmarkTrade for compute_stats
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-def _to_canon_bt(dt: DTrade) -> BenchmarkTrade:
-    return BenchmarkTrade(
-        trade_id=dt.trade_id,
-        symbol=dt.symbol,
-        test_type="VARIANT_D_FVG_ORIGIN_EQ",
-        direction=dt.direction,
-        entry_price=dt.entry_price,
-        sl=dt.sl,
-        tp=dt.tp,
-        entry_bar_index=dt.entry_bar_index,
-        sweep_bar_index=0,  # not used in stats
-        zone_index=dt.zone_index,
-        zone_creation_bar=dt.zone_creation_bar,
-        zone_top=dt.zone_top,
-        zone_bottom=dt.zone_bottom,
-        zone_size=0.0,
-        zone_size_atr=0.0,
-        sweep_size_atr=0.0,
-        bars_sweep_to_zone=0,
-        bars_zone_to_entry=0,
-        exit_price=dt.exit_price,
-        exit_bar_index=dt.exit_bar_index,
-        exit_timestamp=dt.exit_timestamp,
-        result=dt.result,
-        pnl_r=dt.pnl_r,
-        trailing_count=dt.trailing_count,
-        max_favorable=dt.max_favorable,
-        max_adverse=dt.max_adverse,
-        hold_bars=dt.hold_bars,
+    return (
+        trades,
+        audits,
+        {
+            "fvg_candidates": fvg_candidates,
+            "d_eq_accepted": d_eq_accepted,
+            "d_eq_rejected": d_eq_rejected,
+        },
     )
 
 
@@ -706,33 +881,26 @@ def _run_symbol(sym: str, dry_run: bool) -> dict:
     ]
     print(f"  [WORKER] {sym}: loaded {len(bars)} 15m bars", flush=True)
     if dry_run:
-        # Use 30 days of 15m bars (~3000 bars) so at least one CBDR window
-        # is fully traversed and we exercise the full D EQ path
         bars = bars[:3000]
 
     t0 = time.time()
-    # ── Phase 1: D EQ evaluation (uses canonical helpers) ──────────────────
     he, hk, le, lk = _build_1h_swing_timeline(bars)
-    audits, cand, d_acc, d_rej = _phase1_evaluate(sym, bars, he, hk, le, lk)
-    t1 = time.time()
-    # ── Phase 2+3: canonical execution + filter ───────────────────────────
-    trades, _, _ = _phase23_execute_and_filter(sym, bars, audits)
-    t2 = time.time()
+    trades, audits, counters = run_test_a_pure_d(sym, bars, he, hk, le, lk)
+    elapsed = time.time() - t0
 
     print(
-        f"  [WORKER] {sym}: candidates={cand} accepted={d_acc} rejected={d_rej} "
-        f"trades={len(trades)} | eval {t1 - t0:.1f}s exec {t2 - t1:.1f}s",
+        f"  [WORKER] {sym}: candidates={counters['fvg_candidates']} "
+        f"accepted={counters['d_eq_accepted']} "
+        f"rejected={counters['d_eq_rejected']} "
+        f"trades={len(trades)} | {elapsed:.1f}s",
         flush=True,
     )
     return {
         "symbol": sym,
         "trades": [asdict(t) for t in trades],
         "audits": [asdict(a) for a in audits.values()],
-        "candidates": cand,
-        "d_accepted": d_acc,
-        "d_rejected": d_rej,
-        "elapsed_eval": t1 - t0,
-        "elapsed_exec": t2 - t1,
+        "counters": counters,
+        "elapsed": elapsed,
     }
 
 
@@ -750,109 +918,67 @@ def _append_markdown_report(
     total_rej: int,
     elapsed: float,
     per_symbol: List[Tuple[str, dict]],
-    trade_level: Optional[dict] = None,
 ) -> None:
     report_path = out_dir / "variant_D_fvg_origin_eq_summary.md"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     accept_rate = f"{total_acc / total_cand * 100:.1f}%" if total_cand > 0 else "n/a"
     section = f"""## RUN — {now}
 
-**Engine:** experiment/main_research_c.py
-**Variant:** D — FVG-Origin EQ
+**Engine:** experiment/main_research_c_v1_0.py
+**Variant:** D — PURE FVG-Origin EQ
 **Canonical Engine Modified:** NO
+**Test Type:** Pure EQ variant comparison
 
 ### Universe & Data
-- **Symbols:** {", ".join(symbols)}
-- **Period:** 2024-01-01 → 2026-08-21
+
+- Symbols: {", ".join(symbols)}
+- Period: 2024-01-01 → 2026-08-21
+- FVG TF: 15m
+- EQ TF: 1H
+
+### EQ Definition
+
+`d_eq = (leg_low + leg_high) / 2`
+
+where the leg is anchored at the latest confirmed 1H structural swing available at FVG formation.
 
 ### Performance
+
 | Metric | Value |
-|--------|------:|
+|---|---:|
 | Trades | {stats.get("trades", 0)} |
 | WR | {stats.get("win_rate", 0.0):.1f}% |
 | AvgR | {stats.get("avg_r", 0.0):+.4f} |
 | TotalR | {stats.get("total_pnl", 0.0):+.2f}R |
 | PF | {stats.get("profit_factor", 0.0):.2f} |
-| MaxDD | {stats.get("max_dd", 0.0):.2f}R |
-| MaxDD% | {stats.get("max_dd_pct", 0.0):.2f}% |
+| MaxDD R | {stats.get("max_dd", 0.0):.2f}R |
+| MaxDD % | {stats.get("max_dd_pct", 0.0):.2f}% |
 
 ### EQ Audit
+
 | Metric | Value |
-|--------|------:|
-| FVG candidates | {total_cand} |
-| Accepted | {total_acc} |
-| Rejected | {total_rej} |
+|---|---:|
+| FVG candidates evaluated | {total_cand} |
+| D EQ accepted | {total_acc} |
+| D EQ rejected | {total_rej} |
 | Acceptance rate | {accept_rate} |
 
-### Per-Symbol
-| Symbol | N | WR% | PnL | AvgR | PF |
-|--------|--:|----:|----:|-----:|---:|
-"""
-    for sym, s in per_symbol:
-        section += (
-            f"| {sym} | {s['trades']} | {s['win_rate']:.1f} | "
-            f"{s['total_pnl']:+.2f}R | {s['avg_r']:+.4f} | {s['profit_factor']:.2f} |\n"
-        )
+### No-Lookahead
 
-    section += (
-        "\n### No-Lookahead\n- Violations: 0 (4·(h+3) ≤ f guaranteed by design)\n"
-    )
+- Violations: 0 (4·(h+4)-1 ≤ f guaranteed by design)
 
-    if trade_level is not None:
-        section += "\n### Trade-Level Attribution vs Canonical Frozen\n"
-        section += f"- Common (Frozen ∩ D): {trade_level.get('common', 'n/a')}\n"
-        section += f"- Frozen-only: {trade_level.get('frozen_only', 'n/a')}\n"
-        section += f"- D-only: {trade_level.get('d_only', 'n/a')}\n"
+### Architecture
 
-    section += """
-### Canonical Equivalence
 - Canonical engine modified: NO
-- Pipeline logic duplicated: NO (uses canonical compute_atr, SessionManager, _nexus_detect_fvgs, _is_fresh_fvg, run_test_a, compute_stats)
+- Frozen EQ pre-filter: NO
+- Secondary-veto logic: NO
+- Fallback logic: NO
+- Pure D EQ comparison: YES
 
 ---
 """
     with open(report_path, "a", encoding="utf-8") as f:
         f.write(section)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# TRADE-LEVEL ATTRIBUTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-def _attribution(symbols: List[str], d_trades: List[DTrade]) -> dict:
-    """
-    Compare D trade set to canonical Frozen set on (symbol, zone_index).
-    Returns {common, frozen_only, d_only}.
-    """
-    feather_dir = _PROJECT_ROOT / "data" / "icmarket_feather"
-    frozen_zones: set = set()
-    for sym in symbols:
-        feather = feather_dir / f"{sym}_15m.feather"
-        df = pd.read_feather(feather)
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
-        bars: List[Bar] = [
-            Bar(
-                index=i,
-                timestamp=pd.Timestamp(df["timestamp"].iloc[i]),
-                open=float(df["open"].iloc[i]),
-                high=float(df["high"].iloc[i]),
-                low=float(df["low"].iloc[i]),
-                close=float(df["close"].iloc[i]),
-                volume=float(df["volume"].iloc[i]),
-            )
-            for i in range(len(df))
-        ]
-        fz = _canon_run_test_a(sym, bars)
-        for t in fz:
-            frozen_zones.add((t.symbol, t.zone_index))
-    d_zones = {(t.symbol, t.zone_index) for t in d_trades}
-    common = frozen_zones & d_zones
-    return {
-        "common": len(common),
-        "frozen_only": len(frozen_zones - d_zones),
-        "d_only": len(d_zones - frozen_zones),
-    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -863,30 +989,28 @@ UNIVERSE = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "GBPJPY"]
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Variant D — FVG-Origin EQ")
+    parser = argparse.ArgumentParser(description="Variant D — PURE FVG-Origin EQ")
     parser.add_argument("symbols", nargs="*", help="Symbols (default: 6 majors)")
     parser.add_argument(
-        "--dry-run", action="store_true", help="Smoke test (writes to dry-run suffix)"
+        "--dry-run",
+        action="store_true",
+        help="Smoke test (writes to _pure_dryrun suffix)",
     )
     parser.add_argument("--workers", type=int, default=6)
-    parser.add_argument(
-        "--no-attribute",
-        action="store_true",
-        help="Skip Frozen vs D trade-level attribution",
-    )
     args = parser.parse_args()
 
     symbols = [s.upper() for s in args.symbols] if args.symbols else UNIVERSE
 
-    print("=== VARIANT D — FVG-ORIGIN EQ (CLEAN) ===")
+    print("=== VARIANT D — PURE FVG-ORIGIN EQ ===")
     print(f"Universe: {symbols}")
-    print("Engine: experiment/main_research_c.py (canonical, UNCHANGED)")
-    print("Approach: 3-phase research runner (eval → canonical exec → filter)")
+    print("Engine: experiment/main_research_c_v1_0.py (canonical, UNCHANGED)")
+    print("Approach: canonical FVG eval loop with ONLY the EQ source swapped")
+    print("  Frozen EQ  →  D FVG-Origin EQ")
     print(f"{'DRY RUN' if args.dry_run else 'FULL RUN'}")
     print()
 
     t0 = time.time()
-    all_d_trades: List[DTrade] = []
+    all_trades: List[BenchmarkTrade] = []
     all_audits: List[DAudit] = []
     total_cand = 0
     total_acc = 0
@@ -900,12 +1024,12 @@ def main():
             try:
                 res = future.result()
                 for td in res["trades"]:
-                    all_d_trades.append(DTrade(**td))
+                    all_trades.append(BenchmarkTrade(**td))
                 for ad in res["audits"]:
                     all_audits.append(DAudit(**ad))
-                total_cand += res["candidates"]
-                total_acc += res["d_accepted"]
-                total_rej += res["d_rejected"]
+                total_cand += res["counters"]["fvg_candidates"]
+                total_acc += res["counters"]["d_eq_accepted"]
+                total_rej += res["counters"]["d_eq_rejected"]
             except Exception as e:
                 import traceback
 
@@ -917,13 +1041,12 @@ def main():
     elapsed = time.time() - t0
 
     # Stats via canonical compute_stats
-    canon_bts = [_to_canon_bt(t) for t in all_d_trades]
-    stats = _canon_compute_stats(canon_bts, starting_balance=STARTING_BALANCE_R)
+    stats = _canon_compute_stats(all_trades, starting_balance=STARTING_BALANCE_R)
 
-    completed = [t for t in all_d_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")]
-    open_n = len(all_d_trades) - len(completed)
+    completed = [t for t in all_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")]
+    open_n = len(all_trades) - len(completed)
 
-    print("\n=== VARIANT D RESULTS ===")
+    print("\n=== PURE D RESULTS ===")
     print(
         f"  Trades: {stats['trades']} | WR: {stats['win_rate']:.1f}% | "
         f"PnL: {stats['total_pnl']:+.2f}R | PF: {stats['profit_factor']:.2f} | "
@@ -933,17 +1056,14 @@ def main():
 
     # Per-symbol
     print("\n=== PER-SYMBOL ===")
-    syms: Dict[str, List[DTrade]] = {}
-    for t in all_d_trades:
+    syms: Dict[str, List[BenchmarkTrade]] = {}
+    for t in all_trades:
         syms.setdefault(t.symbol, []).append(t)
     per_sym_stats: List[Tuple[str, dict]] = []
     print(f"{'Symbol':<12} {'N':>5} {'WR%':>6} {'PnL':>10} {'AvgR':>8} {'PF':>6}")
     print("-" * 50)
     for sym in sorted(syms):
-        s = _canon_compute_stats(
-            [_to_canon_bt(t) for t in syms[sym]],
-            starting_balance=STARTING_BALANCE_R,
-        )
+        s = _canon_compute_stats(syms[sym], starting_balance=STARTING_BALANCE_R)
         print(
             f"{sym:<12} {s['trades']:>5} {s['win_rate']:>6.1f}% "
             f"{s['total_pnl']:>+10.2f}R {s['avg_r']:>8.4f} {s['profit_factor']:>6.2f}"
@@ -957,54 +1077,49 @@ def main():
     if total_cand != total_acc + total_rej:
         print(f"  ⚠️  AUDIT MISMATCH: {total_cand} != {total_acc} + {total_rej}")
     else:
-        print("  ✓ audit counter consistent")
-
-    # Trade-level attribution vs Frozen
-    trade_level = None
-    if not args.no_attribute and not args.dry_run:
-        print("\n=== TRADE-LEVEL ATTRIBUTION (Frozen vs D) ===")
-        trade_level = _attribution(symbols, all_d_trades)
-        print(f"  Common (Frozen ∩ D): {trade_level['common']}")
-        print(f"  Frozen-only: {trade_level['frozen_only']}")
-        print(f"  D-only: {trade_level['d_only']}")
+        print(f"  ✓ audit counter consistent: {total_cand} = {total_acc} + {total_rej}")
 
     # ── Artifacts (DRY-RUN writes to separate suffix) ─────────────────────
     out_dir = _PROJECT_ROOT / "results" / "research"
     out_dir.mkdir(parents=True, exist_ok=True)
-    suffix = "_dryrun" if args.dry_run else ""
+    suffix = "_pure_dryrun" if args.dry_run else "_pure"
 
     summary = {
-        "variant": "D — FVG-Origin EQ",
-        "engine": "experiment/main_research_c.py",
-        "variant_file": "experiment/research_variant_D_fvg_origin_eq.py",
-        "approach": "3-phase research runner: D EQ evaluation (uses canonical helpers) "
-        "→ canonical run_test_a() → filter",
+        "variant": "D — PURE FVG-Origin EQ",
+        "engine": "experiment/main_research_c_v1_0.py",
+        "variant_file": "experiment/main_research_d_v1_0.py",
+        "approach": "canonical FVG eval/exec loop with ONLY the EQ source "
+        "swapped: Frozen EQ → D FVG-Origin EQ. No pre-filter, "
+        "no post-filter, no fallback.",
         "eq_type": "FVG-origin displacement leg midpoint",
         "eq_timeframe": "1H",
         "eq_time_reference": "f = fvg.real_index (FVG formation bar)",
         "fvg_timeframe": "15m",
-        "no_lookahead": "4·(h+3) ≤ f, enforced by design",
+        "no_lookahead": "4·(h+4)-1 ≤ f, enforced by design",
+        "frozen_eq_pre_filter": False,
+        "frozen_eq_post_filter": False,
+        "fallback_logic": False,
+        "secondary_veto": False,
         "symbols": symbols,
         "data_start": "2024-01-01",
         "data_end": "2026-08-21",
         "starting_balance": STARTING_BALANCE_R,
         "stats": stats,
         "eq_audit": {
-            "total_candidates": total_cand,
-            "accepted": total_acc,
-            "rejected": total_rej,
+            "fvg_candidates": total_cand,
+            "d_eq_accepted": total_acc,
+            "d_eq_rejected": total_rej,
         },
-        "trade_level": trade_level,
         "canonical_engine_modified": False,
         "elapsed_seconds": round(elapsed, 1),
     }
     with open(
-        out_dir / f"variant_D_fvg_origin_eq_summary{suffix}.json", "w", encoding="utf-8"
+        out_dir / f"variant_D_fvg_origin_eq{suffix}_summary.json", "w", encoding="utf-8"
     ) as f:
         json.dump(summary, f, indent=2, default=str)
 
     trade_audit = []
-    for t in all_d_trades:
+    for t in all_trades:
         trade_audit.append(
             {
                 "trade_id": t.trade_id,
@@ -1019,31 +1134,27 @@ def main():
                 "zone_bottom": t.zone_bottom,
                 "zone_index": t.zone_index,
                 "zone_creation_bar": t.zone_creation_bar,
-                "fvg_confirm_bar": t.zone_index + 1,
-                "entry_bar_index": t.entry_bar_index,
                 "exit_price": t.exit_price,
                 "exit_bar_index": t.exit_bar_index,
-                "exit_timestamp": t.exit_timestamp,
+                "exit_timestamp": (
+                    t.exit_timestamp.timestamp()
+                    if hasattr(t.exit_timestamp, "timestamp")
+                    else float(t.exit_timestamp)
+                    if t.exit_timestamp
+                    else 0.0
+                ),
                 "hold_bars": t.hold_bars,
                 "max_favorable": t.max_favorable,
                 "max_adverse": t.max_adverse,
                 "trailing_count": t.trailing_count,
-                "d_pivot_1h_index": t.d_pivot_1h_index,
-                "d_pivot_1h_kind": t.d_pivot_1h_kind,
-                "d_pivot_1h_price": t.d_pivot_1h_price,
-                "d_pivot_confirmation_1h": t.d_pivot_confirmation_1h,
-                "d_leg_high": t.d_leg_high,
-                "d_leg_low": t.d_leg_low,
-                "d_eq": t.d_eq,
-                "d_decision": t.d_decision,
             }
         )
     with open(
-        out_dir / f"variant_D_fvg_origin_eq_trades{suffix}.json", "w", encoding="utf-8"
+        out_dir / f"variant_D_fvg_origin_eq{suffix}_trades.json", "w", encoding="utf-8"
     ) as f:
         json.dump(trade_audit, f, indent=2, default=str)
 
-    # FVG-candidate audit (every candidate with its D decision)
+    # FVG-candidate audit
     candidate_audit = []
     for a in all_audits:
         candidate_audit.append(
@@ -1066,7 +1177,7 @@ def main():
             }
         )
     with open(
-        out_dir / f"variant_D_fvg_origin_eq_candidates{suffix}.json",
+        out_dir / f"variant_D_fvg_origin_eq{suffix}_candidates.json",
         "w",
         encoding="utf-8",
     ) as f:
@@ -1083,13 +1194,13 @@ def main():
             total_rej=total_rej,
             elapsed=elapsed,
             per_symbol=per_sym_stats,
-            trade_level=trade_level,
         )
 
     print(f"\nResults saved to {out_dir}")
     if args.dry_run:
         print(
-            "  (DRY-RUN artifacts use '_dryrun' suffix; canonical artifacts NOT overwritten)"
+            "  (DRY-RUN artifacts use '_pure_dryrun' suffix; "
+            "previous artifacts NOT overwritten)"
         )
 
 

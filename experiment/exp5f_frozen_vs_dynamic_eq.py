@@ -27,12 +27,12 @@ import json
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass, field
 
 import pandas as pd
 import multiprocessing as mp
 
 import sys
+
 _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
@@ -40,22 +40,28 @@ _NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/sr
 if _NEXUS_SNIPER_SRC not in sys.path:
     sys.path.insert(0, _NEXUS_SNIPER_SRC)
 
-from src.strategy.data_loader import DataLoader
-from src.strategy.session import SessionManager
-from src.strategy.models import Bar, SweepEvent, Direction
+from src.strategy.session import SessionManager  # noqa: E402
+from src.strategy.models import Bar, SweepEvent, Direction  # noqa: E402
 
-from experiment.config import (
-    TP_RR, SL_ATR_MULT, FVG_MIN_SIZE_ATR_MULT, FVG_WICK_RATIO_MAX,
-    FVG_BUFFER_MULT, FVG_BUFFER_MIN_FACTOR, MIN_RISK_DIST_ATR_MULT,
-    ATR_PERIOD, SESSION_START_HOUR, SESSION_END_HOUR,
+from experiment.config import (  # noqa: E402
+    TP_RR,
+    SL_ATR_MULT,
+    FVG_MIN_SIZE_ATR_MULT,
+    FVG_WICK_RATIO_MAX,
+    FVG_BUFFER_MULT,
+    FVG_BUFFER_MIN_FACTOR,
+    MIN_RISK_DIST_ATR_MULT,
+    ATR_PERIOD,
+    SESSION_START_HOUR,
+    SESSION_END_HOUR,
 )
-from experiment.trailing_adapter import apply_trailing, check_exit, _norm_side
-from experiment.main_research_c import run_test_a
-from experiment.gemini_benchmark import _to_nexus_bar, _is_fresh_fvg, compute_atr
+from experiment.trailing_adapter import apply_trailing, check_exit, _norm_side  # noqa: E402
+from experiment.main_research_c_v1_0 import run_test_a  # noqa: E402
+from experiment.gemini_benchmark import _to_nexus_bar, _is_fresh_fvg, compute_atr  # noqa: E402
 
-from pivot import find_swing_highs, find_swing_lows
-from fvg import detect_fvgs as _nexus_detect_fvgs
-from bisect import bisect_right
+from pivot import find_swing_highs, find_swing_lows  # noqa: E402
+from fvg import detect_fvgs as _nexus_detect_fvgs  # noqa: E402
+from bisect import bisect_right  # noqa: E402
 
 ICMARKET_FEATHER = str(_PROJECT_ROOT / "data" / "icmarket_feather")
 SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "GBPJPY"]
@@ -64,10 +70,14 @@ WINDOW_DAYS = 180
 
 # ── Research EQ helpers (from EXP5B) ────────────────────────────────────────
 
+
 def _build_swing_timeline(
-    bars_15m: List[Bar], left: int = 3, right: int = 3,
-) -> Tuple[List[Tuple[int, int, float]], List[int],
-           List[Tuple[int, int, float]], List[int]]:
+    bars_15m: List[Bar],
+    left: int = 3,
+    right: int = 3,
+) -> Tuple[
+    List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]
+]:
     """Precompute ALL confirmed swing events ONCE per symbol. O(n).
 
     Returns (high_events, high_keys, low_events, low_keys).
@@ -75,10 +85,14 @@ def _build_swing_timeline(
     Keys are pre-extracted bisect arrays for O(log n) lookup.
     """
     nexus_bars = [_to_nexus_bar(b) for b in bars_15m]
-    highs = [(sp.bar_index + right, sp.bar_index, sp.price)
-             for sp in find_swing_highs(nexus_bars, left=left, right=right)]
-    lows = [(sp.bar_index + right, sp.bar_index, sp.price)
-            for sp in find_swing_lows(nexus_bars, left=left, right=right)]
+    highs = [
+        (sp.bar_index + right, sp.bar_index, sp.price)
+        for sp in find_swing_highs(nexus_bars, left=left, right=right)
+    ]
+    lows = [
+        (sp.bar_index + right, sp.bar_index, sp.price)
+        for sp in find_swing_lows(nexus_bars, left=left, right=right)
+    ]
     highs.sort(key=lambda e: e[0])
     lows.sort(key=lambda e: e[0])
     high_keys = [e[0] for e in highs]
@@ -110,6 +124,7 @@ def _compute_research_eq(
 
 # ── Variant B: Dynamic Research EQ engine ──────────────────────────────────
 
+
 def run_test_a_dynamic_eq(
     symbol: str,
     bars_15m: List[Bar],
@@ -128,7 +143,9 @@ def run_test_a_dynamic_eq(
         return []
 
     # ── Precompute swing timeline once (O(n)) ──
-    swing_highs, high_keys, swing_lows, low_keys = _build_swing_timeline(bars_15m, left=3, right=3)
+    swing_highs, high_keys, swing_lows, low_keys = _build_swing_timeline(
+        bars_15m, left=3, right=3
+    )
 
     session = SessionManager(
         symbol=symbol,
@@ -157,53 +174,86 @@ def run_test_a_dynamic_eq(
 
         if i > start_idx:
             prev_close = bars_15m[i - 1].close
-            tr = max(bar.high - bar.low, abs(bar.high - prev_close), abs(bar.low - prev_close))
+            tr = max(
+                bar.high - bar.low,
+                abs(bar.high - prev_close),
+                abs(bar.low - prev_close),
+            )
             atr_val = (atr_val * (ATR_PERIOD - 1) + tr) / ATR_PERIOD
 
         min_fvg_size = max(atr_val * FVG_MIN_SIZE_ATR_MULT, 1e-8)
 
         if active_trade is not None:
-            apply_trailing(bars_15m[max(0, i - 500):i + 1], [active_trade], atr_val, symbol)
+            apply_trailing(
+                bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol
+            )
             exit_info = check_exit(bar, active_trade)
             if exit_info is not None:
                 exit_price = exit_info["exit_price"]
                 result = exit_info["result"]
                 if _norm_side(active_trade["side"]) == "long":
-                    pnl_r = (exit_price - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                        active_trade["entry_price"] - active_trade["initial_sl"]
+                    )
                 else:
-                    pnl_r = (active_trade["entry_price"] - exit_price) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                        active_trade["sl"] - active_trade["entry_price"]
+                    )
                 if result == "LOSS":
                     pnl_r = -1.0
 
                 if _norm_side(active_trade["side"]) == "long":
-                    mfe = (active_trade.get("max_price", active_trade["entry_price"]) - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
-                    mae = (active_trade["entry_price"] - active_trade.get("min_price", active_trade["entry_price"])) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mfe = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mae = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
                 else:
-                    mfe = (active_trade["entry_price"] - active_trade.get("min_price", active_trade["entry_price"])) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
-                    mae = (active_trade.get("max_price", active_trade["entry_price"]) - active_trade["entry_price"]) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    mfe = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mae = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["sl"] - active_trade["entry_price"])
 
-                trades.append({
-                    "trade_id": active_trade["trade_id"], "symbol": symbol,
-                    "direction": active_trade["direction"],
-                    "entry_price": active_trade["entry_price"],
-                    "sl": active_trade["initial_sl"], "tp": active_trade["initial_tp"],
-                    "entry_bar_index": active_trade["entry_bar"],
-                    "sweep_bar_index": active_trade["sweep_bar_index"],
-                    "zone_index": active_trade.get("zone_index", 0),
-                    "zone_top": active_trade.get("zone_top", 0),
-                    "zone_bottom": active_trade.get("zone_bottom", 0),
-                    "zone_size": active_trade.get("zone_size", 0),
-                    "research_eq": active_trade.get("research_eq"),
-                    "exit_price": exit_price, "exit_bar_index": i,
-                    "result": result, "pnl_r": pnl_r,
-                    "max_favorable": mfe, "max_adverse": mae,
-                    "hold_bars": i - active_trade["entry_bar"],
-                })
+                trades.append(
+                    {
+                        "trade_id": active_trade["trade_id"],
+                        "symbol": symbol,
+                        "direction": active_trade["direction"],
+                        "entry_price": active_trade["entry_price"],
+                        "sl": active_trade["initial_sl"],
+                        "tp": active_trade["initial_tp"],
+                        "entry_bar_index": active_trade["entry_bar"],
+                        "sweep_bar_index": active_trade["sweep_bar_index"],
+                        "zone_index": active_trade.get("zone_index", 0),
+                        "zone_top": active_trade.get("zone_top", 0),
+                        "zone_bottom": active_trade.get("zone_bottom", 0),
+                        "zone_size": active_trade.get("zone_size", 0),
+                        "research_eq": active_trade.get("research_eq"),
+                        "exit_price": exit_price,
+                        "exit_bar_index": i,
+                        "result": result,
+                        "pnl_r": pnl_r,
+                        "max_favorable": mfe,
+                        "max_adverse": mae,
+                        "hold_bars": i - active_trade["entry_bar"],
+                    }
+                )
                 active_trade = None
                 continue
 
-            active_trade["max_price"] = max(active_trade.get("max_price", bar.high), bar.high)
-            active_trade["min_price"] = min(active_trade.get("min_price", bar.low), bar.low)
+            active_trade["max_price"] = max(
+                active_trade.get("max_price", bar.high), bar.high
+            )
+            active_trade["min_price"] = min(
+                active_trade.get("min_price", bar.low), bar.low
+            )
             continue
 
         sweep = session.update(bar)
@@ -218,12 +268,19 @@ def run_test_a_dynamic_eq(
         if not sweep_detected or last_sweep is None:
             continue
 
-        sweep_direction = "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
+        sweep_direction = (
+            "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
+        )
         lb = min(100, i + 1)
         nexus_bars = nexus_bars_full[i + 1 - lb : i + 1]
 
-        fvgs = _nexus_detect_fvgs(nexus_bars, lookback=min(100, len(nexus_bars)), timeframe="15m",
-                                   min_fvg_size=min_fvg_size, max_wick_ratio=FVG_WICK_RATIO_MAX)
+        fvgs = _nexus_detect_fvgs(
+            nexus_bars,
+            lookback=min(100, len(nexus_bars)),
+            timeframe="15m",
+            min_fvg_size=min_fvg_size,
+            max_wick_ratio=FVG_WICK_RATIO_MAX,
+        )
 
         for fvg in fvgs:
             if fvg.real_index <= last_sweep.bar_index:
@@ -265,33 +322,66 @@ def run_test_a_dynamic_eq(
             fh = fvg.top - fvg.bottom
             rp2 = atr_val * SL_ATR_MULT
             if fvg.direction == "bullish":
-                ab = max(fh * FVG_BUFFER_MIN_FACTOR, max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT))) if fh > 0 else rp2 * 2
+                ab = (
+                    max(
+                        fh * FVG_BUFFER_MIN_FACTOR,
+                        max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT)),
+                    )
+                    if fh > 0
+                    else rp2 * 2
+                )
                 sl_price = fvg.bottom - ab if fh > 0 else entry_price - rp2 * 2
             else:
-                ab = max(fh * FVG_BUFFER_MIN_FACTOR, max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT))) if fh > 0 else rp2 * 2
+                ab = (
+                    max(
+                        fh * FVG_BUFFER_MIN_FACTOR,
+                        max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT)),
+                    )
+                    if fh > 0
+                    else rp2 * 2
+                )
                 sl_price = fvg.top + ab if fh > 0 else entry_price + rp2 * 2
 
             rd = abs(entry_price - sl_price)
             if rd <= 0:
-                sl_price = entry_price - rp2 * 2 if fvg.direction == "bullish" else entry_price + rp2 * 2
+                sl_price = (
+                    entry_price - rp2 * 2
+                    if fvg.direction == "bullish"
+                    else entry_price + rp2 * 2
+                )
                 rd = abs(entry_price - sl_price)
-            tp = entry_price + rd * TP_RR if fvg.direction == "bullish" else entry_price - rd * TP_RR
+            tp = (
+                entry_price + rd * TP_RR
+                if fvg.direction == "bullish"
+                else entry_price - rd * TP_RR
+            )
 
             if rd < atr_val * MIN_RISK_DIST_ATR_MULT:
                 continue
 
             trade_counter += 1
             active_trade = {
-                "trade_id": trade_counter, "side": _norm_side(fvg.direction),
+                "trade_id": trade_counter,
+                "side": _norm_side(fvg.direction),
                 "direction": fvg.direction,
-                "entry_price": entry_price, "sl": sl_price, "tp": tp,
-                "initial_sl": sl_price, "initial_tp": tp,
-                "entry_bar": i + 1, "sweep_bar_index": last_sweep.bar_index,
-                "zone_index": fvg.real_index, "zone_creation_bar": fvg.real_index,
-                "zone_top": fvg.top, "zone_bottom": fvg.bottom, "zone_size": fvg.size,
+                "entry_price": entry_price,
+                "sl": sl_price,
+                "tp": tp,
+                "initial_sl": sl_price,
+                "initial_tp": tp,
+                "entry_bar": i + 1,
+                "sweep_bar_index": last_sweep.bar_index,
+                "zone_index": fvg.real_index,
+                "zone_creation_bar": fvg.real_index,
+                "zone_top": fvg.top,
+                "zone_bottom": fvg.bottom,
+                "zone_size": fvg.size,
                 "zone_size_atr": fvg.size / atr_val if atr_val > 0 else 0,
                 "research_eq": current_research_eq,
-                "trailing_count": 0, "max_price": entry_price, "min_price": entry_price, "closed": False,
+                "trailing_count": 0,
+                "max_price": entry_price,
+                "min_price": entry_price,
+                "closed": False,
             }
             sweep_detected = False
             last_sweep = None
@@ -302,33 +392,45 @@ def run_test_a_dynamic_eq(
         last_bar = bars_15m[-1]
         if _norm_side(active_trade["side"]) == "long":
             exit_price = last_bar.close
-            pnl_r = (exit_price - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+            pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                active_trade["entry_price"] - active_trade["initial_sl"]
+            )
         else:
             exit_price = last_bar.close
-            pnl_r = (active_trade["entry_price"] - exit_price) / abs(active_trade["sl"] - active_trade["entry_price"])
+            pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                active_trade["sl"] - active_trade["entry_price"]
+            )
 
-        trades.append({
-            "trade_id": active_trade["trade_id"], "symbol": symbol,
-            "direction": active_trade["direction"],
-            "entry_price": active_trade["entry_price"],
-            "sl": active_trade["initial_sl"], "tp": active_trade["initial_tp"],
-            "entry_bar_index": active_trade["entry_bar"],
-            "sweep_bar_index": active_trade["sweep_bar_index"],
-            "zone_index": active_trade.get("zone_index", 0),
-            "zone_top": active_trade.get("zone_top", 0),
-            "zone_bottom": active_trade.get("zone_bottom", 0),
-            "zone_size": active_trade.get("zone_size", 0),
-            "research_eq": active_trade.get("research_eq"),
-            "exit_price": exit_price, "exit_bar_index": len(bars_15m) - 1,
-            "result": "OPEN", "pnl_r": pnl_r,
-            "max_favorable": 0, "max_adverse": 0,
-            "hold_bars": len(bars_15m) - 1 - active_trade["entry_bar"],
-        })
+        trades.append(
+            {
+                "trade_id": active_trade["trade_id"],
+                "symbol": symbol,
+                "direction": active_trade["direction"],
+                "entry_price": active_trade["entry_price"],
+                "sl": active_trade["initial_sl"],
+                "tp": active_trade["initial_tp"],
+                "entry_bar_index": active_trade["entry_bar"],
+                "sweep_bar_index": active_trade["sweep_bar_index"],
+                "zone_index": active_trade.get("zone_index", 0),
+                "zone_top": active_trade.get("zone_top", 0),
+                "zone_bottom": active_trade.get("zone_bottom", 0),
+                "zone_size": active_trade.get("zone_size", 0),
+                "research_eq": active_trade.get("research_eq"),
+                "exit_price": exit_price,
+                "exit_bar_index": len(bars_15m) - 1,
+                "result": "OPEN",
+                "pnl_r": pnl_r,
+                "max_favorable": 0,
+                "max_adverse": 0,
+                "hold_bars": len(bars_15m) - 1 - active_trade["entry_bar"],
+            }
+        )
 
     return trades
 
 
 # ── Per-symbol comparison ──────────────────────────────────────────────────
+
 
 def _analyze_symbol(symbol: str) -> Dict[str, Any]:
     """Run both variants on the same data and compare."""
@@ -340,33 +442,52 @@ def _analyze_symbol(symbol: str) -> Dict[str, Any]:
     cutoff = max_ts - pd.Timedelta(days=WINDOW_DAYS)
     df = df[df["timestamp"] >= cutoff].reset_index(drop=True)
     bars_15m = [
-        Bar(index=i, timestamp=row["timestamp"],
-            open=float(row["open"]), high=float(row["high"]),
-            low=float(row["low"]), close=float(row["close"]),
-            volume=float(row["volume"]))
+        Bar(
+            index=i,
+            timestamp=row["timestamp"],
+            open=float(row["open"]),
+            high=float(row["high"]),
+            low=float(row["low"]),
+            close=float(row["close"]),
+            volume=float(row["volume"]),
+        )
         for i, row in df.iterrows()
     ]
     if len(bars_15m) < 100:
-        return {"symbol": symbol, "frozen": [], "dynamic": [], "error": "insufficient data"}
+        return {
+            "symbol": symbol,
+            "frozen": [],
+            "dynamic": [],
+            "error": "insufficient data",
+        }
 
     # Variant A: Frozen EQ (KNOWN-GOOD)
     frozen_trades = run_test_a(symbol, bars_15m)
     frozen_dicts = []
     for t in frozen_trades:
-        frozen_dicts.append({
-            "trade_id": t.trade_id, "symbol": t.symbol,
-            "direction": t.direction, "entry_price": t.entry_price,
-            "sl": t.sl, "tp": t.tp,
-            "entry_bar_index": t.entry_bar_index,
-            "sweep_bar_index": t.sweep_bar_index,
-            "zone_index": t.zone_index,
-            "zone_top": t.zone_top, "zone_bottom": t.zone_bottom,
-            "zone_size": t.zone_size,
-            "exit_price": t.exit_price, "exit_bar_index": t.exit_bar_index,
-            "result": t.result, "pnl_r": t.pnl_r,
-            "max_favorable": t.max_favorable, "max_adverse": t.max_adverse,
-            "hold_bars": t.hold_bars,
-        })
+        frozen_dicts.append(
+            {
+                "trade_id": t.trade_id,
+                "symbol": t.symbol,
+                "direction": t.direction,
+                "entry_price": t.entry_price,
+                "sl": t.sl,
+                "tp": t.tp,
+                "entry_bar_index": t.entry_bar_index,
+                "sweep_bar_index": t.sweep_bar_index,
+                "zone_index": t.zone_index,
+                "zone_top": t.zone_top,
+                "zone_bottom": t.zone_bottom,
+                "zone_size": t.zone_size,
+                "exit_price": t.exit_price,
+                "exit_bar_index": t.exit_bar_index,
+                "result": t.result,
+                "pnl_r": t.pnl_r,
+                "max_favorable": t.max_favorable,
+                "max_adverse": t.max_adverse,
+                "hold_bars": t.hold_bars,
+            }
+        )
 
     # Variant B: Dynamic Research EQ
     dynamic_trades = run_test_a_dynamic_eq(symbol, bars_15m)
@@ -387,6 +508,7 @@ def _worker(symbol: str) -> Dict[str, Any]:
 
 
 # ── Stats helpers ──────────────────────────────────────────────────────────
+
 
 def _outcome_stats(trades: List[Dict], label: str) -> Dict[str, Any]:
     completed = [t for t in trades if t["result"] in ("TP", "PROFIT_TRAIL", "LOSS")]
@@ -421,24 +543,32 @@ def _outcome_stats(trades: List[Dict], label: str) -> Dict[str, Any]:
     # Profit factor
     gross_profit = sum(r for r in rs if r > 0)
     gross_loss = abs(sum(r for r in rs if r < 0))
-    pf = gross_profit / gross_loss if gross_loss > 0 else float('inf')
+    pf = gross_profit / gross_loss if gross_loss > 0 else float("inf")
 
     return {
-        "label": label, "N": n, "completed": len(completed),
-        "wins": len(wins), "WR%": round(wr, 1),
-        "AvgR": round(avg_r, 3), "TotalR": round(total_r, 2),
-        "MaxDD_R": round(maxdd_r, 2), "MaxDD_%": round(maxdd_pct, 2),
-        "PF": round(pf, 2) if pf != float('inf') else "∞",
+        "label": label,
+        "N": n,
+        "completed": len(completed),
+        "wins": len(wins),
+        "WR%": round(wr, 1),
+        "AvgR": round(avg_r, 3),
+        "TotalR": round(total_r, 2),
+        "MaxDD_R": round(maxdd_r, 2),
+        "MaxDD_%": round(maxdd_pct, 2),
+        "PF": round(pf, 2) if pf != float("inf") else "∞",
     }
 
 
 def _fmt(st: Dict) -> str:
-    return (f"| {st['label']} | {st['N']} | {st['completed']} | "
-            f"{st['WR%']} | {st['AvgR']} | {st['TotalR']} | "
-            f"{st['MaxDD_R']} | {st['MaxDD_%']} | {st['PF']} |")
+    return (
+        f"| {st['label']} | {st['N']} | {st['completed']} | "
+        f"{st['WR%']} | {st['AvgR']} | {st['TotalR']} | "
+        f"{st['MaxDD_R']} | {st['MaxDD_%']} | {st['PF']} |"
+    )
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
+
 
 def main():
     t0 = time.time()
@@ -459,17 +589,23 @@ def main():
             continue
         all_frozen.extend(res["frozen"])
         all_dynamic.extend(res["dynamic"])
-        sym_results.append({
-            "symbol": sym,
-            "frozen_n": len(res["frozen"]),
-            "dynamic_n": len(res["dynamic"]),
-        })
+        sym_results.append(
+            {
+                "symbol": sym,
+                "frozen_n": len(res["frozen"]),
+                "dynamic_n": len(res["dynamic"]),
+            }
+        )
         fs = _outcome_stats(res["frozen"], sym)
         ds = _outcome_stats(res["dynamic"], sym)
-        print(f"  {sym:10s}: frozen={len(res['frozen']):3d}({fs['MaxDD_%']:.1f}%) | dynamic={len(res['dynamic']):3d}({ds['MaxDD_%']:.1f}%)")
+        print(
+            f"  {sym:10s}: frozen={len(res['frozen']):3d}({fs['MaxDD_%']:.1f}%) | dynamic={len(res['dynamic']):3d}({ds['MaxDD_%']:.1f}%)"
+        )
 
     elapsed = time.time() - t0
-    print(f"\nTotal: frozen={len(all_frozen)} | dynamic={len(all_dynamic)} | elapsed {elapsed:.1f}s")
+    print(
+        f"\nTotal: frozen={len(all_frozen)} | dynamic={len(all_dynamic)} | elapsed {elapsed:.1f}s"
+    )
 
     # ── Trade-level attribution ──
     # Match by (symbol, zone_index) — same FVG, different EQ decision
@@ -479,7 +615,7 @@ def main():
     only_frozen = [k for k in frozen_keys if k not in dynamic_keys]
     only_dynamic = [k for k in dynamic_keys if k not in frozen_keys]
     both = [k for k in frozen_keys if k in dynamic_keys]
-    neither_count = 0  # Would need sweep-level tracking
+    neither_count = 0  # Would need sweep-level tracking  # noqa: F841
 
     print("Trade-level attribution:")
     print(f"  Both variants traded:     {len(both)}")
@@ -497,12 +633,16 @@ def main():
         "attribution": {
             "both": [{"symbol": k[0], "zone_index": k[1]} for k in both],
             "only_frozen": [{"symbol": k[0], "zone_index": k[1]} for k in only_frozen],
-            "only_dynamic": [{"symbol": k[0], "zone_index": k[1]} for k in only_dynamic],
+            "only_dynamic": [
+                {"symbol": k[0], "zone_index": k[1]} for k in only_dynamic
+            ],
         },
         "symbol_results": sym_results,
     }
     comp_path = out_dir / "exp5f_frozen_vs_dynamic.json"
-    comp_path.write_text(json.dumps(comparison, indent=2, default=str), encoding="utf-8")
+    comp_path.write_text(
+        json.dumps(comparison, indent=2, default=str), encoding="utf-8"
+    )
 
     # ── Report ──
     L: List[str] = []
@@ -513,7 +653,9 @@ def main():
     L.append("Aynı motorun tek değişkenli EQ karşılaştırması.")
     L.append("")
     L.append("- **Variant A (Frozen EQ)**: `eq = (sweep_price + range_opposite) / 2`")
-    L.append("- **Variant B (Dynamic Research EQ)**: `research_eq = (swing_high + swing_low) / 2`")
+    L.append(
+        "- **Variant B (Dynamic Research EQ)**: `research_eq = (swing_high + swing_low) / 2`"
+    )
     L.append("")
     L.append("Tek değişken: EQ definition. Her şey aynı.")
     L.append("")
@@ -537,8 +679,14 @@ def main():
     ds = _outcome_stats(all_dynamic, "Dynamic")
 
     for key, fmt_str in [
-        ("N", "{}"), ("completed", "{}"), ("WR%", "{}%"), ("AvgR", "{}"),
-        ("TotalR", "{}"), ("MaxDD_R", "{}"), ("MaxDD_%", "{}%"), ("PF", "{}"),
+        ("N", "{}"),
+        ("completed", "{}"),
+        ("WR%", "{}%"),
+        ("AvgR", "{}"),
+        ("TotalR", "{}"),
+        ("MaxDD_R", "{}"),
+        ("MaxDD_%", "{}%"),
+        ("PF", "{}"),
     ]:
         fv = fs[key]
         dv = ds[key]
@@ -553,7 +701,9 @@ def main():
     # ── Table 2: Per-symbol comparison ──
     L.append("## 2. PER-SYMBOL COMPARISON")
     L.append("")
-    L.append("| Symbol | Frozen N | Frozen WR% | Frozen AvgR | Dynamic N | Dynamic WR% | Dynamic AvgR | Delta N |")
+    L.append(
+        "| Symbol | Frozen N | Frozen WR% | Frozen AvgR | Dynamic N | Dynamic WR% | Dynamic AvgR | Delta N |"
+    )
     L.append("|---|---|---|---|---|---|---|---|")
     for sym, res in zip(SYMBOLS, results):
         if res.get("error"):
@@ -562,8 +712,10 @@ def main():
         dt = _outcome_stats(res["dynamic"], sym)
         dn = dt["N"] - ft["N"]
         sign = "+" if dn > 0 else ""
-        L.append(f"| {sym} | {ft['N']} | {ft['WR%']} | {ft['AvgR']} | "
-                 f"{dt['N']} | {dt['WR%']} | {dt['AvgR']} | {sign}{dn} |")
+        L.append(
+            f"| {sym} | {ft['N']} | {ft['WR%']} | {ft['AvgR']} | "
+            f"{dt['N']} | {dt['WR%']} | {dt['AvgR']} | {sign}{dn} |"
+        )
     L.append("")
 
     # ── Table 3: Trade-level attribution ──
@@ -616,19 +768,31 @@ def main():
     L.append("## 4. DYNAMIC EQ NET IMPACT")
     L.append("")
     if only_dynamic:
-        od_wins = sum(1 for t in [dynamic_keys[k] for k in only_dynamic]
-                      if t["result"] in ("TP", "PROFIT_TRAIL"))
-        od_losses = sum(1 for t in [dynamic_keys[k] for k in only_dynamic]
-                        if t["result"] == "LOSS")
-        L.append(f"- Dynamic EQ **added** {len(only_dynamic)} new trades "
-                 f"({od_wins} wins, {od_losses} losses)")
+        od_wins = sum(
+            1
+            for t in [dynamic_keys[k] for k in only_dynamic]
+            if t["result"] in ("TP", "PROFIT_TRAIL")
+        )
+        od_losses = sum(
+            1 for t in [dynamic_keys[k] for k in only_dynamic] if t["result"] == "LOSS"
+        )
+        L.append(
+            f"- Dynamic EQ **added** {len(only_dynamic)} new trades "
+            f"({od_wins} wins, {od_losses} losses)"
+        )
     if only_frozen:
-        of_wins = sum(1 for t in [frozen_keys[k] for k in only_frozen]
-                      if t["result"] in ("TP", "PROFIT_TRAIL"))
-        of_losses = sum(1 for t in [frozen_keys[k] for k in only_frozen]
-                        if t["result"] == "LOSS")
-        L.append(f"- Dynamic EQ **removed** {len(only_frozen)} Frozen EQ trades "
-                 f"({of_wins} wins, {of_losses} losses)")
+        of_wins = sum(
+            1
+            for t in [frozen_keys[k] for k in only_frozen]
+            if t["result"] in ("TP", "PROFIT_TRAIL")
+        )
+        of_losses = sum(
+            1 for t in [frozen_keys[k] for k in only_frozen] if t["result"] == "LOSS"
+        )
+        L.append(
+            f"- Dynamic EQ **removed** {len(only_frozen)} Frozen EQ trades "
+            f"({of_wins} wins, {of_losses} losses)"
+        )
     L.append("")
 
     L.append("Observation-only. No commentary or decision.")

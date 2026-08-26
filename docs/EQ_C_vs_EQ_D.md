@@ -10,12 +10,12 @@
 
 | Engine | File | EQ Type | Purpose |
 |---|---|---|---|
-| **Research C** | `experiment/main_research_c.py` | C2 EQ — Post-Sweep Displacement EQ | Primary benchmark engine, sharp candidate |
-| **Research D** | `experiment/main_research_d.py` | PURE D — FVG-Origin EQ | Pure comparison engine, primary candidate |
+| **Research C** | `experiment/main_research_c_v1_0.py` | C2 EQ — Post-Sweep Displacement EQ | Primary benchmark engine, sharp candidate |
+| **Research D** | `experiment/main_research_d_v1_0.py` | PURE D — FVG-Origin EQ | Pure comparison engine, primary candidate |
 
 ### Previous Names (renamed 2026-08-26)
-- `gemini_benchmark_eq.py` → `main_research_c.py`
-- `research_variant_D_fvg_origin_eq_pure.py` → `main_research_d.py`
+- `gemini_benchmark_eq.py` → `main_research_c_v1_0.py`
+- `research_variant_D_fvg_origin_eq_pure.py` → `main_research_d_v1_0.py`
 
 ---
 
@@ -104,7 +104,7 @@ where:
 - ✅ C2 (Post-Sweep Displacement EQ) — Implemented, tested, documented
 - ✅ PURE D (FVG-Origin EQ) — Implemented, tested, KNOWN-GOOD FROZEN BENCHMARK
 - ✅ TP 1.8 vs 2.0 comparison — 1.8 is canonical (trailing dominates)
-- ✅ Engine renames — `main_research_c.py` and `main_research_d.py`
+- ✅ Engine renames — `main_research_c_v1_0.py` and `main_research_d_v1_0.py`
 - ✅ Documentation checkpoint — this file
 
 ### Pending
