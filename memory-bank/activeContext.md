@@ -1,15 +1,46 @@
 # Active Context
 
-## CHECKPOINT: MaxDD CHRONOLOGY FIX — COMPLETE (2026-08-25)
+## CHECKPOINT: KNOWN-GOOD FROZEN BENCHMARK — PURE D (2026-08-26)
+
+### Status
+PURE D — FVG-Origin EQ has been promoted to **KNOWN-GOOD FROZEN BENCHMARK**.
+
+- **Benchmark ID:** `PURE_D_FVG_ORIGIN_EQ`
+- **Artifact:** `results/benchmark/PURE_D_FVG_ORIGIN_EQ_benchmark.json`
+- **Canonical Engine:** `experiment/gemini_benchmark_eq.py` (UNCHANGED)
+
+### Overall Results (2.7Y, 6-major, correct-chronology)
+| Metric | Value |
+|---|---|
+| Trades | 2847 |
+| WR | 66.1% |
+| TotalR | +2949.05R |
+| AvgR | +1.0358 |
+| PF | 4.05 |
+| MaxDD | 7.36R |
+| MaxDD% | 2.76% |
+
+### EQ Definition
+```
+d_eq = (leg_low + leg_high) / 2
+```
+Leg anchored at latest confirmed 1H structural swing at FVG formation.
+Position filter: bullish `fvg_top > d_eq` → REJECT; bearish `fvg_bottom < d_eq` → REJECT.
+
+### Promotion Rule
+A new variant must beat this benchmark in a head-to-head comparison via a separate process. This benchmark is not deleted if superseded; it is archived.
+
+### Immutability
+- Do not modify this benchmark artifact.
+- Do not add strategy rules, filters, or execution changes.
+- Future experiments MUST compare against this frozen benchmark.
+
+---
+
+## PRIOR CHECKPOINT: MaxDD CHRONOLOGY FIX — COMPLETE (2026-08-25)
 
 ### Problem Identified
 Old `compute_stats()` sorted completed trades by `exit_bar_index` for portfolio equity curve construction. This was INCORRECT because `exit_bar_index` is a symbol-local index, not a global chronological position.
-
-**Why this matters for multi-symbol portfolios:**
-- Symbol A might have `exit_bar_index=150` at timestamp 2026-07-25 14:00
-- Symbol B might have `exit_bar_index=50` at timestamp 2026-08-01 09:00
-- Sorting by `exit_bar_index` would incorrectly place B's trade before A's even though B's trade happened 7 days LATER
-- This corrupts the portfolio equity curve order and produces incorrect MaxDD values
 
 ### Correct Methodology
 ```
@@ -37,27 +68,17 @@ MaxDD% = max(DD%_t)  [across all t where peak_t > 0]
 ### Changes Made (experiment/gemini_benchmark_eq.py)
 1. `BenchmarkTrade` dataclass: added `exit_timestamp: float = 0.0`
 2. Four trade closing points now populate `exit_timestamp`:
-   - `run_test_a` normal exit: `bar.timestamp` (the bar where exit occurred)
-   - `run_test_a` OPEN trade: `last_bar.timestamp` (final bar of dataset)
+   - `run_test_a` normal exit: `bar.timestamp`
+   - `run_test_a` OPEN trade: `last_bar.timestamp`
    - `run_test_b` normal exit: `bar.timestamp`
    - `run_test_b` OPEN trade: `last_bar.timestamp`
 3. `compute_stats()` now sorts by `exit_timestamp` instead of `exit_bar_index`
 4. MaxDD% field added to return dict
 
 ### What Was NOT Changed
-- Strategy/trade generation logic unchanged (entry, exit, TP, SL, FVG, sweep, config)
+- Strategy/trade generation logic unchanged
 - `apply_trailing()`, `check_exit()`, PnL calculation all unchanged
 - Old benchmark result files not modified
-- No backtest run during this fix session
-
-### Known Old Values (DO NOT USE AS TARGET)
-- Old reports showed 7.32R (EXP5F, 529 trades) and 12.73R (KNOWN-GOOD, 1262 trades)
-- These used `exit_bar_index` sorting → incorrect chronology
-- New correct implementation will produce different values
-- Real results from new backtest run will be the legitimate values
-
-### Next Step
-- Run new benchmark/backtest with the corrected code
 - Compare new MaxDD_R and MaxDD% against old values
 - Validate that the fix produces correct chronological ordering
 

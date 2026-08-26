@@ -1,5 +1,54 @@
 # Progress
 
+## KNOWN-GOOD FROZEN BENCHMARK — PURE D (2026-08-26)
+
+### Promotion
+PURE D — FVG-Origin EQ promoted to **KNOWN-GOOD FROZEN BENCHMARK**.
+
+- Benchmark ID: `PURE_D_FVG_ORIGIN_EQ`
+- Artifact: `results/benchmark/PURE_D_FVG_ORIGIN_EQ_benchmark.json`
+- Canonical engine: `experiment/gemini_benchmark_eq.py` (UNCHANGED, byte-identical to origin/main)
+- No-lookahead: `confirm_15m = 4*(pivot_1h+4)-1 ≤ f`, violations = 0
+
+### Results (2.7Y, 6-major, correct-chronology)
+| Metric | Value |
+|---|---|
+| Trades | 2847 |
+| Wins | 1881 |
+| Losses | 966 |
+| WR | 66.1% |
+| TotalR | +2949.05R |
+| AvgR | +1.0358 |
+| PF | 4.05 |
+| MaxDD | 7.36R |
+| MaxDD% | 2.76% |
+
+### Per-Symbol
+| Symbol | N | WR% | PnL | AvgR | PF |
+|---|---:|---:|---:|---:|---:|
+| EURUSD | 503 | 68.6% | +578.81R | +1.1507 | 4.66 |
+| USDJPY | 465 | 68.2% | +515.16R | +1.1079 | 4.48 |
+| GBPJPY | 472 | 66.7% | +457.50R | +0.9693 | 3.91 |
+| AUDUSD | 481 | 64.9% | +450.15R | +0.9359 | 3.66 |
+| USDCAD | 454 | 63.4% | +572.46R | +1.2609 | 4.45 |
+| GBPUSD | 472 | 64.4% | +374.97R | +0.7944 | 3.23 |
+
+### EQ Definition
+`d_eq = (leg_low + leg_high) / 2` — leg anchored at latest confirmed 1H structural swing at FVG formation.
+
+### Promotion Rule
+A new variant must beat this benchmark in a head-to-head comparison. This benchmark is not deleted if superseded; it is archived.
+
+### Artifacts
+- `docs/KNOWN_GOOD_BENCHMARK.md` — updated with frozen benchmark
+- `results/benchmark/PURE_D_FVG_ORIGIN_EQ_benchmark.json`
+- `results/research/variant_D_fvg_origin_eq_pure_summary.json`
+- `results/research/variant_D_fvg_origin_eq_pure_trades.json`
+- `results/research/variant_D_fvg_origin_eq_pure_candidates.json`
+- `results/research/variant_D_fvg_origin_eq_summary.md`
+
+---
+
 ## LIVE ↔ BACKTEST PARITY AUDIT — PASS (2026-08-22, read-only)
 
 ### TIME SOURCE

@@ -1,0 +1,52 @@
+{
+  "variant": "D \u2014 PURE FVG-Origin EQ",
+  "engine": "experiment/gemini_benchmark_eq.py",
+  "variant_file": "experiment/research_variant_D_fvg_origin_eq_pure.py",
+  "approach": "canonical FVG eval/exec loop with ONLY the EQ source swapped: Frozen EQ \u2192 D FVG-Origin EQ. No pre-filter, no post-filter, no fallback.",
+  "eq_type": "FVG-origin displacement leg midpoint",
+  "eq_timeframe": "1H",
+  "eq_time_reference": "f = fvg.real_index (FVG formation bar)",
+  "fvg_timeframe": "15m",
+  "no_lookahead": "4\u00b7(h+3) \u2264 f, enforced by design",
+  "frozen_eq_pre_filter": false,
+  "frozen_eq_post_filter": false,
+  "fallback_logic": false,
+  "secondary_veto": false,
+  "symbols": [
+    "EURUSD",
+    "GBPUSD",
+    "USDJPY",
+    "AUDUSD",
+    "USDCAD",
+    "GBPJPY"
+  ],
+  "data_start": "2024-01-01",
+  "data_end": "2026-08-21",
+  "starting_balance": 100.0,
+  "stats": {
+    "trades": 2847,
+    "wins": 1881,
+    "losses": 966,
+    "open": 0,
+    "win_rate": 66.0695468914647,
+    "total_pnl": 2949.0456,
+    "avg_r": 1.0358,
+    "max_dd": 7.3595,
+    "max_dd_pct": 2.76,
+    "profit_factor": 4.05,
+    "trailing_trades": 1902,
+    "total_hops": 2553,
+    "avg_hops": 1.34,
+    "avg_mfe": 3.0089,
+    "avg_mae": 0.7327,
+    "median_mfe": 0.0,
+    "median_mae": 0.0
+  },
+  "eq_audit": {
+    "fvg_candidates": 10397,
+    "d_eq_accepted": 2869,
+    "d_eq_rejected": 7528
+  },
+  "canonical_engine_modified": false,
+  "elapsed_seconds": 133.1
+}

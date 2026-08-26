@@ -1,0 +1,123 @@
+{
+  "benchmark_id": "PURE_D_FVG_ORIGIN_EQ",
+  "status": "KNOWN-GOOD FROZEN BENCHMARK",
+  "created": "2026-08-26 17:52:28",
+  "engine": "experiment/gemini_benchmark_eq.py",
+  "variant": "D \u2014 PURE FVG-Origin EQ",
+  "variant_file": "experiment/research_variant_D_fvg_origin_eq_pure.py",
+  "canonical_engine_modified": false,
+  "approach": "canonical FVG eval/exec loop with ONLY the EQ source swapped: Frozen EQ \u2192 D FVG-Origin EQ",
+  "universe": {
+    "symbols": [
+      "EURUSD",
+      "GBPUSD",
+      "USDJPY",
+      "AUDUSD",
+      "USDCAD",
+      "GBPJPY"
+    ],
+    "tier": "Tier 1 \u2014 CORE / CANONICAL",
+    "count": 6
+  },
+  "data": {
+    "period": "2024-01-01 \u2192 2026-08-21",
+    "timeframe": "15m",
+    "horizon_years": 2.7,
+    "source": "ICMarket feather"
+  },
+  "eq_definition": {
+    "type": "FVG-origin displacement leg midpoint",
+    "timeframe": "1H",
+    "formula": "d_eq = (leg_low + leg_high) / 2",
+    "leg_anchor": "latest confirmed 1H structural swing at FVG formation",
+    "position_filter": "bullish: fvg_top > d_eq \u2192 REJECT; bearish: fvg_bottom < d_eq \u2192 REJECT"
+  },
+  "no_lookahead": {
+    "formula": "confirm_15m = 4*(pivot_1h+4)-1 <= f",
+    "violations": 0,
+    "status": "guaranteed by design"
+  },
+  "chronology": {
+    "status": "CORRECT-CHRONOLOGY",
+    "method": "FIFO entry ordering via chronological bar iteration"
+  },
+  "overall_stats": {
+    "trades": 2847,
+    "wins": 1881,
+    "losses": 966,
+    "open": 0,
+    "win_rate_pct": 66.1,
+    "total_pnl_r": 2949.05,
+    "avg_r": 1.0358,
+    "profit_factor": 4.05,
+    "max_dd_r": 7.36,
+    "max_dd_pct": 2.76,
+    "starting_balance_r": 100.0
+  },
+  "per_symbol_stats": {
+    "AUDUSD": {
+      "trades": 481,
+      "wins": 312,
+      "losses": 169,
+      "wr_pct": 64.9,
+      "pnl_r": 450.15,
+      "avg_r": 0.9359,
+      "pf": 3.66
+    },
+    "EURUSD": {
+      "trades": 503,
+      "wins": 345,
+      "losses": 158,
+      "wr_pct": 68.6,
+      "pnl_r": 578.81,
+      "avg_r": 1.1507,
+      "pf": 4.66
+    },
+    "GBPJPY": {
+      "trades": 472,
+      "wins": 315,
+      "losses": 157,
+      "wr_pct": 66.7,
+      "pnl_r": 457.5,
+      "avg_r": 0.9693,
+      "pf": 3.91
+    },
+    "GBPUSD": {
+      "trades": 472,
+      "wins": 304,
+      "losses": 168,
+      "wr_pct": 64.4,
+      "pnl_r": 374.97,
+      "avg_r": 0.7944,
+      "pf": 3.23
+    },
+    "USDCAD": {
+      "trades": 454,
+      "wins": 288,
+      "losses": 166,
+      "wr_pct": 63.4,
+      "pnl_r": 572.46,
+      "avg_r": 1.2609,
+      "pf": 4.45
+    },
+    "USDJPY": {
+      "trades": 465,
+      "wins": 317,
+      "losses": 148,
+      "wr_pct": 68.2,
+      "pnl_r": 515.16,
+      "avg_r": 1.1079,
+      "pf": 4.48
+    }
+  },
+  "eq_audit": {
+    "fvg_candidates": 10397,
+    "d_eq_accepted": 2869,
+    "d_eq_rejected": 7528,
+    "acceptance_rate_pct": 27.6
+  },
+  "immutability": {
+    "note": "This benchmark is a frozen reference. Do not modify. Future promotion requires a separate comparison process.",
+    "promotion_rule": "A new variant must beat this benchmark in a head-to-head comparison to be promoted."
+  }
+}
