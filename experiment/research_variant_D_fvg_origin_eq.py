@@ -4,7 +4,7 @@ Variant D — FVG-Origin EQ (CLEAN IMPLEMENTATION)
 Architecture
 ============
 
-Canonical engine: experiment/gemini_benchmark_eq.py  ← UNCHANGED (byte/semantic)
+Canonical engine: experiment/main_research_c.py  ← UNCHANGED (byte/semantic)
 Variant file:     experiment/research_variant_D_fvg_origin_eq.py
 
 Three-phase research runner:
@@ -70,8 +70,8 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 from src.strategy.models import Bar  # noqa: E402
 
 # ── Canonical engine — import only, do NOT modify ──────────────────────────
-import experiment.gemini_benchmark_eq as _canon  # noqa: E402
-from experiment.gemini_benchmark_eq import (  # noqa: E402
+import experiment.main_research_c as _canon  # noqa: E402
+from experiment.main_research_c import (  # noqa: E402
     STARTING_BALANCE_R,
     BenchmarkTrade,
     run_test_a as _canon_run_test_a,
@@ -757,7 +757,7 @@ def _append_markdown_report(
     accept_rate = f"{total_acc / total_cand * 100:.1f}%" if total_cand > 0 else "n/a"
     section = f"""## RUN — {now}
 
-**Engine:** experiment/gemini_benchmark_eq.py
+**Engine:** experiment/main_research_c.py
 **Variant:** D — FVG-Origin EQ
 **Canonical Engine Modified:** NO
 
@@ -880,7 +880,7 @@ def main():
 
     print("=== VARIANT D — FVG-ORIGIN EQ (CLEAN) ===")
     print(f"Universe: {symbols}")
-    print("Engine: experiment/gemini_benchmark_eq.py (canonical, UNCHANGED)")
+    print("Engine: experiment/main_research_c.py (canonical, UNCHANGED)")
     print("Approach: 3-phase research runner (eval → canonical exec → filter)")
     print(f"{'DRY RUN' if args.dry_run else 'FULL RUN'}")
     print()
@@ -975,7 +975,7 @@ def main():
 
     summary = {
         "variant": "D — FVG-Origin EQ",
-        "engine": "experiment/gemini_benchmark_eq.py",
+        "engine": "experiment/main_research_c.py",
         "variant_file": "experiment/research_variant_D_fvg_origin_eq.py",
         "approach": "3-phase research runner: D EQ evaluation (uses canonical helpers) "
         "→ canonical run_test_a() → filter",

@@ -6,8 +6,8 @@ This is a PURE EQ comparison runner.
 Architecture
 ============
 
-Canonical engine: experiment/gemini_benchmark_eq.py  ← UNCHANGED (byte/semantic)
-Variant file:     experiment/research_variant_D_fvg_origin_eq_pure.py
+Canonical engine: experiment/main_research_c.py  ← UNCHANGED (byte/semantic)
+Variant file:     experiment/main_research_d.py
 
 What this does
 ==============
@@ -45,7 +45,7 @@ Why we walk the loop ourselves (not call canon.run_test_a)
 ===========================================================
 
 canon.run_test_a() has Frozen EQ hardcoded in its FVG evaluation block
-(line ~352-364 in gemini_benchmark_eq.py):
+(line ~352-364 in main_research_c.py):
   range_opposite = session.cbdr.body_low if ... else session.cbdr.body_high
   eq = (last_sweep.sweep_price + range_opposite) / 2
   if fvg.top > eq: continue   # Frozen EQ reject
@@ -96,8 +96,8 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 from src.strategy.models import Bar, Direction  # noqa: E402
 
 # ── Canonical engine — import only, do NOT modify ──────────────────────────
-import experiment.gemini_benchmark_eq as _canon  # noqa: E402
-from experiment.gemini_benchmark_eq import (  # noqa: E402
+import experiment.main_research_c as _canon  # noqa: E402
+from experiment.main_research_c import (  # noqa: E402
     STARTING_BALANCE_R,
     BenchmarkTrade,
     _nexus_detect_fvgs,
@@ -463,7 +463,7 @@ def run_test_a_pure_d(
     lk,
 ) -> Tuple[List[BenchmarkTrade], Dict[Tuple[str, int], DAudit], Dict[str, int]]:
     """
-    Verbatim canonical FVG evaluation/execution loop from gemini_benchmark_eq.run_test_a()
+    Verbatim canonical FVG evaluation/execution loop from main_research_c.run_test_a()
     with the ONLY change being the EQ source.
 
     Canonical EQ:
@@ -649,7 +649,7 @@ def run_test_a_pure_d(
             # ────────────────────────────────────────────────────────────
             #  PURE D EQ  (replaces canonical Frozen EQ block)
             #
-            #  Canonical (gemini_benchmark_eq.py ~lines 352-364):
+            #  Canonical (main_research_c.py ~lines 352-364):
             #    range_opposite = session.cbdr.body_low  (bearish sweep)
             #                  or session.cbdr.body_high (bullish sweep)
             #    eq = (last_sweep.sweep_price + range_opposite) / 2
@@ -924,7 +924,7 @@ def _append_markdown_report(
     accept_rate = f"{total_acc / total_cand * 100:.1f}%" if total_cand > 0 else "n/a"
     section = f"""## RUN — {now}
 
-**Engine:** experiment/gemini_benchmark_eq.py
+**Engine:** experiment/main_research_c.py
 **Variant:** D — PURE FVG-Origin EQ
 **Canonical Engine Modified:** NO
 **Test Type:** Pure EQ variant comparison
@@ -1003,7 +1003,7 @@ def main():
 
     print("=== VARIANT D — PURE FVG-ORIGIN EQ ===")
     print(f"Universe: {symbols}")
-    print("Engine: experiment/gemini_benchmark_eq.py (canonical, UNCHANGED)")
+    print("Engine: experiment/main_research_c.py (canonical, UNCHANGED)")
     print("Approach: canonical FVG eval loop with ONLY the EQ source swapped")
     print("  Frozen EQ  →  D FVG-Origin EQ")
     print(f"{'DRY RUN' if args.dry_run else 'FULL RUN'}")
@@ -1086,8 +1086,8 @@ def main():
 
     summary = {
         "variant": "D — PURE FVG-Origin EQ",
-        "engine": "experiment/gemini_benchmark_eq.py",
-        "variant_file": "experiment/research_variant_D_fvg_origin_eq_pure.py",
+        "engine": "experiment/main_research_c.py",
+        "variant_file": "experiment/main_research_d.py",
         "approach": "canonical FVG eval/exec loop with ONLY the EQ source "
         "swapped: Frozen EQ → D FVG-Origin EQ. No pre-filter, "
         "no post-filter, no fallback.",

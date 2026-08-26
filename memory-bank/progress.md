@@ -1,5 +1,23 @@
 # Progress
 
+## DOCUMENTATION / NAMING — EQ C vs EQ D (2026-08-26)
+
+### Renames
+- `experiment/gemini_benchmark_eq.py` → `experiment/main_research_c.py` (C = C2 EQ)
+- `experiment/research_variant_D_fvg_origin_eq_pure.py` → `experiment/main_research_d.py` (D = PURE D EQ)
+
+### Documentation
+- Created `docs/EQ_C_vs_EQ_D.md` — formulas, results, comparison, research status
+
+### Reference Updates
+- All docstring/comment references updated to new filenames
+- No logic changes — documentation/naming only
+
+### Verification
+- Zero strategy changes confirmed via `git diff`
+
+---
+
 ## KNOWN-GOOD FROZEN BENCHMARK — PURE D (2026-08-26)
 
 ### Promotion
@@ -7,7 +25,7 @@ PURE D — FVG-Origin EQ promoted to **KNOWN-GOOD FROZEN BENCHMARK**.
 
 - Benchmark ID: `PURE_D_FVG_ORIGIN_EQ`
 - Artifact: `results/benchmark/PURE_D_FVG_ORIGIN_EQ_benchmark.json`
-- Canonical engine: `experiment/gemini_benchmark_eq.py` (UNCHANGED, byte-identical to origin/main)
+- Canonical engine: `experiment/main_research_c.py` (UNCHANGED, byte-identical to origin/main)
 - No-lookahead: `confirm_15m = 4*(pivot_1h+4)-1 ≤ f`, violations = 0
 
 ### Results (2.7Y, 6-major, correct-chronology)
@@ -152,12 +170,12 @@ Do NOT use old pre-fix benchmark numbers for future comparisons.
 MaxDD% was 100% because equity initialized at 0.0 instead of 100.0R.
 
 ### Fix
-- gemini_benchmark_eq.py: `equity=peak=starting_balance=100.0`, `compute_stats(..., starting_balance=100.0)`
+- main_research_c.py: `equity=peak=starting_balance=100.0`, `compute_stats(..., starting_balance=100.0)`
 - exp5f_frozen_vs_dynamic_eq.py: `cum=peak=STARTING_BALANCE_R=100.0`, `dd_pct/peak_pct*100`
 - gemini_benchmark.py: `_is_fresh_fvg` O(n) slice
 
 ### Results
-- gemini_benchmark_eq.py: 2904 trades, DD%=2.90% (full 2.7yr data)
+- main_research_c.py: 2904 trades, DD%=2.90% (full 2.7yr data)
 - exp5f_frozen_vs_dynamic_eq.py: Frozen=529, Dynamic=469, DD%=1.8-5.1% (180-day window)
 - Trade logic unchanged (entry/exit/trailing/sizing identical)
 

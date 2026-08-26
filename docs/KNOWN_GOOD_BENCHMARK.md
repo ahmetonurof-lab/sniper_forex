@@ -66,7 +66,7 @@ GBPJPY
 ```
 
 - **Horizon:** Full available dataset (~2.7 years, 2024-01-01 to 2026-08-21)
-- **Engine:** `experiment/gemini_benchmark_eq.py`
+- **Engine:** `experiment/main_research_c.py`
 - **EQ Mode:** Frozen / Real EQ — `eq = (sweep_price + range_opposite) / 2`
 - **Status:** CANONICAL REFERENCE
 
@@ -87,7 +87,7 @@ NZDJPY
 ### Results — Tier 1 Canonical (FROZEN — PURE D)
 
 > **This is the KNOWN-GOOD FROZEN BENCHMARK.**
-> Engine: `experiment/gemini_benchmark_eq.py` (UNCHANGED)
+> Engine: `experiment/main_research_c.py` (UNCHANGED)
 > Variant: D — PURE FVG-Origin EQ
 > Artifact: `results/benchmark/PURE_D_FVG_ORIGIN_EQ_benchmark.json`
 
@@ -125,7 +125,7 @@ NZDJPY
 
 | Field | Value |
 |---|---|
-| **Script** | `experiment/gemini_benchmark_eq.py` |
+| **Script** | `experiment/main_research_c.py` |
 | **Test** | `run_test_a` (POST_SWEEP_FVG) |
 | **Data** | `data/icmarket_feather/{SYMBOL}_15m.feather` |
 | **Symbols** | 6 majors (Tier 1) |
@@ -185,7 +185,7 @@ the canonical reference.
 
 ### Canonical Benchmark Chain
 
-- `experiment/gemini_benchmark_eq.py` — canonical motor
+- `experiment/main_research_c.py` — canonical motor (Research C: C2 EQ)
 - `experiment/trailing_adapter.py` — direction normalization (`_norm_side()`)
 - `experiment/config.py` — strategy parameters
 - `src/strategy/data_loader.py` — feather data loading
@@ -221,8 +221,8 @@ the canonical reference.
 ### Definition
 
 - **Variant:** D — PURE FVG-Origin EQ
-- **Engine:** `experiment/gemini_benchmark_eq.py` (UNCHANGED)
-- **Variant File:** `experiment/research_variant_D_fvg_origin_eq_pure.py`
+- **Engine:** `experiment/main_research_c.py` (UNCHANGED)
+- **Variant File:** `experiment/main_research_d.py`
 - **EQ Type:** FVG-origin displacement leg midpoint
 - **EQ Timeframe:** 1H
 - **EQ Formula:** `d_eq = (leg_low + leg_high) / 2`

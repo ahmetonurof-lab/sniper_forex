@@ -50,7 +50,7 @@ from experiment.config import (
     ATR_PERIOD, SESSION_START_HOUR, SESSION_END_HOUR,
 )
 from experiment.trailing_adapter import apply_trailing, check_exit, _norm_side
-from experiment.gemini_benchmark_eq import run_test_a
+from experiment.main_research_c import run_test_a
 from experiment.gemini_benchmark import _to_nexus_bar, _is_fresh_fvg, compute_atr
 
 from pivot import find_swing_highs, find_swing_lows

@@ -1,7 +1,11 @@
 """
-gemini_benchmark_eq.py — Frozen EQ Benchmark with MaxDD fix.
+main_research_c.py — Research C Engine: C2 EQ (Post-Sweep Displacement EQ)
 
-Parallel: 6 workers via ProcessPoolExecutor.
+C2 EQ Formula: eq = (sweep_price + leg_mid) / 2.0
+  where leg_mid = (max_high + min_low) / 2.0 across sweep→current window.
+Canonical trailing: 1.8R. Dataset: 2.7Y / 6-major.
+
+Parallel: 6 workers via ThreadPoolExecutor.
 """
 
 from __future__ import annotations
@@ -348,15 +352,22 @@ def run_test_a(
                 continue
 
             # ============================================================
-            # SWEEP -> CBDR OPPOSITE ENDPOINT EQ FILTER
+            # SWEEP -> DISPLACEMENT EQ FILTER  (C2 variant)
             # ============================================================
-            range_opposite = (
-                session.cbdr.body_low
-                if last_sweep.direction == Direction.BEARISH
-                else session.cbdr.body_high
-            )
+            if i <= last_sweep.bar_index:
+                continue
 
-            eq = (last_sweep.sweep_price + range_opposite) / 2
+            window = bars_15m[last_sweep.bar_index : i + 1]
+
+            if not window:
+                continue
+
+            leg_high = max(b.high for b in window)
+            leg_low = min(b.low for b in window)
+
+            # C2: midpoint between sweep_price and leg midpoint
+            leg_mid = (leg_high + leg_low) / 2.0
+            eq = (last_sweep.sweep_price + leg_mid) / 2.0
 
             # Entire FVG must be on the correct side of EQ.
             # Long  -> entire FVG in Discount
@@ -893,7 +904,7 @@ def main():
     )
     test_types = [args.test]
 
-    print("=== FROZEN EQ BENCHMARK ===")
+    print("=== RESEARCH C — C2 EQ BENCHMARK ===")
     print(f"Symbols: {len(symbols)} | Test: {test_types} | Workers: {args.workers} | Starting: {args.starting_balance}R")
     print(f"{'DRY RUN' if args.dry_run else 'FULL RUN'}")
     print()
