@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-24T23:57:04",
+  "generated_at": "2026-08-26T15:25:18",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -460,6 +460,60 @@
           "line_end": 705,
           "signature": "def main():"
         },
+        "experiment.exp5f_frozen_vs_dynamic_eq._build_swing_timeline": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 67,
+          "line_end": 86,
+          "signature": "def _build_swing_timeline(bars_15m: List[Bar], left: int=3, right: int=3) -> Tuple[List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._latest_swing_from_timeline": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 89,
+          "line_end": 99,
+          "signature": "def _latest_swing_from_timeline(events: List[Tuple[int, int, float]], keys: List[int], up_to_index: int) -> Optional[Tuple[int, float]]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._compute_research_eq": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 102,
+          "line_end": 108,
+          "signature": "def _compute_research_eq(swing_high: Optional[Tuple[int, float]], swing_low: Optional[Tuple[int, float]]) -> Optional[float]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq.run_test_a_dynamic_eq": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 113,
+          "line_end": 328,
+          "signature": "def run_test_a_dynamic_eq(symbol: str, bars_15m: List[Bar]) -> List[Dict[str, Any]]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._analyze_symbol": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 333,
+          "line_end": 379,
+          "signature": "def _analyze_symbol(symbol: str) -> Dict[str, Any]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._worker": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 382,
+          "line_end": 386,
+          "signature": "def _worker(symbol: str) -> Dict[str, Any]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._outcome_stats": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 391,
+          "line_end": 432,
+          "signature": "def _outcome_stats(trades: List[Dict], label: str) -> Dict[str, Any]:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq._fmt": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 435,
+          "line_end": 438,
+          "signature": "def _fmt(st: Dict) -> str:"
+        },
+        "experiment.exp5f_frozen_vs_dynamic_eq.main": {
+          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
+          "line_start": 443,
+          "line_end": 641,
+          "signature": "def main():"
+        },
         "experiment.gemini_benchmark._to_nexus_bar": {
           "file": "experiment\\gemini_benchmark.py",
           "line_start": 94,
@@ -508,6 +562,60 @@
           "line_end": 682,
           "signature": "def main():"
         },
+        "experiment.gemini_benchmark_eq._to_nexus_bar": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 97,
+          "line_end": 111,
+          "signature": "def _to_nexus_bar(bar: Bar) -> 'NexusBar':"
+        },
+        "experiment.gemini_benchmark_eq.compute_atr": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 114,
+          "line_end": 131,
+          "signature": "def compute_atr(bars: List[Bar], period: int=14) -> float:"
+        },
+        "experiment.gemini_benchmark_eq.resample_15m": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 134,
+          "line_end": 164,
+          "signature": "def resample_15m(bars_1m: List[Bar]) -> List[Bar]:"
+        },
+        "experiment.gemini_benchmark_eq._is_fresh_fvg": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 167,
+          "line_end": 181,
+          "signature": "def _is_fresh_fvg(fvg: NexusFVG, bars_15m: List[Bar], current_index: int) -> bool:"
+        },
+        "experiment.gemini_benchmark_eq.run_test_a": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 185,
+          "line_end": 504,
+          "signature": "def run_test_a(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
+        },
+        "experiment.gemini_benchmark_eq.run_test_b": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 508,
+          "line_end": 747,
+          "signature": "def run_test_b(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
+        },
+        "experiment.gemini_benchmark_eq.compute_stats": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 751,
+          "line_end": 828,
+          "signature": "def compute_stats(trades: List[BenchmarkTrade], starting_balance: float=STARTING_BALANCE_R) -> Dict[str, Any]:"
+        },
+        "experiment.gemini_benchmark_eq._run_symbol": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 832,
+          "line_end": 868,
+          "signature": "def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:"
+        },
+        "experiment.gemini_benchmark_eq.main": {
+          "file": "experiment\\gemini_benchmark_eq.py",
+          "line_start": 872,
+          "line_end": 993,
+          "signature": "def main():"
+        },
         "experiment.gemini_detector._to_nexus_bar": {
           "file": "experiment\\gemini_detector.py",
           "line_start": 56,
@@ -538,35 +646,71 @@
           "line_end": 358,
           "signature": "def detect_gemini_entry(bars_15m: List[Bar], sweep: SweepEvent, current_bar: Bar, current_index: int, atr_val: float, symbol: str='', next_bar: Optional[Bar]=None) -> Optional[GeminiResult]:"
         },
-        "experiment.trailing_adapter._norm_side": {
-          "file": "experiment\\trailing_adapter.py",
-          "line_start": 42,
-          "line_end": 58,
-          "signature": "def _norm_side(side: str) -> str:"
+        "experiment.research_variant_D_fvg_origin_eq._build_1h_swing_timeline": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 133,
+          "line_end": 179,
+          "signature": "def _build_1h_swing_timeline(bars_15m: List[Bar]) -> Tuple[List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]]:"
         },
-        "experiment.trailing_adapter._to_nexus_bar": {
-          "file": "experiment\\trailing_adapter.py",
-          "line_start": 61,
-          "line_end": 72,
-          "signature": "def _to_nexus_bar(bar: ForexBar) -> NexusBar:"
+        "experiment.research_variant_D_fvg_origin_eq._bisect_swing": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 182,
+          "line_end": 191,
+          "signature": "def _bisect_swing(keys: List[int], events: List[Tuple[int, int, float]], up_to: int) -> Optional[Tuple[int, float]]:"
         },
-        "experiment.trailing_adapter._fvg_close_confirmed": {
-          "file": "experiment\\trailing_adapter.py",
-          "line_start": 75,
-          "line_end": 94,
-          "signature": "def _fvg_close_confirmed(fvg: NexusFVG, bars: list[NexusBar]) -> bool:"
+        "experiment.research_variant_D_fvg_origin_eq.compute_d_eq": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 198,
+          "line_end": 304,
+          "signature": "def compute_d_eq(f: int, direction: str, he, hk, le, lk, bars_15m: List[Bar]) -> DAudit:"
         },
-        "experiment.trailing_adapter.apply_trailing": {
-          "file": "experiment\\trailing_adapter.py",
-          "line_start": 97,
-          "line_end": 194,
-          "signature": "def apply_trailing(bars_15m: List[ForexBar], trades: list[dict], atr_val: float, symbol: str='') -> dict:"
+        "experiment.research_variant_D_fvg_origin_eq._d_position_filter": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 307,
+          "line_end": 324,
+          "signature": "def _d_position_filter(audit: DAudit, fvg_top: float, fvg_bottom: float) -> DAudit:"
         },
-        "experiment.trailing_adapter.check_exit": {
-          "file": "experiment\\trailing_adapter.py",
-          "line_start": 197,
-          "line_end": 229,
-          "signature": "def check_exit(bar: ForexBar, trade: dict) -> Optional[dict]:"
+        "experiment.research_variant_D_fvg_origin_eq._phase1_evaluate": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 331,
+          "line_end": 450,
+          "signature": "def _phase1_evaluate(symbol: str, bars_15m: List[Bar], he, hk, le, lk) -> Tuple[Dict[Tuple[str, int], DAudit], int, int, int]:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq._phase23_execute_and_filter": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 491,
+          "line_end": 534,
+          "signature": "def _phase23_execute_and_filter(symbol: str, bars_15m: List[Bar], audits: Dict[Tuple[str, int], DAudit]) -> Tuple[List[DTrade], int, int]:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq._to_canon_bt": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 541,
+          "line_end": 557,
+          "signature": "def _to_canon_bt(dt: DTrade) -> BenchmarkTrade:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq._run_symbol": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 564,
+          "line_end": 607,
+          "signature": "def _run_symbol(sym: str, dry_run: bool) -> dict:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq._append_markdown_report": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 614,
+          "line_end": 683,
+          "signature": "def _append_markdown_report(out_dir: Path, symbols: List[str], stats: dict, total_cand: int, total_acc: int, total_rej: int, elapsed: float, per_symbol: List[Tuple[str, dict]], trade_level: Optional[d"
+        },
+        "experiment.research_variant_D_fvg_origin_eq._attribution": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 690,
+          "line_end": 719,
+          "signature": "def _attribution(symbols: List[str], d_trades: List[DTrade]) -> dict:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq.main": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq.py",
+          "line_start": 729,
+          "line_end": 913,
+          "signature": "def main():"
         },
         "results.research.verify_dataset_v2_independent.load_1m": {
           "file": "results\\research\\verify_dataset_v2_independent.py",
@@ -892,6 +1036,18 @@
           "line_end": 88,
           "signature": "def main():"
         },
+        "scripts.validate_variant_D.check": {
+          "file": "scripts\\validate_variant_D.py",
+          "line_start": 34,
+          "line_end": 37,
+          "signature": "def check(name: str, ok: bool, detail: str='') -> None:"
+        },
+        "scripts.validate_variant_D.main": {
+          "file": "scripts\\validate_variant_D.py",
+          "line_start": 40,
+          "line_end": 144,
+          "signature": "def main():"
+        },
         "src.main.get_project_root": {
           "file": "src\\main.py",
           "line_start": 9,
@@ -909,6 +1065,12 @@
           "line_start": 25,
           "line_end": 48,
           "signature": "def main():"
+        },
+        "src.test_mt5_connection.test_architecture": {
+          "file": "src\\test_mt5_connection.py",
+          "line_start": 29,
+          "line_end": 121,
+          "signature": "def test_architecture():"
         },
         "src.test_mt5_data.load_env_from_project_root": {
           "file": "src\\test_mt5_data.py",
@@ -2692,6 +2854,84 @@
           "line_end": 214,
           "signature": "def main():"
         },
+        "experiment.research_variant_D_fvg_origin_eq_pure._build_1h_swing_timeline": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 171,
+          "line_end": 242,
+          "signature": "def _build_1h_swing_timeline(bars_15m: List[Bar]) -> Tuple[List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]]:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq_pure._bisect_swing": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 245,
+          "line_end": 254,
+          "signature": "def _bisect_swing(keys: List[int], events: List[Tuple[int, int, float]], up_to: int) -> Optional[Tuple[int, float]]:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq_pure.compute_d_eq": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 262,
+          "line_end": 429,
+          "signature": "def compute_d_eq(f: int, direction: str, he, hk, le, lk, bars_15m: List[Bar]) -> DAudit:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq_pure._d_position_filter": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 432,
+          "line_end": 449,
+          "signature": "def _d_position_filter(audit: DAudit, fvg_top: float, fvg_bottom: float) -> DAudit:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq_pure.run_test_a_pure_d": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 457,
+          "line_end": 857,
+          "signature": "def run_test_a_pure_d(symbol: str, bars_15m: List[Bar], he, hk, le, lk) -> Tuple[List[BenchmarkTrade], Dict[Tuple[str, int], DAudit], Dict[str, int]]:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq_pure._run_symbol": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 865,
+          "line_end": 904,
+          "signature": "def _run_symbol(sym: str, dry_run: bool) -> dict:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq_pure._append_markdown_report": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 912,
+          "line_end": 981,
+          "signature": "def _append_markdown_report(out_dir: Path, symbols: List[str], stats: dict, total_cand: int, total_acc: int, total_rej: int, elapsed: float, per_symbol: List[Tuple[str, dict]]) -> None:"
+        },
+        "experiment.research_variant_D_fvg_origin_eq_pure.main": {
+          "file": "experiment\\research_variant_D_fvg_origin_eq_pure.py",
+          "line_start": 991,
+          "line_end": 1204,
+          "signature": "def main():"
+        },
+        "experiment.trailing_adapter._norm_side": {
+          "file": "experiment\\trailing_adapter.py",
+          "line_start": 41,
+          "line_end": 57,
+          "signature": "def _norm_side(side: str) -> str:"
+        },
+        "experiment.trailing_adapter._to_nexus_bar": {
+          "file": "experiment\\trailing_adapter.py",
+          "line_start": 60,
+          "line_end": 73,
+          "signature": "def _to_nexus_bar(bar: ForexBar) -> NexusBar:"
+        },
+        "experiment.trailing_adapter._fvg_close_confirmed": {
+          "file": "experiment\\trailing_adapter.py",
+          "line_start": 76,
+          "line_end": 95,
+          "signature": "def _fvg_close_confirmed(fvg: NexusFVG, bars: list[NexusBar]) -> bool:"
+        },
+        "experiment.trailing_adapter.apply_trailing": {
+          "file": "experiment\\trailing_adapter.py",
+          "line_start": 98,
+          "line_end": 195,
+          "signature": "def apply_trailing(bars_15m: List[ForexBar], trades: list[dict], atr_val: float, symbol: str='') -> dict:"
+        },
+        "experiment.trailing_adapter.check_exit": {
+          "file": "experiment\\trailing_adapter.py",
+          "line_start": 198,
+          "line_end": 238,
+          "signature": "def check_exit(bar: ForexBar, trade: dict) -> Optional[dict]:"
+        },
         "tools.histdata_acquisition.download_histdata.fetch_zip": {
           "file": "tools\\histdata_acquisition\\download_histdata.py",
           "line_start": 40,
@@ -2704,119 +2944,17 @@
           "line_end": 90,
           "signature": "def main():"
         },
-        "experiment.exp5f_frozen_vs_dynamic_eq._build_swing_timeline": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 67,
-          "line_end": 86,
-          "signature": "def _build_swing_timeline(bars_15m: List[Bar], left: int=3, right: int=3) -> Tuple[List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]]:"
+        "scripts.validate_variant_D_pure.check": {
+          "file": "scripts\\validate_variant_D_pure.py",
+          "line_start": 43,
+          "line_end": 46,
+          "signature": "def check(name: str, ok: bool, detail: str='') -> None:"
         },
-        "experiment.exp5f_frozen_vs_dynamic_eq._latest_swing_from_timeline": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 89,
-          "line_end": 99,
-          "signature": "def _latest_swing_from_timeline(events: List[Tuple[int, int, float]], keys: List[int], up_to_index: int) -> Optional[Tuple[int, float]]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._compute_research_eq": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 102,
-          "line_end": 108,
-          "signature": "def _compute_research_eq(swing_high: Optional[Tuple[int, float]], swing_low: Optional[Tuple[int, float]]) -> Optional[float]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq.run_test_a_dynamic_eq": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 113,
-          "line_end": 328,
-          "signature": "def run_test_a_dynamic_eq(symbol: str, bars_15m: List[Bar]) -> List[Dict[str, Any]]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._analyze_symbol": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 333,
-          "line_end": 379,
-          "signature": "def _analyze_symbol(symbol: str) -> Dict[str, Any]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._worker": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 382,
-          "line_end": 386,
-          "signature": "def _worker(symbol: str) -> Dict[str, Any]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._outcome_stats": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 391,
-          "line_end": 432,
-          "signature": "def _outcome_stats(trades: List[Dict], label: str) -> Dict[str, Any]:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq._fmt": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 435,
-          "line_end": 438,
-          "signature": "def _fmt(st: Dict) -> str:"
-        },
-        "experiment.exp5f_frozen_vs_dynamic_eq.main": {
-          "file": "experiment\\exp5f_frozen_vs_dynamic_eq.py",
-          "line_start": 443,
-          "line_end": 641,
+        "scripts.validate_variant_D_pure.main": {
+          "file": "scripts\\validate_variant_D_pure.py",
+          "line_start": 49,
+          "line_end": 189,
           "signature": "def main():"
-        },
-        "experiment.gemini_benchmark_eq._to_nexus_bar": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 97,
-          "line_end": 111,
-          "signature": "def _to_nexus_bar(bar: Bar) -> 'NexusBar':"
-        },
-        "experiment.gemini_benchmark_eq.compute_atr": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 114,
-          "line_end": 131,
-          "signature": "def compute_atr(bars: List[Bar], period: int=14) -> float:"
-        },
-        "experiment.gemini_benchmark_eq.resample_15m": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 134,
-          "line_end": 164,
-          "signature": "def resample_15m(bars_1m: List[Bar]) -> List[Bar]:"
-        },
-        "experiment.gemini_benchmark_eq._is_fresh_fvg": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 167,
-          "line_end": 181,
-          "signature": "def _is_fresh_fvg(fvg: NexusFVG, bars_15m: List[Bar], current_index: int) -> bool:"
-        },
-        "experiment.gemini_benchmark_eq.run_test_a": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 185,
-          "line_end": 504,
-          "signature": "def run_test_a(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
-        },
-        "experiment.gemini_benchmark_eq.run_test_b": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 508,
-          "line_end": 747,
-          "signature": "def run_test_b(symbol: str, bars_15m: List[Bar]) -> List[BenchmarkTrade]:"
-        },
-        "experiment.gemini_benchmark_eq.compute_stats": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 751,
-          "line_end": 828,
-          "signature": "def compute_stats(trades: List[BenchmarkTrade], starting_balance: float=STARTING_BALANCE_R) -> Dict[str, Any]:"
-        },
-        "experiment.gemini_benchmark_eq._run_symbol": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 832,
-          "line_end": 868,
-          "signature": "def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:"
-        },
-        "experiment.gemini_benchmark_eq.main": {
-          "file": "experiment\\gemini_benchmark_eq.py",
-          "line_start": 872,
-          "line_end": 993,
-          "signature": "def main():"
-        },
-        "src.test_mt5_connection.test_architecture": {
-          "file": "src\\test_mt5_connection.py",
-          "line_start": 29,
-          "line_end": 121,
-          "signature": "def test_architecture():"
         }
       },
       "files": {
@@ -2868,17 +3006,25 @@
           "last_modified": "2026-08-25T14:35:27",
           "hash": "sha256:b62450cac8efa844"
         },
+        "experiment\\exp5f_frozen_vs_dynamic_eq.py": {
+          "last_modified": "2026-08-26T01:11:39",
+          "hash": "sha256:539de05423c6628c"
+        },
         "experiment\\gemini_benchmark.py": {
           "last_modified": "2026-08-26T01:11:39",
           "hash": "sha256:110c6bf2161306f5"
+        },
+        "experiment\\gemini_benchmark_eq.py": {
+          "last_modified": "2026-08-26T15:15:28",
+          "hash": "sha256:7f4d9ed3d6c68e4d"
         },
         "experiment\\gemini_detector.py": {
           "last_modified": "2026-08-21T20:25:39",
           "hash": "sha256:c5cbc855586ff260"
         },
-        "experiment\\trailing_adapter.py": {
-          "last_modified": "2026-08-22T04:19:03",
-          "hash": "sha256:6990b1e23955b162"
+        "experiment\\research_variant_D_fvg_origin_eq.py": {
+          "last_modified": "2026-08-26T15:50:21",
+          "hash": "sha256:37e3dd6c3fa5c771"
         },
         "experiment\\__init__.py": {
           "last_modified": "2026-08-21T15:32:59",
@@ -2932,9 +3078,17 @@
           "last_modified": "2026-08-22T19:12:27",
           "hash": "sha256:567920dc8526fc3d"
         },
+        "scripts\\validate_variant_D.py": {
+          "last_modified": "2026-08-26T15:50:21",
+          "hash": "sha256:1ff76fe6df2b93c6"
+        },
         "src\\main.py": {
           "last_modified": "2026-08-25T21:04:10",
           "hash": "sha256:477bfea986eeb413"
+        },
+        "src\\test_mt5_connection.py": {
+          "last_modified": "2026-08-25T21:04:10",
+          "hash": "sha256:18d8fc88a7d2d2be"
         },
         "src\\test_mt5_data.py": {
           "last_modified": "2026-08-25T19:59:08",
@@ -3080,24 +3234,24 @@
           "last_modified": "2026-08-22T19:59:14",
           "hash": "sha256:7c4d75d20c85f988"
         },
+        "experiment\\research_variant_D_fvg_origin_eq_pure.py": {
+          "last_modified": "2026-08-26T18:11:26",
+          "hash": "sha256:224604c5f5cd4820"
+        },
+        "experiment\\trailing_adapter.py": {
+          "last_modified": "2026-08-26T18:13:22",
+          "hash": "sha256:40bf665ad1788217"
+        },
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
         },
-        "experiment\\exp5f_frozen_vs_dynamic_eq.py": {
-          "last_modified": "2026-08-26T01:11:39",
-          "hash": "sha256:539de05423c6628c"
-        },
-        "experiment\\gemini_benchmark_eq.py": {
-          "last_modified": "2026-08-26T01:11:39",
-          "hash": "sha256:7f4d9ed3d6c68e4d"
-        },
-        "src\\test_mt5_connection.py": {
-          "last_modified": "2026-08-25T21:04:10",
-          "hash": "sha256:18d8fc88a7d2d2be"
+        "scripts\\validate_variant_D_pure.py": {
+          "last_modified": "2026-08-26T18:15:55",
+          "hash": "sha256:3ddd7ef1f033bc1c"
         }
       },
-      "last_full_scan": "2026-08-26T01:24:30"
+      "last_full_scan": "2026-08-26T17:57:52"
     }
   }
 }
