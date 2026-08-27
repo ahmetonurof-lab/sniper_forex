@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 8 — FULL BACKTEST/LIVE PARITY.
-- **Last Completed Phase:** PHASE 7 — LOGGING + SAFETY (2026-08-27, commit a289a48).
+- **Current Phase:** PHASE 9 — MT5 SIGNAL-ONLY.
+- **Last Completed Phase:** PHASE 8 — FULL BACKTEST/LIVE PARITY (2026-08-27, commit 87162dd).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,16 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 8 — FULL BACKTEST/LIVE PARITY (COMPLETE 2026-08-27)
+- **New:** `src/live/parity_gate.py` (`check_symbol`, `check_all_six_majors`, `ParityReport`, `can_enable_execution`).
+- **New:** `tests/test_parity_6majors.py` (7 tests, parametrized over 6 majors + aggregate).
+- **New:** `tests/test_live_parity_gate.py` (5 unit tests for gate contract; slow `check_all_six_majors` deselected by default).
+- **Per-trade diff (7 fields):** direction, entry_price, sl, tp, entry_bar_index, sweep_bar_index, zone_index.
+- **Result:** 6/6 majors parity PASS. 2302 canonical trades = 2302 live signals, 0 diffs. Per-symbol: EURUSD 407, AUDUSD 388, GBPUSD 378, GBPJPY 394, USDCAD 366, USDJPY 369. Runtime ~3:42.
+- **Execution gating:** `parity_gate.can_enable_execution(report)` is the predicate PHASE 11 must call before turning off `signal_only`. If False, demo mode stays in `signal_only` (no real orders).
+- **Tests:** 7/7 parity PASS, 4/4 gate PASS (1 deselected slow). Live fast suite 79/79 PASS. Frozen engines unchanged (git diff CLEAN).
+- **Next:** PHASE 9 — real MT5 data, 6 majors, NO orders. `signal_only=True` in `Execution` (default). Log signals via `AuditChain.append(..., EventType.SIGNAL, ...)`.
 
 ### PHASE 7 — LOGGING + SAFETY (COMPLETE 2026-08-27)
 - **New:** `src/live/audit.py` (`AuditEvent`, `EventType`, `AuditChain`).

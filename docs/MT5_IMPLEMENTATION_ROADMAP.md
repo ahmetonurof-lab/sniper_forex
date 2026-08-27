@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 8 — FULL BACKTEST/LIVE PARITY
-Last Completed Phase: PHASE 7 — LOGGING + SAFETY (2026-08-27)
-Last Commit:          a289a48 (phase7: audit chain + safety monitor)
+Current Phase:        PHASE 9 — MT5 SIGNAL-ONLY
+Last Completed Phase: PHASE 8 — FULL BACKTEST/LIVE PARITY (2026-08-27)
+Last Commit:          87162dd (phase8: 6 majors parity + parity_gate)
 Blocking Issue:       none
-Next Action:          Start PHASE 8 (deterministic replay parity tests)
+Next Action:          Start PHASE 9 (real MT5 data, signal-only, no orders)
 ```
 
 ---
@@ -310,22 +310,36 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 8 — FULL BACKTEST/LIVE PARITY
+### [x] PHASE 8 — FULL BACKTEST/LIVE PARITY
 
 - **Objective:** Deterministic parity between backtest and live runtime.
 - **Tasks:**
   - Deterministic replay.
   - Compare: candle, ATR, CBDR, sweep, bias, FVG, EQ, entry, SL, TP, exit.
 - **Files:**
-  - `tests/test_parity_*.py` (new)
+  - `src/live/parity_gate.py` (new — `check_symbol`, `check_all_six_majors`,
+    `ParityReport`, `can_enable_execution`)
+  - `tests/test_parity_6majors.py` (new — 7 tests, parametrized over
+    6 majors + aggregate summary)
+  - `tests/test_live_parity_gate.py` (new — 5 synthetic unit tests for
+    parity gate contract; slow `check_all_six_majors` deselected by
+    default, run on demand via `parity_check.py` or full pytest)
 - **Dependencies:** PHASE 3.
-- **Tests:** Parity tests (same 15m data → identical trade list).
-- **Acceptance criteria:** Parity PASS. Execution must NOT be enabled without
-  parity PASS.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+- **Tests:** 6/6 majors parity PASS (2302 canonical trades = 2302 live
+  signals, 0 diffs); gate tests 4/4 PASS. Frozen engines unchanged
+  (git diff CLEAN). Aggregate per-symbol: EURUSD 407, AUDUSD 388,
+  GBPUSD 378, GBPJPY 394, USDCAD 366, USDJPY 369. Runtime ~3:42 for
+  the full 6-major parity replay.
+- **Acceptance criteria:** Parity PASS. Execution must NOT be enabled
+  without parity PASS. ✅
+- **Status:** COMPLETE (2026-08-27)
+- **Commit:** 87162dd
 - **Known risks:** Parity break → cannot go live.
-- **Notes:** —
+- **Notes:** Per-trade diff: direction, entry_price, sl, tp,
+  entry_bar_index, sweep_bar_index, zone_index (7 fields). 100% match
+  across all 6 majors. `parity_gate.can_enable_execution(report)`
+  is the execution-gating predicate PHASE 11 must call before turning
+  off `signal_only`. Frozen engines untouched.
 
 ---
 
