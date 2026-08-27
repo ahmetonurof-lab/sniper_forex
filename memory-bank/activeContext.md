@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 6 — POSITION MANAGER + RECONCILIATION.
-- **Last Completed Phase:** PHASE 5 — EXECUTION (2026-08-27, commit d210dcf).
+- **Current Phase:** PHASE 7 — LOGGING + SAFETY.
+- **Last Completed Phase:** PHASE 6 — POSITION MANAGER + RECONCILIATION (2026-08-27, commit 193ff5f).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,25 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 6 — POSITION MANAGER + RECONCILIATION (COMPLETE 2026-08-27)
+- **New:** `src/live/position_manager.py` (`Position`, `ClosedTrade`, `PositionManager`, `PositionUpdate`).
+- **New:** `src/live/reconciliation.py` (`Reconciler`, `ReconciliationDecision`, `ReconcileStatus`).
+- **New:** `tests/test_live_position_reconciliation.py` (16 synthetic unit tests).
+- **`PositionManager`** (`position_manager.py`): pure/injectable (MT5 module passed in).
+  - Magic filter (default 9007001, mirrors `execution.py`): manual/other-magic positions NEVER touched.
+  - `update()` -> `PositionUpdate{positions, new_opens, closed_trades}` via diff with previous snapshot.
+  - `closed_trades` carry last-known entry/SL/TP/volume (exit_price/pnl = 0; caller fills from history if needed).
+  - `restore()` seeds snapshot from `state.py` for restart recovery.
+  - `clear()` for clean shutdown.
+  - Exception-safe: `positions_get` raise -> empty update (caller can block).
+- **`Reconciler`** (`reconciliation.py`): pure (no MT5 dep). Compares two `dict[ticket, Position]`.
+  - `ReconcileStatus`: OK / ORPHAN / UNKNOWN_OPEN / MISMATCH (severity order: MISMATCH > UNKNOWN_OPEN > ORPHAN > OK).
+  - Mismatch fields: `volume, sl, tp, side, entry_price, symbol`.
+  - `block_trading=True` on any non-OK (acceptance: mismatch -> trade block).
+  - `details` list carries human-readable diffs (audit log input).
+- **Tests:** 16/16 PASS; live suite 56/56 PASS (phase2/4/5/6). Frozen engines unchanged (git diff CLEAN).
+- **Next:** PHASE 7 — audit chain (CANDLE → SIGNAL → RISK → ORDER → FILL → POSITION → EXIT) + fail-safe (kill switch, stale data block, connection block, spread block, reconciliation block).
 
 ### PHASE 5 — EXECUTION (COMPLETE 2026-08-27)
 - **New:** `src/live/execution.py` (order execution engine).

@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 6 — POSITION MANAGER + RECONCILIATION
-Last Completed Phase: PHASE 5 — EXECUTION (2026-08-27)
-Last Commit:          d210dcf (phase5: order execution engine)
+Current Phase:        PHASE 7 — LOGGING + SAFETY
+Last Completed Phase: PHASE 6 — POSITION MANAGER + RECONCILIATION (2026-08-27)
+Last Commit:          193ff5f (phase6: position manager + reconciliation)
 Blocking Issue:       none
-Next Action:          Start PHASE 6 (position tracking + state↔MT5 reconciliation)
+Next Action:          Start PHASE 7 (audit chain + fail-safe)
 ```
 
 ---
@@ -238,7 +238,7 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 6 — POSITION MANAGER + RECONCILIATION
+### [x] PHASE 6 — POSITION MANAGER + RECONCILIATION
 
 - **Objective:** Position tracking + state↔MT5 reconciliation.
 - **Tasks:**
@@ -249,16 +249,30 @@ MT5 DEMO
   - State ↔ MT5 reconciliation
   - Orphan / mismatch detection
 - **Files:**
-  - `src/live/position_manager.py` (new)
-  - `src/live/reconciliation.py` (new)
+  - `src/live/position_manager.py` (new — `Position`, `ClosedTrade`, `PositionManager`, `PositionUpdate`)
+  - `src/live/reconciliation.py` (new — `Reconciler`, `ReconciliationDecision`, `ReconcileStatus`)
+  - `tests/test_live_position_reconciliation.py` (new — 16 synthetic unit tests)
 - **Dependencies:** PHASE 5.
-- **Tests:** Manual vs bot position; restart recovery; orphan/mismatch.
+- **Tests:** 16/16 PASS; live suite 56/56 PASS (phase2/4/5/6). Frozen engines unchanged (git diff CLEAN).
 - **Acceptance criteria:** Bot only manages its own (magic) positions; restart
-  recovery correct; mismatch → trade block.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+  recovery correct; mismatch → trade block. ✅
+- **Status:** COMPLETE (2026-08-27)
+- **Commit:** 193ff5f
 - **Known risks:** State↔MT5 mismatch → wrong action.
-- **Notes:** Bot must NOT touch positions it does not own.
+- **Notes:** `PositionManager` is pure/injectable: MT5 module passed as
+  `mt5` arg (default = real MetaTrader5). Magic filter (`self.magic` ==
+  bot's, default 9007001 mirrors `execution.py`) — manual positions and
+  other EA's are NEVER touched. `update()` returns `PositionUpdate` with
+  `positions` (current snapshot), `new_opens` (tickets that appeared
+  since last poll), `closed_trades` (tickets that disappeared, carrying
+  last-known state). `restore()` seeds snapshot from `state.py` for
+  restart recovery. Exception-safe: if `positions_get` raises, update
+  returns an empty update (caller can block trading).
+  `Reconciler` is pure: takes two `dict[ticket, Position]` (local +
+  remote) and returns `ReconciliationDecision`. Status aggregation
+  (worst-of): MISMATCH > UNKNOWN_OPEN > ORPHAN > OK. `block_trading=True`
+  on any non-OK (acceptance: mismatch → trade block). Mismatch fields:
+  volume, sl, tp, side, entry_price, symbol. Frozen engines untouched.
 
 ---
 
