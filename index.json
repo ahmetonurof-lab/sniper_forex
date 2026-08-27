@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-27T22:52:56",
+  "generated_at": "2026-08-27T22:10:17",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -4149,6 +4149,192 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
+        },
+        "src.live.audit.AuditEvent.to_dict": {
+          "file": "src\\live\\audit.py",
+          "line_start": 49,
+          "line_end": 53,
+          "signature": "def to_dict(self) -> Dict[str, Any]:"
+        },
+        "src.live.audit.AuditChain.__init__": {
+          "file": "src\\live\\audit.py",
+          "line_start": 65,
+          "line_end": 66,
+          "signature": "def __init__(self) -> None:"
+        },
+        "src.live.audit.AuditChain.append": {
+          "file": "src\\live\\audit.py",
+          "line_start": 69,
+          "line_end": 84,
+          "signature": "def append(self, timestamp: float, event_type: EventType, symbol: Optional[str]=None, payload: Optional[Dict[str, Any]]=None) -> AuditEvent:"
+        },
+        "src.live.audit.AuditChain.append_event": {
+          "file": "src\\live\\audit.py",
+          "line_start": 86,
+          "line_end": 88,
+          "signature": "def append_event(self, event: AuditEvent) -> None:"
+        },
+        "src.live.audit.AuditChain.events": {
+          "file": "src\\live\\audit.py",
+          "line_start": 91,
+          "line_end": 93,
+          "signature": "@property"
+        },
+        "src.live.audit.AuditChain.clear": {
+          "file": "src\\live\\audit.py",
+          "line_start": 95,
+          "line_end": 97,
+          "signature": "def clear(self) -> None:"
+        },
+        "src.live.audit.AuditChain.__len__": {
+          "file": "src\\live\\audit.py",
+          "line_start": 99,
+          "line_end": 100,
+          "signature": "def __len__(self) -> int:"
+        },
+        "src.live.audit.AuditChain.save": {
+          "file": "src\\live\\audit.py",
+          "line_start": 103,
+          "line_end": 116,
+          "signature": "def save(self, path: str) -> None:"
+        },
+        "src.live.audit.AuditChain.load": {
+          "file": "src\\live\\audit.py",
+          "line_start": 118,
+          "line_end": 146,
+          "signature": "def load(self, path: str) -> int:"
+        },
+        "src.live.safety.SafetyDecision.is_clean": {
+          "file": "src\\live\\safety.py",
+          "line_start": 61,
+          "line_end": 62,
+          "signature": "@property"
+        },
+        "src.live.safety.SafetyMonitor.__init__": {
+          "file": "src\\live\\safety.py",
+          "line_start": 68,
+          "line_end": 79,
+          "signature": "def __init__(self, max_spread_points: float=30.0, stale_seconds: float=30.0 * 60.0):"
+        },
+        "src.live.safety.SafetyMonitor.check": {
+          "file": "src\\live\\safety.py",
+          "line_start": 81,
+          "line_end": 173,
+          "signature": "def check(self, *, kill_switch: bool=False, connection_ok: bool=True, last_candle_time: Optional[float]=None, now: Optional[float]=None, spread_points: float=0.0, reconciliation: Optional[Reconciliati"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_append_basic": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 43,
+          "line_end": 50,
+          "signature": "def test_audit_chain_append_basic():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_append_pre_built_event": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 53,
+          "line_end": 64,
+          "signature": "def test_audit_chain_append_pre_built_event():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_events_returns_snapshot": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 67,
+          "line_end": 73,
+          "signature": "def test_audit_chain_events_returns_snapshot():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_clear": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 76,
+          "line_end": 82,
+          "signature": "def test_audit_chain_clear():"
+        },
+        "tests.test_live_audit_safety.test_audit_event_to_dict_serializes_enum_as_string": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 85,
+          "line_end": 97,
+          "signature": "def test_audit_event_to_dict_serializes_enum_as_string():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_save_load_roundtrip": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 100,
+          "line_end": 122,
+          "signature": "def test_audit_chain_save_load_roundtrip(tmp_path: Path):"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_load_missing_file_returns_zero": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 125,
+          "line_end": 129,
+          "signature": "def test_audit_chain_load_missing_file_returns_zero(tmp_path: Path):"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_load_skips_malformed_lines": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 132,
+          "line_end": 144,
+          "signature": "def test_audit_chain_load_skips_malformed_lines(tmp_path: Path):"
+        },
+        "tests.test_live_audit_safety.test_safety_check_all_clean_allowed": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 150,
+          "line_end": 165,
+          "signature": "def test_safety_check_all_clean_allowed():"
+        },
+        "tests.test_live_audit_safety.test_safety_kill_switch_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 171,
+          "line_end": 182,
+          "signature": "def test_safety_kill_switch_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_stale_data_old_candle_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 185,
+          "line_end": 197,
+          "signature": "def test_safety_stale_data_old_candle_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_stale_data_no_candle_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 200,
+          "line_end": 209,
+          "signature": "def test_safety_stale_data_no_candle_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_connection_down_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 212,
+          "line_end": 221,
+          "signature": "def test_safety_connection_down_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_spread_too_high_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 224,
+          "line_end": 234,
+          "signature": "def test_safety_spread_too_high_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_reconciliation_not_ok_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 237,
+          "line_end": 251,
+          "signature": "def test_safety_reconciliation_not_ok_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_reconciliation_none_does_not_block": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 254,
+          "line_end": 264,
+          "signature": "def test_safety_reconciliation_none_does_not_block():"
+        },
+        "tests.test_live_audit_safety.test_safety_first_failing_check_reported_by_severity": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 270,
+          "line_end": 284,
+          "signature": "def test_safety_first_failing_check_reported_by_severity():"
+        },
+        "tests.test_live_audit_safety.test_safety_checks_list_aligned_with_enum": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 287,
+          "line_end": 304,
+          "signature": "def test_safety_checks_list_aligned_with_enum():"
+        },
+        "tests.test_live_audit_safety.test_safety_spread_at_threshold_allows": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 307,
+          "line_end": 317,
+          "signature": "def test_safety_spread_at_threshold_allows():"
         }
       },
       "files": {
@@ -4531,9 +4717,21 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
+        },
+        "src\\live\\audit.py": {
+          "last_modified": "2026-08-27T22:55:48",
+          "hash": "sha256:20b3d2c7ac102dfc"
+        },
+        "src\\live\\safety.py": {
+          "last_modified": "2026-08-27T22:56:16",
+          "hash": "sha256:c3366af2159b8fa8"
+        },
+        "tests\\test_live_audit_safety.py": {
+          "last_modified": "2026-08-27T23:00:09",
+          "hash": "sha256:eb09284f84b2a63a"
         }
       },
-      "last_full_scan": "2026-08-27T22:52:56"
+      "last_full_scan": "2026-08-27T22:43:11"
     }
   }
 }
