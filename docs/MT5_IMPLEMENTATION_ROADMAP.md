@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 10 — PAPER / DRY RUN
-Last Completed Phase: PHASE 9 — MT5 SIGNAL-ONLY (2026-08-27)
-Last Commit:          66956d3 (phase9: signal-only runner)
+Current Phase:        PHASE 11 — CONTROLLED MT5 DEMO
+Last Completed Phase: PHASE 10 — PAPER / DRY RUN (2026-08-28)
+Last Commit:          3ed3e7a (phase10: paper trading)
 Blocking Issue:       none
-Next Action:          Start PHASE 10 (real MT5 data, simulated execution, no orders)
+Next Action:          Start PHASE 11 (controlled demo: 1 symbol -> 6 majors)
 ```
 
 ---
@@ -377,21 +377,37 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 10 — PAPER / DRY RUN
+### [x] PHASE 10 — PAPER / DRY RUN
 
 - **Objective:** Real MT5 data, simulated execution, NO real orders.
 - **Tasks:**
   - Simulate: fill, SL, TP, exit, PnL.
 - **Files:**
-  - `src/live/paper.py` (new)
+  - `src/live/paper.py` (new — `PaperPosition`, `PositionStatus`,
+    `PaperBroker`, `PaperSession`, `PaperStepResult`, `_pnl`)
+  - `tests/test_live_paper.py` (new — 23 synthetic unit tests covering
+    position lifecycle, SL/TP hit, PnL math for 5-digit majors and
+    3-digit JPY pairs, volume scaling, dry-run invariant)
 - **Dependencies:** PHASE 9.
-- **Tests:** Paper run (several days).
-- **Acceptance criteria:** Paper signals consistent with backtest; PnL sim
-  correct.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+- **Tests:** 23/23 PASS. Live fast suite 110/110 PASS. Frozen engines
+  unchanged (git diff CLEAN).
+- **Acceptance criteria:** Paper signals consistent with backtest; PnL
+  sim correct. ✅
+- **Status:** COMPLETE (2026-08-28)
+- **Commit:** 3ed3e7a
 - **Known risks:** —
-- **Notes:** —
+- **Notes:** `PaperBroker` is the in-memory virtual broker — never
+  touches MT5. `open()` instant-fills at `signal.entry_price` with
+  monotonic ticket. `on_tick(bid, ask)` checks SL/TP per MT5
+  convention (long: bid<=sl / bid>=tp, short: ask>=sl / ask<=tp) and
+  closes with `CLOSED_SL` / `CLOSED_TP` reason. `_pnl` uses the broker
+  formula `sign * (exit - entry) / tick_size * tick_value * volume`
+  — works for both 5-digit majors and 3-digit JPY pairs (tested).
+  `update_pnl(ticket, contract, exit_price)` patches realized PnL on
+  closed positions. `PaperSession.run_step(audit, m1_bars?, ticks?)`
+  is one bar-step: per-tick SL/TP check + strategy on closed 15m +
+  risk gate + paper open. **Dry-run invariant:** `PaperSession` NEVER
+  calls `mt5.order_send` (tested). Frozen engines untouched.
 
 ---
 

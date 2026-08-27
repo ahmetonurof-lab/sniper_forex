@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 10 — PAPER / DRY RUN.
-- **Last Completed Phase:** PHASE 9 — MT5 SIGNAL-ONLY (2026-08-27, commit 66956d3).
+- **Current Phase:** PHASE 11 — CONTROLLED MT5 DEMO.
+- **Last Completed Phase:** PHASE 10 — PAPER / DRY RUN (2026-08-28, commit 3ed3e7a).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,20 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 10 — PAPER / DRY RUN (COMPLETE 2026-08-28)
+- **New:** `src/live/paper.py` (`PaperPosition`, `PositionStatus`, `PaperBroker`, `PaperSession`, `PaperStepResult`, `_pnl`).
+- **New:** `tests/test_live_paper.py` (23 synthetic unit tests).
+- **`PaperBroker`:** in-memory virtual broker, never touches MT5.
+  - `open(signal, volume, contract)` instant-fills at `signal.entry_price` with monotonic ticket.
+  - `on_tick(bid, ask)` checks SL/TP per MT5 convention (long: bid<=sl/bid>=tp, short: ask>=sl/ask<=tp), closes with `CLOSED_SL`/`CLOSED_TP`.
+  - `close(ticket, exit_price, reason)` for manual exit.
+  - `update_pnl(ticket, contract, exit_price)` patches realized PnL.
+- **`_pnl`:** broker formula `sign * (exit - entry) / tick_size * tick_value * volume`. Works for 5-digit majors and 3-digit JPY pairs (tested).
+- **`PaperSession.run_step(audit, m1_bars?, ticks?)`:** one bar-step — per-tick SL/TP check + strategy on closed 15m + risk gate + paper open.
+- **Dry-run invariant:** `PaperSession` NEVER calls `mt5.order_send` (tested).
+- **Tests:** 23/23 PASS. Live fast suite 110/110 PASS. Frozen engines unchanged (git diff CLEAN).
+- **Next:** PHASE 11 — controlled MT5 demo. First 1 symbol low-risk controlled monitoring, then 6 majors. Reconciliation, logging, safety, kill switch mandatory (already implemented PHASE 6-7). `parity_gate.can_enable_execution()` MUST pass before turning off `signal_only`.
 
 ### PHASE 9 — MT5 SIGNAL-ONLY (COMPLETE 2026-08-27)
 - **New:** `src/live/signal_runner.py` (`SignalRunner`, `RunnerConfig`, `RunnerResult`).
