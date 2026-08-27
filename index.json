@@ -2332,6 +2332,36 @@
           "line_end": 172,
           "signature": "def check(self, *, kill_switch: bool=False, connection_ok: bool=True, last_candle_time: Optional[float]=None, now: Optional[float]=None, spread_points: float=0.0, reconciliation: Optional[Reconciliati"
         },
+        "src.live.signal_runner.SignalRunner.__init__": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 86,
+          "line_end": 98,
+          "signature": "def __init__(self, mt5: Any=None, risk_manager: Optional[RiskManager]=None, default_spread: float=0.0001):"
+        },
+        "src.live.signal_runner.SignalRunner.run_session": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 101,
+          "line_end": 163,
+          "signature": "def run_session(self, config: RunnerConfig, audit: AuditChain) -> RunnerResult:"
+        },
+        "src.live.signal_runner.SignalRunner._run_symbol": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 166,
+          "line_end": 210,
+          "signature": "def _run_symbol(self, symbol: str, config: RunnerConfig, audit: AuditChain) -> List[Signal]:"
+        },
+        "src.live.signal_runner.SignalRunner._rates_to_bars": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 213,
+          "line_end": 246,
+          "signature": "@staticmethod"
+        },
+        "src.live.signal_runner.SignalRunner._contract_for": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 248,
+          "line_end": 264,
+          "signature": "def _contract_for(self, symbol: str, config: RunnerConfig) -> ContractSpec:"
+        },
         "src.live.sizing.PositionSizer.__init__": {
           "file": "src\\live\\sizing.py",
           "line_start": 55,
@@ -4120,6 +4150,96 @@
           "line_end": 204,
           "signature": "def test_risk_blocks_zero_stop():"
         },
+        "tests.test_live_signal_runner.FakeMT5.__init__": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 63,
+          "line_end": 71,
+          "signature": "def __init__(self, rates_by_symbol: Optional[Dict[str, List[FakeRate]]]=None, error_symbols: Optional[List[str]]=None):"
+        },
+        "tests.test_live_signal_runner.FakeMT5.copy_rates_from_pos": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 73,
+          "line_end": 80,
+          "signature": "def copy_rates_from_pos(self, symbol: str, timeframe: str, start: int, count: int):"
+        },
+        "tests.test_live_signal_runner.FakeMT5.order_send": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 82,
+          "line_end": 84,
+          "signature": "def order_send(self, *_args, **_kwargs):"
+        },
+        "tests.test_live_signal_runner._make_m1_bars": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 90,
+          "line_end": 125,
+          "signature": "def _make_m1_bars(symbol: str, n: int=200, start_price: float=1.1, seed: int=1) -> List[Bar]:"
+        },
+        "tests.test_live_signal_runner._bars_to_rates": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 128,
+          "line_end": 141,
+          "signature": "def _bars_to_rates(bars: List[Bar]) -> List[FakeRate]:"
+        },
+        "tests.test_live_signal_runner._make_fake_mt5": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 144,
+          "line_end": 151,
+          "signature": "def _make_fake_mt5(symbols: List[str], n_bars: int=5000, seed: int=1) -> FakeMT5:"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_does_not_send_orders": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 157,
+          "line_end": 170,
+          "signature": "def test_signal_runner_does_not_send_orders():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_audit_records_candle_and_signal_events": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 176,
+          "line_end": 192,
+          "signature": "def test_signal_runner_audit_records_candle_and_signal_events():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_signal_event_payload_has_expected_fields": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 195,
+          "line_end": 212,
+          "signature": "def test_signal_runner_signal_event_payload_has_expected_fields():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_returns_result_with_per_symbol_count": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 218,
+          "line_end": 232,
+          "signature": "def test_signal_runner_returns_result_with_per_symbol_count():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_approved_vs_blocked_partition": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 235,
+          "line_end": 249,
+          "signature": "def test_signal_runner_approved_vs_blocked_partition():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_error_in_one_symbol_does_not_stop_others": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 255,
+          "line_end": 283,
+          "signature": "def test_signal_runner_error_in_one_symbol_does_not_stop_others():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_does_not_call_mt5_initialize": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 289,
+          "line_end": 300,
+          "signature": "def test_signal_runner_does_not_call_mt5_initialize():"
+        },
+        "tests.test_live_signal_runner.test_runner_config_defaults_sane": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 306,
+          "line_end": 312,
+          "signature": "def test_runner_config_defaults_sane():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_contract_default_is_conservative_usd_account": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 315,
+          "line_end": 325,
+          "signature": "def test_signal_runner_contract_default_is_conservative_usd_account():"
+        },
         "tests.test_live_strategy_runtime._load_15m": {
           "file": "tests\\test_live_strategy_runtime.py",
           "line_start": 28,
@@ -4456,125 +4576,269 @@
           "line_end": 90,
           "signature": "def main():"
         },
-        "src.live.signal_runner.SignalRunner.__init__": {
-          "file": "src\\live\\signal_runner.py",
-          "line_start": 85,
-          "line_end": 97,
-          "signature": "def __init__(self, mt5: Any=None, risk_manager: Optional[RiskManager]=None, default_spread: float=0.0001):"
+        "src.live.paper.PaperPosition.to_position": {
+          "file": "src\\live\\paper.py",
+          "line_start": 65,
+          "line_end": 77,
+          "signature": "def to_position(self) -> Position:"
         },
-        "src.live.signal_runner.SignalRunner.run_session": {
-          "file": "src\\live\\signal_runner.py",
-          "line_start": 100,
-          "line_end": 162,
-          "signature": "def run_session(self, config: RunnerConfig, audit: AuditChain) -> RunnerResult:"
+        "src.live.paper._pnl": {
+          "file": "src\\live\\paper.py",
+          "line_start": 80,
+          "line_end": 104,
+          "signature": "def _pnl(side: str, entry: float, exit_price: float, volume: float, contract_size: float, tick_size: float, tick_value: float) -> float:"
         },
-        "src.live.signal_runner.SignalRunner._run_symbol": {
-          "file": "src\\live\\signal_runner.py",
-          "line_start": 165,
-          "line_end": 209,
-          "signature": "def _run_symbol(self, symbol: str, config: RunnerConfig, audit: AuditChain) -> List[Signal]:"
+        "src.live.paper.PaperBroker.__init__": {
+          "file": "src\\live\\paper.py",
+          "line_start": 113,
+          "line_end": 118,
+          "signature": "def __init__(self, magic: int=9007001, starting_equity: float=10000.0):"
         },
-        "src.live.signal_runner.SignalRunner._rates_to_bars": {
-          "file": "src\\live\\signal_runner.py",
-          "line_start": 212,
-          "line_end": 245,
-          "signature": "@staticmethod"
+        "src.live.paper.PaperBroker.get_open": {
+          "file": "src\\live\\paper.py",
+          "line_start": 121,
+          "line_end": 122,
+          "signature": "def get_open(self) -> List[PaperPosition]:"
         },
-        "src.live.signal_runner.SignalRunner._contract_for": {
-          "file": "src\\live\\signal_runner.py",
-          "line_start": 247,
-          "line_end": 263,
-          "signature": "def _contract_for(self, symbol: str, config: RunnerConfig) -> ContractSpec:"
-        },
-        "tests.test_live_signal_runner.FakeMT5.__init__": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 63,
-          "line_end": 71,
-          "signature": "def __init__(self, rates_by_symbol: Optional[Dict[str, List[FakeRate]]]=None, error_symbols: Optional[List[str]]=None):"
-        },
-        "tests.test_live_signal_runner.FakeMT5.copy_rates_from_pos": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 73,
-          "line_end": 80,
-          "signature": "def copy_rates_from_pos(self, symbol: str, timeframe: str, start: int, count: int):"
-        },
-        "tests.test_live_signal_runner.FakeMT5.order_send": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 82,
-          "line_end": 84,
-          "signature": "def order_send(self, *_args, **_kwargs):"
-        },
-        "tests.test_live_signal_runner._make_m1_bars": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 90,
+        "src.live.paper.PaperBroker.get_closed": {
+          "file": "src\\live\\paper.py",
+          "line_start": 124,
           "line_end": 125,
-          "signature": "def _make_m1_bars(symbol: str, n: int=200, start_price: float=1.1, seed: int=1) -> List[Bar]:"
+          "signature": "def get_closed(self) -> List[PaperPosition]:"
         },
-        "tests.test_live_signal_runner._bars_to_rates": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 128,
-          "line_end": 141,
-          "signature": "def _bars_to_rates(bars: List[Bar]) -> List[FakeRate]:"
+        "src.live.paper.PaperBroker.total_pnl": {
+          "file": "src\\live\\paper.py",
+          "line_start": 127,
+          "line_end": 128,
+          "signature": "def total_pnl(self) -> float:"
         },
-        "tests.test_live_signal_runner._make_fake_mt5": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 144,
-          "line_end": 151,
-          "signature": "def _make_fake_mt5(symbols: List[str], n_bars: int=5000, seed: int=1) -> FakeMT5:"
+        "src.live.paper.PaperBroker.open": {
+          "file": "src\\live\\paper.py",
+          "line_start": 131,
+          "line_end": 155,
+          "signature": "def open(self, signal: Signal, volume: float, contract: ContractSpec, now: Optional[float]=None) -> PaperPosition:"
         },
-        "tests.test_live_signal_runner.test_signal_runner_does_not_send_orders": {
-          "file": "tests\\test_live_signal_runner.py",
+        "src.live.paper.PaperBroker.close": {
+          "file": "src\\live\\paper.py",
           "line_start": 157,
-          "line_end": 170,
-          "signature": "def test_signal_runner_does_not_send_orders():"
+          "line_end": 177,
+          "signature": "def close(self, ticket: int, exit_price: float, now: Optional[float]=None, reason: PositionStatus=PositionStatus.CLOSED_MANUAL) -> Optional[PaperPosition]:"
         },
-        "tests.test_live_signal_runner.test_signal_runner_audit_records_candle_and_signal_events": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 176,
-          "line_end": 192,
-          "signature": "def test_signal_runner_audit_records_candle_and_signal_events():"
+        "src.live.paper.PaperBroker.update_pnl": {
+          "file": "src\\live\\paper.py",
+          "line_start": 179,
+          "line_end": 201,
+          "signature": "def update_pnl(self, ticket: int, contract: ContractSpec, exit_price: float) -> float:"
         },
-        "tests.test_live_signal_runner.test_signal_runner_signal_event_payload_has_expected_fields": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 195,
-          "line_end": 212,
-          "signature": "def test_signal_runner_signal_event_payload_has_expected_fields():"
+        "src.live.paper.PaperBroker.on_tick": {
+          "file": "src\\live\\paper.py",
+          "line_start": 204,
+          "line_end": 247,
+          "signature": "def on_tick(self, symbol: str, bid: float, ask: float, now: Optional[float]=None) -> List[PaperPosition]:"
         },
-        "tests.test_live_signal_runner.test_signal_runner_returns_result_with_per_symbol_count": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 218,
-          "line_end": 232,
-          "signature": "def test_signal_runner_returns_result_with_per_symbol_count():"
+        "src.live.paper.PaperSession.__init__": {
+          "file": "src\\live\\paper.py",
+          "line_start": 278,
+          "line_end": 298,
+          "signature": "def __init__(self, symbol: str, mt5: Any=None, broker: Optional[PaperBroker]=None, runtime: Optional[StrategyRuntime]=None, risk_manager: Optional[RiskManager]=None, contract: Optional[ContractSpec]=N"
         },
-        "tests.test_live_signal_runner.test_signal_runner_approved_vs_blocked_partition": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 235,
-          "line_end": 249,
-          "signature": "def test_signal_runner_approved_vs_blocked_partition():"
+        "src.live.paper.PaperSession.warmup": {
+          "file": "src\\live\\paper.py",
+          "line_start": 300,
+          "line_end": 318,
+          "signature": "def warmup(self, n_15m: int=200) -> int:"
         },
-        "tests.test_live_signal_runner.test_signal_runner_error_in_one_symbol_does_not_stop_others": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 255,
-          "line_end": 283,
-          "signature": "def test_signal_runner_error_in_one_symbol_does_not_stop_others():"
+        "src.live.paper.PaperSession.run_step": {
+          "file": "src\\live\\paper.py",
+          "line_start": 320,
+          "line_end": 376,
+          "signature": "def run_step(self, audit: AuditChain, m1_bars: Optional[List[Bar]]=None, ticks: Optional[List[Dict[str, float]]]=None) -> PaperStepResult:"
         },
-        "tests.test_live_signal_runner.test_signal_runner_does_not_call_mt5_initialize": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 289,
-          "line_end": 300,
-          "signature": "def test_signal_runner_does_not_call_mt5_initialize():"
+        "src.live.paper.PaperSession._advance_strategy": {
+          "file": "src\\live\\paper.py",
+          "line_start": 378,
+          "line_end": 440,
+          "signature": "def _advance_strategy(self, m1_bars: List[Bar], audit: AuditChain, result: PaperStepResult) -> int:"
         },
-        "tests.test_live_signal_runner.test_runner_config_defaults_sane": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 306,
-          "line_end": 312,
-          "signature": "def test_runner_config_defaults_sane():"
+        "src.live.paper.PaperSession._default_contract": {
+          "file": "src\\live\\paper.py",
+          "line_start": 442,
+          "line_end": 453,
+          "signature": "def _default_contract(self) -> ContractSpec:"
         },
-        "tests.test_live_signal_runner.test_signal_runner_contract_default_is_conservative_usd_account": {
-          "file": "tests\\test_live_signal_runner.py",
-          "line_start": 315,
-          "line_end": 325,
-          "signature": "def test_signal_runner_contract_default_is_conservative_usd_account():"
+        "src.live.paper._rates_to_bars": {
+          "file": "src\\live\\paper.py",
+          "line_start": 456,
+          "line_end": 487,
+          "signature": "def _rates_to_bars(rates: Any) -> List[Bar]:"
+        },
+        "tests.test_live_paper._signal": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 41,
+          "line_end": 62,
+          "signature": "def _signal(symbol: str='EURUSD', side: str='long', entry: float=1.1, sl: float=1.095, tp: float=1.109) -> Signal:"
+        },
+        "tests.test_live_paper._contract": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 65,
+          "line_end": 81,
+          "signature": "def _contract(symbol: str='EURUSD', tick_size: float=1e-05, tick_value: float=1.0, contract_size: float=100000.0) -> ContractSpec:"
+        },
+        "tests.test_live_paper.test_paper_position_default_status_is_open": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 87,
+          "line_end": 101,
+          "signature": "def test_paper_position_default_status_is_open():"
+        },
+        "tests.test_live_paper.test_paper_position_to_position_shape": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 104,
+          "line_end": 121,
+          "signature": "def test_paper_position_to_position_shape():"
+        },
+        "tests.test_live_paper.test_broker_open_assigns_unique_tickets": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 127,
+          "line_end": 135,
+          "signature": "def test_broker_open_assigns_unique_tickets():"
+        },
+        "tests.test_live_paper.test_broker_open_uses_signal_entry_price": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 138,
+          "line_end": 145,
+          "signature": "def test_broker_open_uses_signal_entry_price():"
+        },
+        "tests.test_live_paper.test_broker_close_moves_position_from_open_to_closed": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 148,
+          "line_end": 157,
+          "signature": "def test_broker_close_moves_position_from_open_to_closed():"
+        },
+        "tests.test_live_paper.test_broker_close_unknown_ticket_returns_none": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 160,
+          "line_end": 162,
+          "signature": "def test_broker_close_unknown_ticket_returns_none():"
+        },
+        "tests.test_live_paper.test_on_tick_long_sl_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 168,
+          "line_end": 180,
+          "signature": "def test_on_tick_long_sl_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_long_tp_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 183,
+          "line_end": 194,
+          "signature": "def test_on_tick_long_tp_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_short_sl_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 197,
+          "line_end": 208,
+          "signature": "def test_on_tick_short_sl_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_short_tp_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 211,
+          "line_end": 222,
+          "signature": "def test_on_tick_short_tp_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_no_hit_when_price_within_band": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 225,
+          "line_end": 235,
+          "signature": "def test_on_tick_no_hit_when_price_within_band():"
+        },
+        "tests.test_live_paper.test_on_tick_only_matching_symbol_processed": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 238,
+          "line_end": 248,
+          "signature": "def test_on_tick_only_matching_symbol_processed():"
+        },
+        "tests.test_live_paper.test_pnl_long_profit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 254,
+          "line_end": 267,
+          "signature": "def test_pnl_long_profit():"
+        },
+        "tests.test_live_paper.test_pnl_long_loss": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 270,
+          "line_end": 281,
+          "signature": "def test_pnl_long_loss():"
+        },
+        "tests.test_live_paper.test_pnl_short_profit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 284,
+          "line_end": 296,
+          "signature": "def test_pnl_short_profit():"
+        },
+        "tests.test_live_paper.test_pnl_short_loss": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 299,
+          "line_end": 310,
+          "signature": "def test_pnl_short_loss():"
+        },
+        "tests.test_live_paper.test_pnl_volume_scaling": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 313,
+          "line_end": 334,
+          "signature": "def test_pnl_volume_scaling():"
+        },
+        "tests.test_live_paper.test_pnl_jpy_pair_3_digit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 337,
+          "line_end": 350,
+          "signature": "def test_pnl_jpy_pair_3_digit():"
+        },
+        "tests.test_live_paper.test_pnl_zero_tick_size_returns_zero": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 353,
+          "line_end": 364,
+          "signature": "def test_pnl_zero_tick_size_returns_zero():"
+        },
+        "tests.test_live_paper.test_broker_update_pnl_patches_closed_position": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 367,
+          "line_end": 375,
+          "signature": "def test_broker_update_pnl_patches_closed_position():"
+        },
+        "tests.test_live_paper.test_broker_total_pnl_sums_closed": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 378,
+          "line_end": 389,
+          "signature": "def test_broker_total_pnl_sums_closed():"
+        },
+        "tests.test_live_paper.test_paper_session_run_step_without_warmup_errors": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 395,
+          "line_end": 402,
+          "signature": "def test_paper_session_run_step_without_warmup_errors():"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 405,
+          "line_end": 428,
+          "signature": "def test_paper_session_dry_run_invariant():"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.__init__": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 413,
+          "line_end": 414,
+          "signature": "def __init__(self):"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.order_send": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 416,
+          "line_end": 418,
+          "signature": "def order_send(self, *_a, **_k):"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.copy_rates_from_pos": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 420,
+          "line_end": 421,
+          "signature": "def copy_rates_from_pos(self, *_a, **_k):"
         }
       },
       "files": {
@@ -4838,6 +5102,10 @@
           "last_modified": "2026-08-27T23:00:09",
           "hash": "sha256:26e3f6f8a072e9e4"
         },
+        "src\\live\\signal_runner.py": {
+          "last_modified": "2026-08-28T00:23:45",
+          "hash": "sha256:ac3868a2158beae9"
+        },
         "src\\live\\sizing.py": {
           "last_modified": "2026-08-27T12:35:03",
           "hash": "sha256:42b6f1e66c8696d7"
@@ -4954,6 +5222,10 @@
           "last_modified": "2026-08-27T12:35:03",
           "hash": "sha256:9ad55cdaf40596c5"
         },
+        "tests\\test_live_signal_runner.py": {
+          "last_modified": "2026-08-28T00:25:50",
+          "hash": "sha256:d7e230d348008711"
+        },
         "tests\\test_live_strategy_runtime.py": {
           "last_modified": "2026-08-27T12:16:40",
           "hash": "sha256:75ebfcb47b6c2165"
@@ -4982,16 +5254,16 @@
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
         },
-        "src\\live\\signal_runner.py": {
-          "last_modified": "2026-08-28T00:20:06",
-          "hash": "sha256:1c6d25e8be42562a"
+        "src\\live\\paper.py": {
+          "last_modified": "2026-08-28T00:50:30",
+          "hash": "sha256:3f02dfaf4c4663c0"
         },
-        "tests\\test_live_signal_runner.py": {
-          "last_modified": "2026-08-28T00:25:50",
-          "hash": "sha256:d7e230d348008711"
+        "tests\\test_live_paper.py": {
+          "last_modified": "2026-08-28T00:51:40",
+          "hash": "sha256:3a24cf9c48783c13"
         }
       },
-      "last_full_scan": "2026-08-28T00:13:16"
+      "last_full_scan": "2026-08-28T00:27:54"
     }
   }
 }
