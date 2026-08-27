@@ -1,9 +1,14 @@
 #!/usr/bin/env python
-"""MT5 Data Layer Module - Phase 0
+"""MT5 Data Layer Module - Phase 0 / PHASE 1 HARDENED
 
 Provides market data access from MT5.
 Independent from trading layer and strategy.
 Only provides data retrieval, no signal generation or trading logic.
+
+PHASE 1 hardening (2026-08-27):
+- last_error capture on every failure.
+- Robust error handling around all MT5 calls.
+- Never logs credentials.
 """
 
 import MetaTrader5 as mt5
@@ -22,6 +27,21 @@ class MT5DataLayer:
 
     def __init__(self):
         self.config = get_mt5_config()
+        self._last_error = None
+
+    def _capture_error(self, context: str) -> str:
+        """Capture the last MT5 error into self._last_error and return it."""
+        try:
+            err = mt5.last_error()
+        except Exception:
+            err = (0, "unknown")
+        self._last_error = err
+        return f"{context}: {err}"
+
+    @property
+    def last_error(self):
+        """Last captured MT5 error (tuple or None)."""
+        return self._last_error
 
     def get_symbol_info(self, symbol_name):
         """Get symbol metadata.
@@ -32,8 +52,13 @@ class MT5DataLayer:
         Returns:
             dict or None: Symbol information or None if not found
         """
-        if not mt5.symbol_select(symbol_name, True):
-            print(f"[WARN] Could not select symbol: {symbol_name}")
+        try:
+            if not mt5.symbol_select(symbol_name, True):
+                print(f"[WARN] Could not select symbol: {symbol_name}")
+                return None
+        except Exception as e:
+            self._last_error = ("symbol_select_exception", str(e))
+            print(f"[ERROR] symbol_select exception for {symbol_name}: {e}")
             return None
 
         symbol_info = mt5.symbol_info(symbol_name)
@@ -57,7 +82,13 @@ class MT5DataLayer:
         Returns:
             dict or None: Tick data with bid, ask, last, time
         """
-        tick = mt5.symbol_tick(symbol_name)
+        try:
+            tick = mt5.symbol_tick(symbol_name)
+        except Exception as e:
+            self._last_error = ("symbol_tick_exception", str(e))
+            print(f"[ERROR] symbol_tick exception for {symbol_name}: {e}")
+            return None
+
         if tick:
             return {
                 "bid": tick.bid,
@@ -89,9 +120,14 @@ class MT5DataLayer:
         }
 
         tf = timeframe_map.get(timeframe, mt5.TIMEFRAME_M1)
-        rates = mt5.copy_rates_from_pos(symbol_name, tf, 0, count)
+        try:
+            rates = mt5.copy_rates_from_pos(symbol_name, tf, 0, count)
+        except Exception as e:
+            self._last_error = ("copy_rates_exception", str(e))
+            print(f"[ERROR] copy_rates exception for {symbol_name}: {e}")
+            return None
 
-        if rates and len(rates) > 0:
+        if rates is not None and len(rates) > 0:
             return rates
         return None
 
@@ -101,7 +137,13 @@ class MT5DataLayer:
         Returns:
             list or None: List of symbol names
         """
-        symbols = mt5.symbols_get()
+        try:
+            symbols = mt5.symbols_get()
+        except Exception as e:
+            self._last_error = ("symbols_get_exception", str(e))
+            print(f"[ERROR] symbols_get exception: {e}")
+            return None
+
         if symbols:
             return [str(sym.name) for sym in symbols]
         return None

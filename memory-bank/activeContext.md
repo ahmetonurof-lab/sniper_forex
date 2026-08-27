@@ -8,6 +8,30 @@
 
 ---
 
+## PRODUCTION IMPLEMENTATION (MT5 DEMO) — STATUS
+
+> Companion to `docs/MT5_IMPLEMENTATION_ROADMAP.md` (master task list).
+> This section reflects production-transition state only. Research state below.
+
+- **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
+- **Current Phase:** PHASE 2 — MARKET DATA / 15M CANDLE FEED.
+- **Last Completed Phase:** PHASE 1 — MT5 FOUNDATION (2026-08-27).
+- **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
+- **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
+- **C/D engine selection:** NOT locked. Production runtime stays separate from research.
+
+### PHASE 1 — MT5 FOUNDATION (COMPLETE 2026-08-27)
+- **Changed:** `src/trading/mt5_connection.py`, `src/data/mt5_data.py` (hardened).
+- **New:** `tests/test_mt5_connection_hardening.py` (10 synthetic unit tests).
+- **Added to `MT5Connection`:** path-based initialize, `last_error` capture,
+  `is_connected()`, `reconnect()`, `ensure_connected()`, robust error handling.
+- **Added to `MT5DataLayer`:** `last_error` capture, robust error handling.
+- **Tests:** architecture 7/7 PASS; hardening unit tests 10/10 PASS; full suite 100/100 PASS.
+- **Frozen engines:** unchanged (git diff CLEAN).
+- **Next:** PHASE 2 — M1 feed + 15m candle aggregation (parity with `resample_15m()`).
+
+---
+
 ## CURRENT STATE
 
 ### Main Research Engines (frozen baselines)
@@ -64,15 +88,15 @@ Both: mechanically verified, file = `experiment/exp_maxdd_*.py`. See
 - [x] **A** — Concurrent Exposure Cap (REJECT / non-binding)
 - [x] **B** — 3-Loss / 12-bar Circuit Breaker (REJECT / non-binding)
 - [x] **C** — DD-Based Risk Scaling (MaxDD% 2.73 → 1.85; awaiting promotion decision)
-- [ ] **D** — Open Exposure / Total-Risk Cap ← **NEXT**
-- [ ] **E** — Time-of-Day Quality Filter
+- [x] **D** — Open Exposure / Total-Risk Cap (REJECT / cap reached but only 2 blocked, no MaxDD impact; mechanically ≡ A under 1R/trade)
+- [x] **E** — Time-of-Day Quality Filter (REJECT / non-impact — 67.6% blocked, TotalR −72.5%, MaxDD% worsened)
 - [ ] **Combination tests** — only after all single-variable experiments resolve
 
 ### Phase 2 — D v1.0 MaxDD Research (mirror of Phase 1)
 
+- [x] **C** — DD-Based Risk Scaling (REJECT / non-impact — 6 paused, MaxDD unchanged 7.36R, MaxDD% worsened 2.76→2.86, TotalR −234.70R)
 - [ ] A — Concurrent Exposure Cap
 - [ ] B — 3-Loss / 12-bar Circuit Breaker
-- [ ] C — DD-Based Risk Scaling
 - [ ] D — Open Exposure / Total-Risk Cap
 - [ ] E — Time-of-Day Quality Filter
 
@@ -89,26 +113,24 @@ Both: mechanically verified, file = `experiment/exp_maxdd_*.py`. See
 
 ## NEXT ACTION
 
-**NEXT = Phase 1 / D — C v1.0 üzerinde Open Exposure / Total-Risk Cap deneyi.**
+**NEXT = Phase 1 — all single-variable overlays complete (A/B/C/D/E).**
 
-- Engine: C v1.0 (`experiment/main_research_c_v1_0.py`, UNTOUCHED).
-- Isolated variable: cap on total open R exposure across the portfolio
-  (or per-symbol). TBD in experiment design.
-- Method: post-hoc overlay on the C2 baseline trade stream, per-symbol or
-  portfolio, NO lookahead. Accept/reject entries based on current open
-  exposure.
-- Output: `results/research/expD_*_summary.json`, `expD_*_trades.json`.
-- File: `experiment/exp_maxdd_D_open_exposure.py` (new).
-- Compare: C2 baseline vs C2 + cap. Report trades, WR, TotalR, PF, MaxDD(R),
-  MaxDD(%), blocked count, per-symbol breakdown.
-- Decision criteria: REJECT if non-binding (cap never reached);
-  KEEP/PROMOTE if it reduces MaxDD(R) or MaxDD(%) without unacceptable PnL cost.
+Phase 1 Summary:
+| ID | Decision | MaxDD(R) | MaxDD(%) | TotalR |
+|---|---|---|---|---|
+| A | REJECT (non-binding) | 8.00 → 8.00 | 2.73 → 2.73 | unchanged |
+| B | REJECT (non-binding) | 8.00 → 8.00 | 2.73 → 2.73 | unchanged |
+| C | KEEP candidate | 8.00 → 8.00 | 2.73 → 1.85 | −47R (−1.65%) |
+| D | REJECT (non-impact) | 8.00 → 8.00 | 2.73 → 2.73 | −1.41R |
+| E | REJECT (non-impact) | 8.00 → 4.77 | 2.73 → 3.03 | −2084R (−72.5%) |
 
-When the experiment is done, in THIS file:
-- mark `[ ] D` → `[x] D` and add the result row to the experiment log
-  below;
-- update NEXT ACTION to the next pending item;
-- update FILE MAP if a new file was created.
+Only **C (DD Risk Scaling)** is a candidate for promotion. All others are REJECT.
+
+**NEXT ACTION:** Continue Phase 2 D v1.0 mirror experiments (A, B, D, E) or
+combination tests. D + DD Risk Scaling (Exp F) confirmed non-impact — scaling
+triggered on 533 trades but MaxDD unchanged.
+
+Awaiting user direction on next step.
 
 ---
 
@@ -119,7 +141,9 @@ When the experiment is done, in THIS file:
 | A | done | REJECT (non-binding) | 0 blocked; baseline unchanged | `experiment/exp_maxdd_A_concurrent_cap.py` |
 | B | done | REJECT (non-binding) | 105 triggers, 0 blocked; mechanically verified | `experiment/exp_maxdd_B_streak_breaker.py` |
 | C | done | MaxDD% 1.85 (pending promotion) | MaxDD% 2.73→1.85, TotalR −1.65% | `experiment/exp_maxdd_C_dd_risk_scaling.py` |
-| D | pending | — | — | (new file) |
+| D | done | REJECT (non-impact) | cap 3R reached (max_open=3) but only 2 blocked wins; MaxDD 8.00R unchanged | `experiment/exp_maxdd_D_open_exposure_cap.py` |
+| E | done | REJECT (non-impact) | 1557 blocked (67.6%), MaxDD(R) 8.00→4.77 but TotalR −2084 (−72.5%), MaxDD% 2.73→3.03 worse, PF 5.08→4.61 | `experiment/exp_maxdd_E_time_of_day.py` |
+| F | done | REJECT (non-impact) | D v1.0 + DD Risk Scaling: 6 paused, MaxDD 7.36R unchanged, MaxDD% 2.76→2.86 worse, TotalR −234.70R (−7.97%) | `experiment/exp_maxdd_F_d_risk_scaling.py` |
 
 Full per-experiment detail (what tested, engine, dataset, isolated
 variable, result, decision, next test) lives in `memory-bank/progress.md`.
@@ -137,7 +161,11 @@ experiment/main_research_d_v1_0.py        = D v1.0  / PURE D EQ baseline
 experiment/exp_maxdd_A_concurrent_cap.py
 experiment/exp_maxdd_B_streak_breaker.py
 experiment/exp_maxdd_C_dd_risk_scaling.py
-# experiment/exp_maxdd_D_open_exposure.py        (NEXT — to be created)
+experiment/exp_maxdd_D_open_exposure_cap.py
+experiment/exp_maxdd_E_time_of_day.py
+
+# D v1.0 MaxDD experiment overlays (Phase 2)
+experiment/exp_maxdd_F_d_risk_scaling.py
 
 # B replay audit
 experiment/audit_expB_replay.py      = Experiment B mechanism audit

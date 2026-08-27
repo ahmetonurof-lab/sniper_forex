@@ -8,6 +8,35 @@
 
 ---
 
+## PRODUCTION IMPLEMENTATION LOG (MT5 DEMO)
+
+> Master task list: `docs/MT5_IMPLEMENTATION_ROADMAP.md`.
+> This section logs production-transition milestones (separate from research).
+
+### PHASE 1 — MT5 FOUNDATION (COMPLETE 2026-08-27)
+
+- **What was done:** Hardened the MT5 connection + data layer for production.
+- **Files changed:**
+  - `src/trading/mt5_connection.py` — added path-based initialize, `last_error`
+    capture, `is_connected()`, `reconnect()`, `ensure_connected()`, robust error
+    handling on all data-access methods.
+  - `src/data/mt5_data.py` — added `last_error` capture + robust error handling.
+  - `tests/test_mt5_connection_hardening.py` — NEW, 10 synthetic unit tests
+    (mock MetaTrader5; no real terminal required).
+- **Tests run:**
+  - `python -m src.test_mt5_connection` → 7/7 PASS.
+  - `python -m pytest tests/test_mt5_connection_hardening.py` → 10/10 PASS.
+  - `python -m pytest tests/` → 100/100 PASS.
+- **Result:** Connection, failure handling, reconnect, tick/rates access all PASS.
+- **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` git
+  diff CLEAN (verified). No strategy behavior changed.
+- **Decision:** PHASE 1 COMPLETE. Proceed to PHASE 2.
+- **Next task:** PHASE 2 — MARKET DATA / 15M CANDLE FEED (M1 feed, forming vs
+  closed candle, dup/missing detection, warmup, timezone, canonical 15m
+  aggregation parity with `resample_15m()`).
+
+---
+
 ## MAXDD RESEARCH LINE — Per-Experiment Log
 
 ### Exp A — Concurrent Exposure Cap = 3 (C v1.0)
@@ -83,19 +112,168 @@
 - **Outputs:** `results/research/expC_dd_risk_scaling_summary.json`,
   `results/research/expC_dd_risk_scaling_trades.json`.
 
-### Exp D — Open Exposure / Total-Risk Cap (C v1.0) — NEXT
-
-- **What tested:** TBD — cap on total open R exposure across the portfolio
-  (or per-symbol), applied as a post-hoc entry-acceptance gate.
-- **Engine:** C v1.0 (UNTOUCHED).
+### Exp D — Open Exposure / Total-Risk Cap (C v1.0) (REJECT — non-impact)
+- **What tested:** cap the total open R exposure of accepted trades at
+  3R. Each accepted trade contributes its initial R risk (1R in the C2
+  engine, since pnl_r is normalised to the initial SL). When a new entry
+  would push the open-exposure sum above 3R, the entry is BLOCKED.
+- **Engine:** C v1.0 (`experiment/main_research_c_v1_0.py`, UNTOUCHED).
 - **Dataset:** 6 majors, 2.7Y, 15m bars, full.
-- **Isolated variable:** TBD.
-- **Result:** pending.
-- **Decision:** pending.
+- **Isolated variable:** post-hoc portfolio overlay with global open-R
+  cap = 3R. NO lookahead. Single lever.
+- **Result (full 2.7Y 6-major):**
+  | Metric | Baseline | D (3R cap) |
+  |---|---|---|
+  | Trades | 2302 | 2300 |
+  | Blocked | 0 | 2 |
+  | WR% | 69.37 | 69.35 |
+  | TotalR | +2875.00 | +2873.59 |
+  | AvgR | +1.2489 | +1.2494 |
+  | PF | 5.08 | 5.08 |
+  | MaxDD(R) | 8.00 | 8.00 |
+  | MaxDD(%) | 2.73 | 2.73 |
+  | Max open count | — | 3 |
+  | Max open R | — | 3.00R |
+  | Cap ever reached | — | YES (but only 2 blocks) |
+  | MaxDD-episode open exposure at trough | — | 0R (cap NOT binding at MaxDD) |
+- **Blocked trade distribution:** 1 GBPUSD bearish (would-be WIN +1.0R),
+  1 EURUSD bullish (would-be WIN +0.41R). Both would-be WINNERS blocked
+  (cap cost = −1.41R TotalR). Zero would-be losses blocked.
+- **Mechanically equivalent to Experiment A** under the C2 engine's 1R-
+  per-trade normalisation (initial risk = 1R for every trade). The
+  difference is the framing (sum of R risks vs concurrent count). Filed
+  as a separate experiment because the user spec frames the lever as
+  "total R exposure" and the audit + MaxDD-episode binding analysis are
+  distinct deliverables.
+- **Cross-symbol same-bar determinism:** the overlay sorts by
+  `(entry_timestamp, trade_id)` so the cap evaluation is reproducible
+  across runs (a tie-breaker is required because the per-symbol data
+  loader uses a thread pool and the aggregation order is otherwise non-
+  deterministic). Without the tie-breaker, run-to-run results varied
+  (0, 1, or 2 blocks) due to the same-bar cross-symbol ordering.
+- **DECISION: REJECT — non-impact.** The cap (3R) was reached (max
+  concurrent = 3) and 2 trades were blocked, but BOTH blocked trades
+  were winners (the cap selectively removed wins). MaxDD(R) unchanged at
+  8.00R; MaxDD(%) unchanged at 2.73%. TotalR cost −1.41R (−0.05%). The
+  cap was NOT binding during the MaxDD episode (open exposure at the
+  trough entry was 0R). The 8.00R MaxDD is a single-trade step
+  intrinsic to the engine; an open-exposure cap on entry cannot reduce
+  it. NOT a useful MaxDD lever.
 - **Next test:** Exp E (Time-of-Day Quality Filter).
-- **File:** `experiment/exp_maxdd_D_open_exposure.py` (to be created).
-- **Outputs:** `results/research/expD_*_summary.json`,
-  `results/research/expD_*_trades.json` (to be created).
+- **File:** `experiment/exp_maxdd_D_open_exposure_cap.py`.
+- **Outputs:** `results/research/expD_open_exposure_cap_summary.json`,
+  `expD_open_exposure_cap_trades.json`,
+  `expD_open_exposure_cap_blocked.json`.
+### Exp E — Time-of-Day Quality Filter (C v1.0) (REJECT — non-impact)
+
+- **What tested:** post-hoc entry-time filter allowing only London
+  (10:00–13:00) and NY AM (15:30–18:00) server-time windows. All
+  entries outside these windows are BLOCKED (trade excluded from
+  equity curve entirely). NO lookahead — only `entry_timestamp` used.
+- **Engine:** C v1.0 (`experiment/main_research_c_v1_0.py`, UNTOUCHED).
+- **Dataset:** 6 majors, 2.7Y, 15m bars, full.
+- **Isolated variable:** entry-acceptance time-of-day gate (post-hoc
+  overlay). Two windows tested simultaneously as a single lever.
+- **Synthetic tests:** 15/15 PASS (boundary + full datetime shapes).
+- **Result (full 2.7Y 6-major):**
+
+  | Metric | Baseline | E (ToD) | Delta |
+  |---|---|---|---|
+  | Trades | 2302 | 745 | −1557 |
+  | Blocked | 0 | 1557 | +1557 |
+  | Blocked % | — | 67.64% | — |
+  | WR% | 69.37 | 70.60 | +1.23 |
+  | TotalR | +2875.00 | +791.12 | −2083.88 |
+  | AvgR | +1.2489 | +1.0619 | −0.1870 |
+  | PF | 5.08 | 4.61 | −0.47 |
+  | MaxDD(R) | 8.00 | 4.77 | −3.23 |
+  | MaxDD(%) | 2.73 | 3.03 | +0.30 |
+
+- **Window attribution (all baseline trades):**
+
+  | Window | Trades | WR% | TotalR | AvgR | PF |
+  |---|---|---|---|---|---|
+  | London 10:00–13:00 | 441 | 69.84% | +413.65 | 0.9380 | 4.11 |
+  | NY AM 15:30–18:00 | 304 | 71.71% | +377.47 | 1.2417 | 5.39 |
+  | Outside (blocked) | 1557 | 68.79% | +2083.88 | 1.3384 | 5.29 |
+
+- **MaxDD episode analysis:** 9 trades in the episode (8.00R MaxDD).
+  7/9 outside windows (would be blocked, −7.00R); 2/9 ny_am (+1.04R
+  survived). The filter would have reduced the episode to +1.04R but
+  at the cost of removing 67.6% of ALL trades and −2084R TotalR.
+
+- **Root cause of failure:** the "outside" window carries the highest
+  AvgR (1.3384) and PF (5.29) — better than both accepted windows
+  combined. The filter selectively removes the BEST-performing session
+  hours. London has the weakest AvgR (0.9380); NY AM is mid-range.
+  Blocking outside entries destroys more value than it saves.
+
+- **DECISION: REJECT — non-impact.** MaxDD(R) reduced 8.00→4.77 but
+  MaxDD% WORSENED 2.73→3.03 (filtered equity curve peaks lower).
+  TotalR catastrophic loss −2084R (−72.5%). PF degraded 5.08→4.61.
+  The filter is far too aggressive and removes the strategy's highest-
+  quality session hours. NOT a useful MaxDD lever.
+
+- **Next test:** Phase 1 complete. All single-variable overlays (A–E)
+  resolved. Only C (DD Risk Scaling) is a KEEP candidate. Next:
+  combination tests or Phase 2 (D v1.0 line).
+- **File:** `experiment/exp_maxdd_E_time_of_day.py`.
+- **Outputs:** `results/research/expE_time_of_day_summary.json`,
+  `results/research/expE_time_of_day_trades.json`.
+
+### Exp F — D v1.0 + DD Risk Scaling (D v1.0) (REJECT — non-impact)
+
+- **What tested:** post-hoc DD-based risk scaling overlay (identical
+  thresholds/multipliers to Experiment C) applied to the D v1.0 (PURE D EQ)
+  engine trade stream.
+- **Engine:** D v1.0 (`experiment/main_research_d_v1_0.py`, UNTOUCHED).
+  Canonical compute_stats from C engine (shared).
+- **Dataset:** 6 majors, 2.7Y, 15m bars, full.
+- **Isolated variable:** post-hoc per-trade pnl_r multiplier based on
+  realized portfolio drawdown at trade entry. NO lookahead. Single lever.
+- **Synthetic tests:** 9/9 PASS (3 scenarios: 5 losses, 8 losses, mixed).
+- **Result (full 2.7Y 6-major):**
+
+  | Metric | Baseline | F (Scaled) | Delta |
+  |---|---|---|---|
+  | Trades | 2849 | 2843 | −6 |
+  | Blocked (paused) | 0 | 6 | +6 |
+  | WR% | 66.09 | 66.09 | −0.00 |
+  | TotalR | +2946.23 | +2711.52 | −234.70 |
+  | AvgR | 1.0341 | 0.9538 | −0.0803 |
+  | PF | 4.05 | 4.12 | +0.07 |
+  | MaxDD(R) | 7.36 | 7.36 | +0.00 |
+  | MaxDD(%) | 2.76 | 2.86 | +0.10 |
+
+- **Risk scaling event distribution:**
+
+  | Multiplier | Count |
+  |---|---|
+  | x1.00 (DD≤2R) | 2316 |
+  | x0.50 (DD>2R) | 486 |
+  | x0.25 (DD>4R) | 41 |
+  | PAUSE (DD>6R) | 6 |
+
+- **Root cause of failure:** Same as C engine. The 7.36R MaxDD on D is
+  dominated by a single-trade loss step. Scaling subsequent trades' risk
+  cannot retroactively reduce a peak-to-trough that already occurred.
+  533 trades were scaled (486 at x0.50, 41 at x0.25), 6 paused — but
+  the MaxDD episode's core loss step is intrinsic to the engine. MaxDD%
+  WORSENED (2.76→2.86) because the scaled equity curve peaks lower.
+  TotalR cost −234.70R (−7.97%) for zero MaxDD improvement.
+
+- **DECISION: REJECT — non-impact.** Scaling triggered on 533/2849 trades
+  (18.7%), 6 paused, but MaxDD(R) unchanged at 7.36R. MaxDD% worsened
+  2.76→2.86. TotalR cost −234.70R (−7.97%). PF ticks up 4.05→4.12.
+  Same pattern as C engine: the MaxDD is a structural single-trade step
+  that post-hoc risk scaling cannot address. NOT a useful MaxDD lever
+  on D v1.0.
+
+- **Next test:** Continue Phase 2 (D v1.0 line) with remaining overlays
+  (A, B, D, E) or move to combination tests.
+- **File:** `experiment/exp_maxdd_F_d_risk_scaling.py`.
+- **Outputs:** `results/research/expF_d_risk_scaling_summary.json`,
+  `results/research/expF_d_risk_scaling_trades.json`.
 
 ---
 
