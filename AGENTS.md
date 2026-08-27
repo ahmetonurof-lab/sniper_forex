@@ -160,15 +160,54 @@ git status
 ```
 Verify that only intended files are staged.
 
+**Index sync rule (mandatory before EVERY commit):**
+
+`index.json` is the repository's function/class index used by external MCP
+servers (e.g. codebase-memory) to navigate the codebase. If a commit adds
+or modifies code, the index must reflect the new state BEFORE the commit.
+Therefore, before every `git add` / `git commit`:
+
+```
+python tools/code-index-system/index_builder.py --full
+```
+
+This regenerates `index.json` at the repo root. If the diff shows a change
+to `index.json`, stage and include it in the same commit. The index MUST
+be committed atomically with the code change — never in a separate
+"chore: update code index" follow-up, never left as a working-tree-only
+artifact.
+
 After committing:
 
 - verify the commit contents,
 - verify the commit hash,
-- push only when instructed or when the task explicitly requires it,
+- **push only at explicit checkpoints** (see "Push discipline" below),
+  never automatically after every commit,
 - verify the final repository state.
 Never assume a file was committed merely because it was modified.
 
 Never claim a push succeeded without verifying it.
+
+**Push discipline (when to push):**
+
+- DO NOT push automatically after every commit. Local commits accumulate.
+- Push only at explicit **checkpoints**, which are:
+  - end of a numbered phase (PHASE 1..11) when the user confirms PASS,
+  - any time the user explicitly says "push",
+  - any time MCP-side consumption of `index.json` is required (the index
+    must be on the remote for external agents to see it).
+- Before every push, the working tree must include a fresh `index.json`.
+  If any code has changed since the last index regeneration, run
+  `index_builder.py --full` first and commit the regenerated index before
+  pushing. The pushed remote HEAD MUST contain a `index.json` that
+  reflects the code at that commit — never a stale index.
+- Before running `git push`, ALWAYS confirm with the user. Default
+  behavior is "commit locally, do not push".
+- After `git push`, verify the remote hash matches the local hash:
+  ```
+  git log --oneline origin/main..HEAD   # must be empty
+  git ls-remote origin main             # must show the new HEAD
+  ```
 
 ---
 

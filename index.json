@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-26T15:25:18",
+  "generated_at": "2026-08-27T21:28:17",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2050,6 +2050,66 @@
           "line_end": 95,
           "signature": "def in_session(dt_server: datetime, start_hour: int=SESSION_START_HOUR, end_hour: int=SESSION_END_HOUR) -> bool:"
         },
+        "src.live.execution.Execution.__init__": {
+          "file": "src\\live\\execution.py",
+          "line_start": 121,
+          "line_end": 143,
+          "signature": "def __init__(self, mt5: Any=None, signal_only: bool=True, magic: int=DEFAULT_MAGIC, comment_prefix: str=DEFAULT_COMMENT_PREFIX, duplicate_window_sec: float=5.0, max_retries: int=2, retry_sleep_sec: fl"
+        },
+        "src.live.execution.Execution.send": {
+          "file": "src\\live\\execution.py",
+          "line_start": 146,
+          "line_end": 283,
+          "signature": "def send(self, request: OrderRequest) -> ExecutionResult:"
+        },
+        "src.live.execution.Execution._build_request": {
+          "file": "src\\live\\execution.py",
+          "line_start": 286,
+          "line_end": 309,
+          "signature": "def _build_request(self, request: OrderRequest) -> Dict[str, Any]:"
+        },
+        "src.live.execution.Execution._fingerprint": {
+          "file": "src\\live\\execution.py",
+          "line_start": 313,
+          "line_end": 315,
+          "signature": "@staticmethod"
+        },
+        "src.live.execution.Execution._is_duplicate": {
+          "file": "src\\live\\execution.py",
+          "line_start": 317,
+          "line_end": 324,
+          "signature": "def _is_duplicate(self, fingerprint: str) -> bool:"
+        },
+        "src.live.execution.Execution._mark_sent": {
+          "file": "src\\live\\execution.py",
+          "line_start": 326,
+          "line_end": 327,
+          "signature": "def _mark_sent(self, fingerprint: str) -> None:"
+        },
+        "src.live.execution.Execution._is_filled": {
+          "file": "src\\live\\execution.py",
+          "line_start": 329,
+          "line_end": 332,
+          "signature": "def _is_filled(self, retcode: Optional[int]) -> bool:"
+        },
+        "src.live.execution.Execution._is_retriable": {
+          "file": "src\\live\\execution.py",
+          "line_start": 334,
+          "line_end": 340,
+          "signature": "def _is_retriable(self, retcode: Optional[int]) -> bool:"
+        },
+        "src.live.execution.Execution._retcode_name": {
+          "file": "src\\live\\execution.py",
+          "line_start": 342,
+          "line_end": 349,
+          "signature": "def _retcode_name(self, retcode: Optional[int]) -> str:"
+        },
+        "src.live.execution.Execution._normalize_result": {
+          "file": "src\\live\\execution.py",
+          "line_start": 351,
+          "line_end": 369,
+          "signature": "def _normalize_result(self, result: Any) -> Dict[str, Any]:"
+        },
         "src.live.risk.RiskManager.__init__": {
           "file": "src\\live\\risk.py",
           "line_start": 49,
@@ -3388,6 +3448,120 @@
           "line_end": 258,
           "signature": "def test_in_session_spans_midnight(self):"
         },
+        "tests.test_live_execution.FakeResult.__init__": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 37,
+          "line_end": 42,
+          "signature": "def __init__(self, retcode, order=0, deal=0, price=0.0, comment=''):"
+        },
+        "tests.test_live_execution.FakeMT5.__init__": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 72,
+          "line_end": 81,
+          "signature": "def __init__(self):"
+        },
+        "tests.test_live_execution.FakeMT5.order_check": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 83,
+          "line_end": 86,
+          "signature": "def order_check(self, request: Dict[str, Any]):"
+        },
+        "tests.test_live_execution.FakeMT5.order_send": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 88,
+          "line_end": 108,
+          "signature": "def order_send(self, request: Dict[str, Any]):"
+        },
+        "tests.test_live_execution._signal": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 114,
+          "line_end": 131,
+          "signature": "def _signal(**overrides) -> Signal:"
+        },
+        "tests.test_live_execution._contract": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 134,
+          "line_end": 145,
+          "signature": "def _contract() -> ContractSpec:"
+        },
+        "tests.test_live_execution._request": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 148,
+          "line_end": 156,
+          "signature": "def _request(**overrides) -> OrderRequest:"
+        },
+        "tests.test_live_execution.test_signal_only_does_not_send_real_order": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 162,
+          "line_end": 181,
+          "signature": "def test_signal_only_does_not_send_real_order():"
+        },
+        "tests.test_live_execution.test_live_send_filled_returns_fill_price_and_ids": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 184,
+          "line_end": 199,
+          "signature": "def test_live_send_filled_returns_fill_price_and_ids():"
+        },
+        "tests.test_live_execution.test_order_check_failure_does_not_call_order_send": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 202,
+          "line_end": 212,
+          "signature": "def test_order_check_failure_does_not_call_order_send():"
+        },
+        "tests.test_live_execution.test_rejection_retriable_retries_then_succeeds": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 215,
+          "line_end": 223,
+          "signature": "def test_rejection_retriable_retries_then_succeeds():"
+        },
+        "tests.test_live_execution.test_rejection_retriable_exhausts_retries_then_fails": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 226,
+          "line_end": 236,
+          "signature": "def test_rejection_retriable_exhausts_retries_then_fails():"
+        },
+        "tests.test_live_execution.test_rejection_non_retriable_no_retry": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 239,
+          "line_end": 251,
+          "signature": "def test_rejection_non_retriable_no_retry():"
+        },
+        "tests.test_live_execution.test_send_exception_treated_as_retriable": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 254,
+          "line_end": 263,
+          "signature": "def test_send_exception_treated_as_retriable():"
+        },
+        "tests.test_live_execution.test_duplicate_protection_blocks_repeat_within_window": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 266,
+          "line_end": 284,
+          "signature": "def test_duplicate_protection_blocks_repeat_within_window():"
+        },
+        "tests.test_live_execution.test_duplicate_protection_different_sl_tp_not_blocked": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 287,
+          "line_end": 300,
+          "signature": "def test_duplicate_protection_different_sl_tp_not_blocked():"
+        },
+        "tests.test_live_execution.test_lot_zero_does_not_send": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 303,
+          "line_end": 311,
+          "signature": "def test_lot_zero_does_not_send():"
+        },
+        "tests.test_live_execution.test_short_signal_uses_sell_order_type": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 314,
+          "line_end": 321,
+          "signature": "def test_short_signal_uses_sell_order_type():"
+        },
+        "tests.test_live_execution.test_magic_and_comment_override_in_payload": {
+          "file": "tests\\test_live_execution.py",
+          "line_start": 324,
+          "line_end": 329,
+          "signature": "def test_magic_and_comment_override_in_payload():"
+        },
         "tests.test_live_risk_sizing._signal": {
           "file": "tests\\test_live_risk_sizing.py",
           "line_start": 22,
@@ -3684,86 +3858,86 @@
         },
         "tools.code-index-system.watcher.DebouncedRebuilder.__init__": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 40,
-          "line_end": 44,
+          "line_start": 41,
+          "line_end": 45,
           "signature": "def __init__(self, delay, action):"
         },
         "tools.code-index-system.watcher.DebouncedRebuilder.trigger": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 46,
-          "line_end": 52,
+          "line_start": 47,
+          "line_end": 53,
           "signature": "def trigger(self, *args, **kwargs):"
         },
         "tools.code-index-system.watcher.RepoSourceHandler.__init__": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 58,
-          "line_end": 62,
+          "line_start": 59,
+          "line_end": 63,
           "signature": "def __init__(self, repo_cfg, cfg, debouncer):"
         },
         "tools.code-index-system.watcher.RepoSourceHandler._relevant": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 64,
-          "line_end": 68,
+          "line_start": 65,
+          "line_end": 69,
           "signature": "def _relevant(self, path):"
         },
         "tools.code-index-system.watcher.RepoSourceHandler.on_modified": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 70,
-          "line_end": 72,
+          "line_start": 71,
+          "line_end": 73,
           "signature": "def on_modified(self, event):"
         },
         "tools.code-index-system.watcher.RepoSourceHandler.on_created": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 74,
-          "line_end": 76,
+          "line_start": 75,
+          "line_end": 77,
           "signature": "def on_created(self, event):"
         },
         "tools.code-index-system.watcher.RepoSourceHandler.on_deleted": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 78,
-          "line_end": 80,
+          "line_start": 79,
+          "line_end": 81,
           "signature": "def on_deleted(self, event):"
         },
         "tools.code-index-system.watcher.RepoSourceHandler.on_moved": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 82,
-          "line_end": 87,
+          "line_start": 83,
+          "line_end": 88,
           "signature": "def on_moved(self, event):"
         },
         "tools.code-index-system.watcher.MemoryBankHandler.__init__": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 93,
-          "line_end": 95,
+          "line_start": 94,
+          "line_end": 96,
           "signature": "def __init__(self, repo_name, debouncer):"
         },
         "tools.code-index-system.watcher.MemoryBankHandler.on_any_event": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 97,
-          "line_end": 99,
+          "line_start": 98,
+          "line_end": 100,
           "signature": "def on_any_event(self, event):"
         },
         "tools.code-index-system.watcher.handle_source_change": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 102,
-          "line_end": 121,
+          "line_start": 103,
+          "line_end": 122,
           "signature": "def handle_source_change(action, path, repo_cfg, cfg, index_holder, output_path, lock):"
         },
         "tools.code-index-system.watcher.handle_memory_bank_change": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 124,
-          "line_end": 132,
+          "line_start": 125,
+          "line_end": 133,
           "signature": "def handle_memory_bank_change(repo_cfg, cfg, index_holder, output_path, lock):"
         },
         "tools.code-index-system.watcher.sync_to_repos": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 135,
-          "line_end": 152,
+          "line_start": 136,
+          "line_end": 153,
           "signature": "def sync_to_repos(cfg, main_path):"
         },
         "tools.code-index-system.watcher.main": {
           "file": "tools\\code-index-system\\watcher.py",
-          "line_start": 155,
-          "line_end": 214,
+          "line_start": 156,
+          "line_end": 215,
           "signature": "def main():"
         },
         "tools.histdata_acquisition.download_histdata.fetch_zip": {
@@ -4012,6 +4186,10 @@
           "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:9981835fc87e4e30"
         },
+        "src\\live\\execution.py": {
+          "last_modified": "2026-08-27T21:27:50",
+          "hash": "sha256:714af37b320c62d9"
+        },
         "src\\live\\risk.py": {
           "last_modified": "2026-08-27T12:35:03",
           "hash": "sha256:6cc28b26647e101d"
@@ -4112,6 +4290,10 @@
           "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:6bbb87bd987a4739"
         },
+        "tests\\test_live_execution.py": {
+          "last_modified": "2026-08-27T13:39:35",
+          "hash": "sha256:85be3e5b2defc312"
+        },
         "tests\\test_live_risk_sizing.py": {
           "last_modified": "2026-08-27T12:35:03",
           "hash": "sha256:9ad55cdaf40596c5"
@@ -4133,15 +4315,15 @@
           "hash": "sha256:711abef3d515bbe9"
         },
         "tools\\code-index-system\\watcher.py": {
-          "last_modified": "2026-08-22T19:59:14",
-          "hash": "sha256:7c4d75d20c85f988"
+          "last_modified": "2026-08-27T16:13:19",
+          "hash": "sha256:1642a8d6840acb99"
         },
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
         }
       },
-      "last_full_scan": "2026-08-27T12:36:27"
+      "last_full_scan": "2026-08-27T21:28:17"
     }
   }
 }
