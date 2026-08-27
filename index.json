@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-27T22:10:17",
+  "generated_at": "2026-08-27T23:12:46",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -1954,6 +1954,60 @@
           "line_end": 164,
           "signature": "def find_forex_symbols(self, base='EUR', quote='USD'):"
         },
+        "src.live.audit.AuditEvent.to_dict": {
+          "file": "src\\live\\audit.py",
+          "line_start": 50,
+          "line_end": 54,
+          "signature": "def to_dict(self) -> Dict[str, Any]:"
+        },
+        "src.live.audit.AuditChain.__init__": {
+          "file": "src\\live\\audit.py",
+          "line_start": 66,
+          "line_end": 67,
+          "signature": "def __init__(self) -> None:"
+        },
+        "src.live.audit.AuditChain.append": {
+          "file": "src\\live\\audit.py",
+          "line_start": 70,
+          "line_end": 85,
+          "signature": "def append(self, timestamp: float, event_type: EventType, symbol: Optional[str]=None, payload: Optional[Dict[str, Any]]=None) -> AuditEvent:"
+        },
+        "src.live.audit.AuditChain.append_event": {
+          "file": "src\\live\\audit.py",
+          "line_start": 87,
+          "line_end": 89,
+          "signature": "def append_event(self, event: AuditEvent) -> None:"
+        },
+        "src.live.audit.AuditChain.events": {
+          "file": "src\\live\\audit.py",
+          "line_start": 92,
+          "line_end": 94,
+          "signature": "@property"
+        },
+        "src.live.audit.AuditChain.clear": {
+          "file": "src\\live\\audit.py",
+          "line_start": 96,
+          "line_end": 98,
+          "signature": "def clear(self) -> None:"
+        },
+        "src.live.audit.AuditChain.__len__": {
+          "file": "src\\live\\audit.py",
+          "line_start": 100,
+          "line_end": 101,
+          "signature": "def __len__(self) -> int:"
+        },
+        "src.live.audit.AuditChain.save": {
+          "file": "src\\live\\audit.py",
+          "line_start": 104,
+          "line_end": 117,
+          "signature": "def save(self, path: str) -> None:"
+        },
+        "src.live.audit.AuditChain.load": {
+          "file": "src\\live\\audit.py",
+          "line_start": 119,
+          "line_end": 147,
+          "signature": "def load(self, path: str) -> int:"
+        },
         "src.live.candle_feed._utcnow_naive": {
           "file": "src\\live\\candle_feed.py",
           "line_start": 38,
@@ -2205,6 +2259,24 @@
           "line_start": 162,
           "line_end": 173,
           "signature": "def _risk_pct(self, signal: Signal, account: Account, contract, lot: float) -> float:"
+        },
+        "src.live.safety.SafetyDecision.is_clean": {
+          "file": "src\\live\\safety.py",
+          "line_start": 62,
+          "line_end": 63,
+          "signature": "@property"
+        },
+        "src.live.safety.SafetyMonitor.__init__": {
+          "file": "src\\live\\safety.py",
+          "line_start": 69,
+          "line_end": 80,
+          "signature": "def __init__(self, max_spread_points: float=30.0, stale_seconds: float=30.0 * 60.0):"
+        },
+        "src.live.safety.SafetyMonitor.check": {
+          "file": "src\\live\\safety.py",
+          "line_start": 82,
+          "line_end": 172,
+          "signature": "def check(self, *, kill_switch: bool=False, connection_ok: bool=True, last_candle_time: Optional[float]=None, now: Optional[float]=None, spread_points: float=0.0, reconciliation: Optional[Reconciliati"
         },
         "src.live.sizing.PositionSizer.__init__": {
           "file": "src\\live\\sizing.py",
@@ -3394,6 +3466,120 @@
           "line_end": 141,
           "signature": "def test_bearish_fvg_rejects_when_fvg_bottom_below_research_eq(self):"
         },
+        "tests.test_live_audit_safety.test_audit_chain_append_basic": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 43,
+          "line_end": 50,
+          "signature": "def test_audit_chain_append_basic():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_append_pre_built_event": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 53,
+          "line_end": 64,
+          "signature": "def test_audit_chain_append_pre_built_event():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_events_returns_snapshot": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 67,
+          "line_end": 73,
+          "signature": "def test_audit_chain_events_returns_snapshot():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_clear": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 76,
+          "line_end": 82,
+          "signature": "def test_audit_chain_clear():"
+        },
+        "tests.test_live_audit_safety.test_audit_event_to_dict_serializes_enum_as_string": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 85,
+          "line_end": 97,
+          "signature": "def test_audit_event_to_dict_serializes_enum_as_string():"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_save_load_roundtrip": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 100,
+          "line_end": 122,
+          "signature": "def test_audit_chain_save_load_roundtrip(tmp_path: Path):"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_load_missing_file_returns_zero": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 125,
+          "line_end": 129,
+          "signature": "def test_audit_chain_load_missing_file_returns_zero(tmp_path: Path):"
+        },
+        "tests.test_live_audit_safety.test_audit_chain_load_skips_malformed_lines": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 132,
+          "line_end": 144,
+          "signature": "def test_audit_chain_load_skips_malformed_lines(tmp_path: Path):"
+        },
+        "tests.test_live_audit_safety.test_safety_check_all_clean_allowed": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 150,
+          "line_end": 165,
+          "signature": "def test_safety_check_all_clean_allowed():"
+        },
+        "tests.test_live_audit_safety.test_safety_kill_switch_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 171,
+          "line_end": 182,
+          "signature": "def test_safety_kill_switch_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_stale_data_old_candle_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 185,
+          "line_end": 197,
+          "signature": "def test_safety_stale_data_old_candle_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_stale_data_no_candle_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 200,
+          "line_end": 209,
+          "signature": "def test_safety_stale_data_no_candle_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_connection_down_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 212,
+          "line_end": 221,
+          "signature": "def test_safety_connection_down_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_spread_too_high_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 224,
+          "line_end": 234,
+          "signature": "def test_safety_spread_too_high_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_reconciliation_not_ok_blocks": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 237,
+          "line_end": 251,
+          "signature": "def test_safety_reconciliation_not_ok_blocks():"
+        },
+        "tests.test_live_audit_safety.test_safety_reconciliation_none_does_not_block": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 254,
+          "line_end": 264,
+          "signature": "def test_safety_reconciliation_none_does_not_block():"
+        },
+        "tests.test_live_audit_safety.test_safety_first_failing_check_reported_by_severity": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 270,
+          "line_end": 284,
+          "signature": "def test_safety_first_failing_check_reported_by_severity():"
+        },
+        "tests.test_live_audit_safety.test_safety_checks_list_aligned_with_enum": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 287,
+          "line_end": 304,
+          "signature": "def test_safety_checks_list_aligned_with_enum():"
+        },
+        "tests.test_live_audit_safety.test_safety_spread_at_threshold_allows": {
+          "file": "tests\\test_live_audit_safety.py",
+          "line_start": 307,
+          "line_end": 317,
+          "signature": "def test_safety_spread_at_threshold_allows():"
+        },
         "tests.test_live_candle_feed._m1_bar": {
           "file": "tests\\test_live_candle_feed.py",
           "line_start": 23,
@@ -4150,191 +4336,125 @@
           "line_end": 90,
           "signature": "def main():"
         },
-        "src.live.audit.AuditEvent.to_dict": {
-          "file": "src\\live\\audit.py",
-          "line_start": 49,
-          "line_end": 53,
-          "signature": "def to_dict(self) -> Dict[str, Any]:"
+        "tests.test_parity_6majors._load_15m": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 47,
+          "line_end": 74,
+          "signature": "def _load_15m(symbol: str) -> List[Bar]:"
         },
-        "src.live.audit.AuditChain.__init__": {
-          "file": "src\\live\\audit.py",
-          "line_start": 65,
-          "line_end": 66,
-          "signature": "def __init__(self) -> None:"
+        "tests.test_parity_6majors._run_canonical": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 77,
+          "line_end": 81,
+          "signature": "def _run_canonical(symbol: str, bars_15m: List[Bar]):"
         },
-        "src.live.audit.AuditChain.append": {
-          "file": "src\\live\\audit.py",
-          "line_start": 69,
-          "line_end": 84,
-          "signature": "def append(self, timestamp: float, event_type: EventType, symbol: Optional[str]=None, payload: Optional[Dict[str, Any]]=None) -> AuditEvent:"
+        "tests.test_parity_6majors._run_runtime": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 84,
+          "line_end": 95,
+          "signature": "def _run_runtime(symbol: str, bars_15m: List[Bar]):"
         },
-        "src.live.audit.AuditChain.append_event": {
-          "file": "src\\live\\audit.py",
-          "line_start": 86,
-          "line_end": 88,
-          "signature": "def append_event(self, event: AuditEvent) -> None:"
+        "tests.test_parity_6majors._diff_trades": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 98,
+          "line_end": 145,
+          "signature": "def _diff_trades(symbol: str, canonical, signals) -> List[str]:"
         },
-        "src.live.audit.AuditChain.events": {
-          "file": "src\\live\\audit.py",
-          "line_start": 91,
-          "line_end": 93,
+        "tests.test_parity_6majors.test_parity_per_symbol": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 152,
+          "line_end": 161,
+          "signature": "@pytest.mark.parametrize('symbol', SIX_MAJORS)"
+        },
+        "tests.test_parity_6majors.test_parity_summary_all_six_majors": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 167,
+          "line_end": 190,
+          "signature": "def test_parity_summary_all_six_majors():"
+        },
+        "src.live.parity_gate.ParityReport.canonical_total": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 54,
+          "line_end": 55,
           "signature": "@property"
         },
-        "src.live.audit.AuditChain.clear": {
-          "file": "src\\live\\audit.py",
-          "line_start": 95,
-          "line_end": 97,
-          "signature": "def clear(self) -> None:"
-        },
-        "src.live.audit.AuditChain.__len__": {
-          "file": "src\\live\\audit.py",
-          "line_start": 99,
-          "line_end": 100,
-          "signature": "def __len__(self) -> int:"
-        },
-        "src.live.audit.AuditChain.save": {
-          "file": "src\\live\\audit.py",
-          "line_start": 103,
-          "line_end": 116,
-          "signature": "def save(self, path: str) -> None:"
-        },
-        "src.live.audit.AuditChain.load": {
-          "file": "src\\live\\audit.py",
-          "line_start": 118,
-          "line_end": 146,
-          "signature": "def load(self, path: str) -> int:"
-        },
-        "src.live.safety.SafetyDecision.is_clean": {
-          "file": "src\\live\\safety.py",
-          "line_start": 61,
-          "line_end": 62,
+        "src.live.parity_gate.ParityReport.signal_total": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 58,
+          "line_end": 59,
           "signature": "@property"
         },
-        "src.live.safety.SafetyMonitor.__init__": {
-          "file": "src\\live\\safety.py",
-          "line_start": 68,
-          "line_end": 79,
-          "signature": "def __init__(self, max_spread_points: float=30.0, stale_seconds: float=30.0 * 60.0):"
+        "src.live.parity_gate._load_15m": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 62,
+          "line_end": 89,
+          "signature": "def _load_15m(symbol: str) -> Optional[List[Bar]]:"
         },
-        "src.live.safety.SafetyMonitor.check": {
-          "file": "src\\live\\safety.py",
-          "line_start": 81,
-          "line_end": 173,
-          "signature": "def check(self, *, kill_switch: bool=False, connection_ok: bool=True, last_candle_time: Optional[float]=None, now: Optional[float]=None, spread_points: float=0.0, reconciliation: Optional[Reconciliati"
+        "src.live.parity_gate._run_canonical": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 92,
+          "line_end": 95,
+          "signature": "def _run_canonical(symbol: str, bars_15m: List[Bar]):"
         },
-        "tests.test_live_audit_safety.test_audit_chain_append_basic": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 43,
-          "line_end": 50,
-          "signature": "def test_audit_chain_append_basic():"
+        "src.live.parity_gate._run_runtime": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 98,
+          "line_end": 108,
+          "signature": "def _run_runtime(symbol: str, bars_15m: List[Bar]):"
         },
-        "tests.test_live_audit_safety.test_audit_chain_append_pre_built_event": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 53,
-          "line_end": 64,
-          "signature": "def test_audit_chain_append_pre_built_event():"
+        "src.live.parity_gate._diff_trades": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 111,
+          "line_end": 151,
+          "signature": "def _diff_trades(symbol: str, canonical, signals) -> List[str]:"
         },
-        "tests.test_live_audit_safety.test_audit_chain_events_returns_snapshot": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 67,
-          "line_end": 73,
-          "signature": "def test_audit_chain_events_returns_snapshot():"
+        "src.live.parity_gate.check_symbol": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 154,
+          "line_end": 167,
+          "signature": "def check_symbol(symbol: str) -> Tuple[bool, int, int, List[str]]:"
         },
-        "tests.test_live_audit_safety.test_audit_chain_clear": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 76,
-          "line_end": 82,
-          "signature": "def test_audit_chain_clear():"
+        "src.live.parity_gate.check_all_six_majors": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 170,
+          "line_end": 200,
+          "signature": "def check_all_six_majors() -> ParityReport:"
         },
-        "tests.test_live_audit_safety.test_audit_event_to_dict_serializes_enum_as_string": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 85,
-          "line_end": 97,
-          "signature": "def test_audit_event_to_dict_serializes_enum_as_string():"
+        "src.live.parity_gate.can_enable_execution": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 203,
+          "line_end": 214,
+          "signature": "def can_enable_execution(report: Optional[ParityReport]=None) -> bool:"
         },
-        "tests.test_live_audit_safety.test_audit_chain_save_load_roundtrip": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 100,
-          "line_end": 122,
-          "signature": "def test_audit_chain_save_load_roundtrip(tmp_path: Path):"
+        "tests.test_live_parity_gate.test_six_majors_universe_complete": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 24,
+          "line_end": 33,
+          "signature": "def test_six_majors_universe_complete():"
         },
-        "tests.test_live_audit_safety.test_audit_chain_load_missing_file_returns_zero": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 125,
-          "line_end": 129,
-          "signature": "def test_audit_chain_load_missing_file_returns_zero(tmp_path: Path):"
+        "tests.test_live_parity_gate.test_check_symbol_missing_data_returns_clean": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 36,
+          "line_end": 43,
+          "signature": "def test_check_symbol_missing_data_returns_clean():"
         },
-        "tests.test_live_audit_safety.test_audit_chain_load_skips_malformed_lines": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 132,
-          "line_end": 144,
-          "signature": "def test_audit_chain_load_skips_malformed_lines(tmp_path: Path):"
+        "tests.test_live_parity_gate.test_parity_report_aggregates_totals": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 46,
+          "line_end": 57,
+          "signature": "def test_parity_report_aggregates_totals():"
         },
-        "tests.test_live_audit_safety.test_safety_check_all_clean_allowed": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 150,
-          "line_end": 165,
-          "signature": "def test_safety_check_all_clean_allowed():"
+        "tests.test_live_parity_gate.test_check_all_six_majors_returns_report": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 60,
+          "line_end": 72,
+          "signature": "def test_check_all_six_majors_returns_report():"
         },
-        "tests.test_live_audit_safety.test_safety_kill_switch_blocks": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 171,
-          "line_end": 182,
-          "signature": "def test_safety_kill_switch_blocks():"
-        },
-        "tests.test_live_audit_safety.test_safety_stale_data_old_candle_blocks": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 185,
-          "line_end": 197,
-          "signature": "def test_safety_stale_data_old_candle_blocks():"
-        },
-        "tests.test_live_audit_safety.test_safety_stale_data_no_candle_blocks": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 200,
-          "line_end": 209,
-          "signature": "def test_safety_stale_data_no_candle_blocks():"
-        },
-        "tests.test_live_audit_safety.test_safety_connection_down_blocks": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 212,
-          "line_end": 221,
-          "signature": "def test_safety_connection_down_blocks():"
-        },
-        "tests.test_live_audit_safety.test_safety_spread_too_high_blocks": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 224,
-          "line_end": 234,
-          "signature": "def test_safety_spread_too_high_blocks():"
-        },
-        "tests.test_live_audit_safety.test_safety_reconciliation_not_ok_blocks": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 237,
-          "line_end": 251,
-          "signature": "def test_safety_reconciliation_not_ok_blocks():"
-        },
-        "tests.test_live_audit_safety.test_safety_reconciliation_none_does_not_block": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 254,
-          "line_end": 264,
-          "signature": "def test_safety_reconciliation_none_does_not_block():"
-        },
-        "tests.test_live_audit_safety.test_safety_first_failing_check_reported_by_severity": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 270,
-          "line_end": 284,
-          "signature": "def test_safety_first_failing_check_reported_by_severity():"
-        },
-        "tests.test_live_audit_safety.test_safety_checks_list_aligned_with_enum": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 287,
-          "line_end": 304,
-          "signature": "def test_safety_checks_list_aligned_with_enum():"
-        },
-        "tests.test_live_audit_safety.test_safety_spread_at_threshold_allows": {
-          "file": "tests\\test_live_audit_safety.py",
-          "line_start": 307,
-          "line_end": 317,
-          "signature": "def test_safety_spread_at_threshold_allows():"
+        "tests.test_live_parity_gate.test_can_enable_execution_consistent_with_report": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 75,
+          "line_end": 86,
+          "signature": "def test_can_enable_execution_consistent_with_report():"
         }
       },
       "files": {
@@ -4562,6 +4682,10 @@
           "last_modified": "2026-08-27T10:30:50",
           "hash": "sha256:04d0998d95c220e1"
         },
+        "src\\live\\audit.py": {
+          "last_modified": "2026-08-27T23:00:09",
+          "hash": "sha256:93336b3836b5bb82"
+        },
         "src\\live\\candle_feed.py": {
           "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:5a5d3afb48794264"
@@ -4585,6 +4709,10 @@
         "src\\live\\risk.py": {
           "last_modified": "2026-08-27T12:35:03",
           "hash": "sha256:6cc28b26647e101d"
+        },
+        "src\\live\\safety.py": {
+          "last_modified": "2026-08-27T23:00:09",
+          "hash": "sha256:26e3f6f8a072e9e4"
         },
         "src\\live\\sizing.py": {
           "last_modified": "2026-08-27T12:35:03",
@@ -4678,6 +4806,10 @@
           "last_modified": "2026-08-25T15:53:37",
           "hash": "sha256:67acae6947a7c0b6"
         },
+        "tests\\test_live_audit_safety.py": {
+          "last_modified": "2026-08-27T23:00:09",
+          "hash": "sha256:eb09284f84b2a63a"
+        },
         "tests\\test_live_candle_feed.py": {
           "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:6bbb87bd987a4739"
@@ -4718,20 +4850,20 @@
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
         },
-        "src\\live\\audit.py": {
-          "last_modified": "2026-08-27T22:55:48",
-          "hash": "sha256:20b3d2c7ac102dfc"
+        "tests\\test_parity_6majors.py": {
+          "last_modified": "2026-08-27T23:53:45",
+          "hash": "sha256:6d74cc080e9489c9"
         },
-        "src\\live\\safety.py": {
-          "last_modified": "2026-08-27T22:56:16",
-          "hash": "sha256:c3366af2159b8fa8"
+        "src\\live\\parity_gate.py": {
+          "last_modified": "2026-08-27T23:54:37",
+          "hash": "sha256:8b3dc44bd951ceab"
         },
-        "tests\\test_live_audit_safety.py": {
-          "last_modified": "2026-08-27T23:00:09",
-          "hash": "sha256:eb09284f84b2a63a"
+        "tests\\test_live_parity_gate.py": {
+          "last_modified": "2026-08-28T00:10:51",
+          "hash": "sha256:d2400a37ceb927f0"
         }
       },
-      "last_full_scan": "2026-08-27T22:43:11"
+      "last_full_scan": "2026-08-27T23:12:46"
     }
   }
 }
