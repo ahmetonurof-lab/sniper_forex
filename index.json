@@ -2164,6 +2164,102 @@
           "line_end": 369,
           "signature": "def _normalize_result(self, result: Any) -> Dict[str, Any]:"
         },
+        "src.live.paper.PaperPosition.to_position": {
+          "file": "src\\live\\paper.py",
+          "line_start": 65,
+          "line_end": 77,
+          "signature": "def to_position(self) -> Position:"
+        },
+        "src.live.paper._pnl": {
+          "file": "src\\live\\paper.py",
+          "line_start": 80,
+          "line_end": 104,
+          "signature": "def _pnl(side: str, entry: float, exit_price: float, volume: float, contract_size: float, tick_size: float, tick_value: float) -> float:"
+        },
+        "src.live.paper.PaperBroker.__init__": {
+          "file": "src\\live\\paper.py",
+          "line_start": 113,
+          "line_end": 118,
+          "signature": "def __init__(self, magic: int=9007001, starting_equity: float=10000.0):"
+        },
+        "src.live.paper.PaperBroker.get_open": {
+          "file": "src\\live\\paper.py",
+          "line_start": 121,
+          "line_end": 122,
+          "signature": "def get_open(self) -> List[PaperPosition]:"
+        },
+        "src.live.paper.PaperBroker.get_closed": {
+          "file": "src\\live\\paper.py",
+          "line_start": 124,
+          "line_end": 125,
+          "signature": "def get_closed(self) -> List[PaperPosition]:"
+        },
+        "src.live.paper.PaperBroker.total_pnl": {
+          "file": "src\\live\\paper.py",
+          "line_start": 127,
+          "line_end": 128,
+          "signature": "def total_pnl(self) -> float:"
+        },
+        "src.live.paper.PaperBroker.open": {
+          "file": "src\\live\\paper.py",
+          "line_start": 131,
+          "line_end": 155,
+          "signature": "def open(self, signal: Signal, volume: float, contract: ContractSpec, now: Optional[float]=None) -> PaperPosition:"
+        },
+        "src.live.paper.PaperBroker.close": {
+          "file": "src\\live\\paper.py",
+          "line_start": 157,
+          "line_end": 177,
+          "signature": "def close(self, ticket: int, exit_price: float, now: Optional[float]=None, reason: PositionStatus=PositionStatus.CLOSED_MANUAL) -> Optional[PaperPosition]:"
+        },
+        "src.live.paper.PaperBroker.update_pnl": {
+          "file": "src\\live\\paper.py",
+          "line_start": 179,
+          "line_end": 201,
+          "signature": "def update_pnl(self, ticket: int, contract: ContractSpec, exit_price: float) -> float:"
+        },
+        "src.live.paper.PaperBroker.on_tick": {
+          "file": "src\\live\\paper.py",
+          "line_start": 204,
+          "line_end": 247,
+          "signature": "def on_tick(self, symbol: str, bid: float, ask: float, now: Optional[float]=None) -> List[PaperPosition]:"
+        },
+        "src.live.paper.PaperSession.__init__": {
+          "file": "src\\live\\paper.py",
+          "line_start": 278,
+          "line_end": 298,
+          "signature": "def __init__(self, symbol: str, mt5: Any=None, broker: Optional[PaperBroker]=None, runtime: Optional[StrategyRuntime]=None, risk_manager: Optional[RiskManager]=None, contract: Optional[ContractSpec]=N"
+        },
+        "src.live.paper.PaperSession.warmup": {
+          "file": "src\\live\\paper.py",
+          "line_start": 300,
+          "line_end": 318,
+          "signature": "def warmup(self, n_15m: int=200) -> int:"
+        },
+        "src.live.paper.PaperSession.run_step": {
+          "file": "src\\live\\paper.py",
+          "line_start": 320,
+          "line_end": 376,
+          "signature": "def run_step(self, audit: AuditChain, m1_bars: Optional[List[Bar]]=None, ticks: Optional[List[Dict[str, float]]]=None) -> PaperStepResult:"
+        },
+        "src.live.paper.PaperSession._advance_strategy": {
+          "file": "src\\live\\paper.py",
+          "line_start": 378,
+          "line_end": 440,
+          "signature": "def _advance_strategy(self, m1_bars: List[Bar], audit: AuditChain, result: PaperStepResult) -> int:"
+        },
+        "src.live.paper.PaperSession._default_contract": {
+          "file": "src\\live\\paper.py",
+          "line_start": 442,
+          "line_end": 453,
+          "signature": "def _default_contract(self) -> ContractSpec:"
+        },
+        "src.live.paper._rates_to_bars": {
+          "file": "src\\live\\paper.py",
+          "line_start": 456,
+          "line_end": 487,
+          "signature": "def _rates_to_bars(rates: Any) -> List[Bar]:"
+        },
         "src.live.parity_gate.ParityReport.canonical_total": {
           "file": "src\\live\\parity_gate.py",
           "line_start": 55,
@@ -2295,24 +2391,6 @@
           "line_start": 96,
           "line_end": 164,
           "signature": "def reconcile(self, local: Dict[int, Position], remote: Dict[int, Position]) -> ReconciliationDecision:"
-        },
-        "src.live.risk.RiskManager.__init__": {
-          "file": "src\\live\\risk.py",
-          "line_start": 49,
-          "line_end": 62,
-          "signature": "def __init__(self, max_spread_ratio: float=0.5, max_exposure_mult: float=20.0, max_risk_per_trade: float=0.01):"
-        },
-        "src.live.risk.RiskManager.evaluate": {
-          "file": "src\\live\\risk.py",
-          "line_start": 64,
-          "line_end": 158,
-          "signature": "def evaluate(self, signal: Signal, account: Account, contract, spread: float, exposure: float=0.0, lot: float=0.0) -> RiskDecision:"
-        },
-        "src.live.risk.RiskManager._risk_pct": {
-          "file": "src\\live\\risk.py",
-          "line_start": 162,
-          "line_end": 173,
-          "signature": "def _risk_pct(self, signal: Signal, account: Account, contract, lot: float) -> float:"
         },
         "src.live.safety.SafetyDecision.is_clean": {
           "file": "src\\live\\safety.py",
@@ -3910,6 +3988,174 @@
           "line_end": 329,
           "signature": "def test_magic_and_comment_override_in_payload():"
         },
+        "tests.test_live_paper._signal": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 41,
+          "line_end": 62,
+          "signature": "def _signal(symbol: str='EURUSD', side: str='long', entry: float=1.1, sl: float=1.095, tp: float=1.109) -> Signal:"
+        },
+        "tests.test_live_paper._contract": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 65,
+          "line_end": 81,
+          "signature": "def _contract(symbol: str='EURUSD', tick_size: float=1e-05, tick_value: float=1.0, contract_size: float=100000.0) -> ContractSpec:"
+        },
+        "tests.test_live_paper.test_paper_position_default_status_is_open": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 87,
+          "line_end": 101,
+          "signature": "def test_paper_position_default_status_is_open():"
+        },
+        "tests.test_live_paper.test_paper_position_to_position_shape": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 104,
+          "line_end": 121,
+          "signature": "def test_paper_position_to_position_shape():"
+        },
+        "tests.test_live_paper.test_broker_open_assigns_unique_tickets": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 127,
+          "line_end": 135,
+          "signature": "def test_broker_open_assigns_unique_tickets():"
+        },
+        "tests.test_live_paper.test_broker_open_uses_signal_entry_price": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 138,
+          "line_end": 145,
+          "signature": "def test_broker_open_uses_signal_entry_price():"
+        },
+        "tests.test_live_paper.test_broker_close_moves_position_from_open_to_closed": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 148,
+          "line_end": 157,
+          "signature": "def test_broker_close_moves_position_from_open_to_closed():"
+        },
+        "tests.test_live_paper.test_broker_close_unknown_ticket_returns_none": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 160,
+          "line_end": 162,
+          "signature": "def test_broker_close_unknown_ticket_returns_none():"
+        },
+        "tests.test_live_paper.test_on_tick_long_sl_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 168,
+          "line_end": 180,
+          "signature": "def test_on_tick_long_sl_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_long_tp_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 183,
+          "line_end": 194,
+          "signature": "def test_on_tick_long_tp_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_short_sl_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 197,
+          "line_end": 208,
+          "signature": "def test_on_tick_short_sl_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_short_tp_hit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 211,
+          "line_end": 222,
+          "signature": "def test_on_tick_short_tp_hit():"
+        },
+        "tests.test_live_paper.test_on_tick_no_hit_when_price_within_band": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 225,
+          "line_end": 235,
+          "signature": "def test_on_tick_no_hit_when_price_within_band():"
+        },
+        "tests.test_live_paper.test_on_tick_only_matching_symbol_processed": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 238,
+          "line_end": 248,
+          "signature": "def test_on_tick_only_matching_symbol_processed():"
+        },
+        "tests.test_live_paper.test_pnl_long_profit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 254,
+          "line_end": 267,
+          "signature": "def test_pnl_long_profit():"
+        },
+        "tests.test_live_paper.test_pnl_long_loss": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 270,
+          "line_end": 281,
+          "signature": "def test_pnl_long_loss():"
+        },
+        "tests.test_live_paper.test_pnl_short_profit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 284,
+          "line_end": 296,
+          "signature": "def test_pnl_short_profit():"
+        },
+        "tests.test_live_paper.test_pnl_short_loss": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 299,
+          "line_end": 310,
+          "signature": "def test_pnl_short_loss():"
+        },
+        "tests.test_live_paper.test_pnl_volume_scaling": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 313,
+          "line_end": 334,
+          "signature": "def test_pnl_volume_scaling():"
+        },
+        "tests.test_live_paper.test_pnl_jpy_pair_3_digit": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 337,
+          "line_end": 350,
+          "signature": "def test_pnl_jpy_pair_3_digit():"
+        },
+        "tests.test_live_paper.test_pnl_zero_tick_size_returns_zero": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 353,
+          "line_end": 364,
+          "signature": "def test_pnl_zero_tick_size_returns_zero():"
+        },
+        "tests.test_live_paper.test_broker_update_pnl_patches_closed_position": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 367,
+          "line_end": 375,
+          "signature": "def test_broker_update_pnl_patches_closed_position():"
+        },
+        "tests.test_live_paper.test_broker_total_pnl_sums_closed": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 378,
+          "line_end": 389,
+          "signature": "def test_broker_total_pnl_sums_closed():"
+        },
+        "tests.test_live_paper.test_paper_session_run_step_without_warmup_errors": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 395,
+          "line_end": 402,
+          "signature": "def test_paper_session_run_step_without_warmup_errors():"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 405,
+          "line_end": 428,
+          "signature": "def test_paper_session_dry_run_invariant():"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.__init__": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 413,
+          "line_end": 414,
+          "signature": "def __init__(self):"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.order_send": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 416,
+          "line_end": 418,
+          "signature": "def order_send(self, *_a, **_k):"
+        },
+        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.copy_rates_from_pos": {
+          "file": "tests\\test_live_paper.py",
+          "line_start": 420,
+          "line_end": 421,
+          "signature": "def copy_rates_from_pos(self, *_a, **_k):"
+        },
         "tests.test_live_parity_gate.test_six_majors_universe_complete": {
           "file": "tests\\test_live_parity_gate.py",
           "line_start": 24,
@@ -4576,269 +4822,167 @@
           "line_end": 90,
           "signature": "def main():"
         },
-        "src.live.paper.PaperPosition.to_position": {
-          "file": "src\\live\\paper.py",
-          "line_start": 65,
-          "line_end": 77,
-          "signature": "def to_position(self) -> Position:"
+        "src.live.portfolio_dd.PortfolioDD.current_dd_r": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 55,
+          "line_end": 58,
+          "signature": "def current_dd_r(self) -> float:"
         },
-        "src.live.paper._pnl": {
-          "file": "src\\live\\paper.py",
+        "src.live.portfolio_dd.PortfolioDD.current_equity_r": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 60,
+          "line_end": 61,
+          "signature": "def current_equity_r(self) -> float:"
+        },
+        "src.live.portfolio_dd.PortfolioDD.record_realized": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 63,
+          "line_end": 68,
+          "signature": "def record_realized(self, pnl_r: float) -> None:"
+        },
+        "src.live.portfolio_dd.compute_lot_multiplier": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 71,
+          "line_end": 93,
+          "signature": "def compute_lot_multiplier(dd_r: float, t1: float=DEFAULT_T1, t2: float=DEFAULT_T2, t3: float=DEFAULT_T3) -> float:"
+        },
+        "tests.test_live_portfolio_dd._signal": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 40,
+          "line_end": 60,
+          "signature": "def _signal(side: str='long', entry: float=1.1, sl: float=1.095, tp: float=1.109) -> Signal:"
+        },
+        "tests.test_live_portfolio_dd._contract": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 63,
+          "line_end": 74,
+          "signature": "def _contract() -> ContractSpec:"
+        },
+        "tests.test_live_portfolio_dd.test_portfolio_dd_zero_state": {
+          "file": "tests\\test_live_portfolio_dd.py",
           "line_start": 80,
-          "line_end": 104,
-          "signature": "def _pnl(side: str, entry: float, exit_price: float, volume: float, contract_size: float, tick_size: float, tick_value: float) -> float:"
+          "line_end": 83,
+          "signature": "def test_portfolio_dd_zero_state():"
         },
-        "src.live.paper.PaperBroker.__init__": {
-          "file": "src\\live\\paper.py",
-          "line_start": 113,
-          "line_end": 118,
-          "signature": "def __init__(self, magic: int=9007001, starting_equity: float=10000.0):"
+        "tests.test_live_portfolio_dd.test_portfolio_dd_record_profit_updates_peak": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 86,
+          "line_end": 91,
+          "signature": "def test_portfolio_dd_record_profit_updates_peak():"
         },
-        "src.live.paper.PaperBroker.get_open": {
-          "file": "src\\live\\paper.py",
-          "line_start": 121,
-          "line_end": 122,
-          "signature": "def get_open(self) -> List[PaperPosition]:"
+        "tests.test_live_portfolio_dd.test_portfolio_dd_record_loss_creates_dd": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 94,
+          "line_end": 99,
+          "signature": "def test_portfolio_dd_record_loss_creates_dd():"
         },
-        "src.live.paper.PaperBroker.get_closed": {
-          "file": "src\\live\\paper.py",
-          "line_start": 124,
-          "line_end": 125,
-          "signature": "def get_closed(self) -> List[PaperPosition]:"
+        "tests.test_live_portfolio_dd.test_portfolio_dd_recovery_shrinks_dd": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 102,
+          "line_end": 109,
+          "signature": "def test_portfolio_dd_recovery_shrinks_dd():"
         },
-        "src.live.paper.PaperBroker.total_pnl": {
-          "file": "src\\live\\paper.py",
+        "tests.test_live_portfolio_dd.test_portfolio_dd_dd_never_negative": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 112,
+          "line_end": 117,
+          "signature": "def test_portfolio_dd_dd_never_negative():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_default_when_dd_zero": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 123,
+          "line_end": 124,
+          "signature": "def test_multiplier_default_when_dd_zero():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_default_when_dd_below_t1": {
+          "file": "tests\\test_live_portfolio_dd.py",
           "line_start": 127,
-          "line_end": 128,
-          "signature": "def total_pnl(self) -> float:"
+          "line_end": 129,
+          "signature": "def test_multiplier_default_when_dd_below_t1():"
         },
-        "src.live.paper.PaperBroker.open": {
-          "file": "src\\live\\paper.py",
-          "line_start": 131,
-          "line_end": 155,
-          "signature": "def open(self, signal: Signal, volume: float, contract: ContractSpec, now: Optional[float]=None) -> PaperPosition:"
+        "tests.test_live_portfolio_dd.test_multiplier_half_when_dd_between_t1_and_t2": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 132,
+          "line_end": 134,
+          "signature": "def test_multiplier_half_when_dd_between_t1_and_t2():"
         },
-        "src.live.paper.PaperBroker.close": {
-          "file": "src\\live\\paper.py",
+        "tests.test_live_portfolio_dd.test_multiplier_quarter_when_dd_between_t2_and_t3": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 137,
+          "line_end": 139,
+          "signature": "def test_multiplier_quarter_when_dd_between_t2_and_t3():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_pause_when_dd_above_t3": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 142,
+          "line_end": 144,
+          "signature": "def test_multiplier_pause_when_dd_above_t3():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_custom_thresholds": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 147,
+          "line_end": 151,
+          "signature": "def test_multiplier_custom_thresholds():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_default_dd_is_full_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
           "line_start": 157,
-          "line_end": 177,
-          "signature": "def close(self, ticket: int, exit_price: float, now: Optional[float]=None, reason: PositionStatus=PositionStatus.CLOSED_MANUAL) -> Optional[PaperPosition]:"
+          "line_end": 167,
+          "signature": "def test_risk_manager_default_dd_is_full_size():"
         },
-        "src.live.paper.PaperBroker.update_pnl": {
-          "file": "src\\live\\paper.py",
-          "line_start": 179,
-          "line_end": 201,
-          "signature": "def update_pnl(self, ticket: int, contract: ContractSpec, exit_price: float) -> float:"
-        },
-        "src.live.paper.PaperBroker.on_tick": {
-          "file": "src\\live\\paper.py",
-          "line_start": 204,
-          "line_end": 247,
-          "signature": "def on_tick(self, symbol: str, bid: float, ask: float, now: Optional[float]=None) -> List[PaperPosition]:"
-        },
-        "src.live.paper.PaperSession.__init__": {
-          "file": "src\\live\\paper.py",
-          "line_start": 278,
-          "line_end": 298,
-          "signature": "def __init__(self, symbol: str, mt5: Any=None, broker: Optional[PaperBroker]=None, runtime: Optional[StrategyRuntime]=None, risk_manager: Optional[RiskManager]=None, contract: Optional[ContractSpec]=N"
-        },
-        "src.live.paper.PaperSession.warmup": {
-          "file": "src\\live\\paper.py",
-          "line_start": 300,
-          "line_end": 318,
-          "signature": "def warmup(self, n_15m: int=200) -> int:"
-        },
-        "src.live.paper.PaperSession.run_step": {
-          "file": "src\\live\\paper.py",
-          "line_start": 320,
-          "line_end": 376,
-          "signature": "def run_step(self, audit: AuditChain, m1_bars: Optional[List[Bar]]=None, ticks: Optional[List[Dict[str, float]]]=None) -> PaperStepResult:"
-        },
-        "src.live.paper.PaperSession._advance_strategy": {
-          "file": "src\\live\\paper.py",
-          "line_start": 378,
-          "line_end": 440,
-          "signature": "def _advance_strategy(self, m1_bars: List[Bar], audit: AuditChain, result: PaperStepResult) -> int:"
-        },
-        "src.live.paper.PaperSession._default_contract": {
-          "file": "src\\live\\paper.py",
-          "line_start": 442,
-          "line_end": 453,
-          "signature": "def _default_contract(self) -> ContractSpec:"
-        },
-        "src.live.paper._rates_to_bars": {
-          "file": "src\\live\\paper.py",
-          "line_start": 456,
-          "line_end": 487,
-          "signature": "def _rates_to_bars(rates: Any) -> List[Bar]:"
-        },
-        "tests.test_live_paper._signal": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 41,
-          "line_end": 62,
-          "signature": "def _signal(symbol: str='EURUSD', side: str='long', entry: float=1.1, sl: float=1.095, tp: float=1.109) -> Signal:"
-        },
-        "tests.test_live_paper._contract": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 65,
-          "line_end": 81,
-          "signature": "def _contract(symbol: str='EURUSD', tick_size: float=1e-05, tick_value: float=1.0, contract_size: float=100000.0) -> ContractSpec:"
-        },
-        "tests.test_live_paper.test_paper_position_default_status_is_open": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 87,
-          "line_end": 101,
-          "signature": "def test_paper_position_default_status_is_open():"
-        },
-        "tests.test_live_paper.test_paper_position_to_position_shape": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 104,
-          "line_end": 121,
-          "signature": "def test_paper_position_to_position_shape():"
-        },
-        "tests.test_live_paper.test_broker_open_assigns_unique_tickets": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 127,
-          "line_end": 135,
-          "signature": "def test_broker_open_assigns_unique_tickets():"
-        },
-        "tests.test_live_paper.test_broker_open_uses_signal_entry_price": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 138,
-          "line_end": 145,
-          "signature": "def test_broker_open_uses_signal_entry_price():"
-        },
-        "tests.test_live_paper.test_broker_close_moves_position_from_open_to_closed": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 148,
-          "line_end": 157,
-          "signature": "def test_broker_close_moves_position_from_open_to_closed():"
-        },
-        "tests.test_live_paper.test_broker_close_unknown_ticket_returns_none": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 160,
-          "line_end": 162,
-          "signature": "def test_broker_close_unknown_ticket_returns_none():"
-        },
-        "tests.test_live_paper.test_on_tick_long_sl_hit": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 168,
+        "tests.test_live_portfolio_dd.test_risk_manager_explicit_dd_zero_full_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 170,
           "line_end": 180,
-          "signature": "def test_on_tick_long_sl_hit():"
+          "signature": "def test_risk_manager_explicit_dd_zero_full_size():"
         },
-        "tests.test_live_paper.test_on_tick_long_tp_hit": {
-          "file": "tests\\test_live_paper.py",
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_3R_half_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
           "line_start": 183,
-          "line_end": 194,
-          "signature": "def test_on_tick_long_tp_hit():"
+          "line_end": 193,
+          "signature": "def test_risk_manager_dd_3R_half_size():"
         },
-        "tests.test_live_paper.test_on_tick_short_sl_hit": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 197,
-          "line_end": 208,
-          "signature": "def test_on_tick_short_sl_hit():"
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_5R_quarter_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 196,
+          "line_end": 206,
+          "signature": "def test_risk_manager_dd_5R_quarter_size():"
         },
-        "tests.test_live_paper.test_on_tick_short_tp_hit": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 211,
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_7R_pause_blocks_trade": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 209,
           "line_end": 222,
-          "signature": "def test_on_tick_short_tp_hit():"
+          "signature": "def test_risk_manager_dd_7R_pause_blocks_trade():"
         },
-        "tests.test_live_paper.test_on_tick_no_hit_when_price_within_band": {
-          "file": "tests\\test_live_paper.py",
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_pause_does_not_trigger_when_other_check_fails": {
+          "file": "tests\\test_live_portfolio_dd.py",
           "line_start": 225,
-          "line_end": 235,
-          "signature": "def test_on_tick_no_hit_when_price_within_band():"
+          "line_end": 237,
+          "signature": "def test_risk_manager_dd_pause_does_not_trigger_when_other_check_fails():"
         },
-        "tests.test_live_paper.test_on_tick_only_matching_symbol_processed": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 238,
-          "line_end": 248,
-          "signature": "def test_on_tick_only_matching_symbol_processed():"
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_does_not_break_existing_phase4_paths": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 240,
+          "line_end": 253,
+          "signature": "def test_risk_manager_dd_does_not_break_existing_phase4_paths():"
         },
-        "tests.test_live_paper.test_pnl_long_profit": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 254,
-          "line_end": 267,
-          "signature": "def test_pnl_long_profit():"
+        "src.live.risk.RiskManager.__init__": {
+          "file": "src\\live\\risk.py",
+          "line_start": 55,
+          "line_end": 68,
+          "signature": "def __init__(self, max_spread_ratio: float=0.5, max_exposure_mult: float=20.0, max_risk_per_trade: float=0.01):"
         },
-        "tests.test_live_paper.test_pnl_long_loss": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 270,
-          "line_end": 281,
-          "signature": "def test_pnl_long_loss():"
+        "src.live.risk.RiskManager.evaluate": {
+          "file": "src\\live\\risk.py",
+          "line_start": 70,
+          "line_end": 183,
+          "signature": "def evaluate(self, signal: Signal, account: Account, contract, spread: float, exposure: float=0.0, lot: float=0.0, portfolio_dd_r: float=0.0) -> RiskDecision:"
         },
-        "tests.test_live_paper.test_pnl_short_profit": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 284,
-          "line_end": 296,
-          "signature": "def test_pnl_short_profit():"
-        },
-        "tests.test_live_paper.test_pnl_short_loss": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 299,
-          "line_end": 310,
-          "signature": "def test_pnl_short_loss():"
-        },
-        "tests.test_live_paper.test_pnl_volume_scaling": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 313,
-          "line_end": 334,
-          "signature": "def test_pnl_volume_scaling():"
-        },
-        "tests.test_live_paper.test_pnl_jpy_pair_3_digit": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 337,
-          "line_end": 350,
-          "signature": "def test_pnl_jpy_pair_3_digit():"
-        },
-        "tests.test_live_paper.test_pnl_zero_tick_size_returns_zero": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 353,
-          "line_end": 364,
-          "signature": "def test_pnl_zero_tick_size_returns_zero():"
-        },
-        "tests.test_live_paper.test_broker_update_pnl_patches_closed_position": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 367,
-          "line_end": 375,
-          "signature": "def test_broker_update_pnl_patches_closed_position():"
-        },
-        "tests.test_live_paper.test_broker_total_pnl_sums_closed": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 378,
-          "line_end": 389,
-          "signature": "def test_broker_total_pnl_sums_closed():"
-        },
-        "tests.test_live_paper.test_paper_session_run_step_without_warmup_errors": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 395,
-          "line_end": 402,
-          "signature": "def test_paper_session_run_step_without_warmup_errors():"
-        },
-        "tests.test_live_paper.test_paper_session_dry_run_invariant": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 405,
-          "line_end": 428,
-          "signature": "def test_paper_session_dry_run_invariant():"
-        },
-        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.__init__": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 413,
-          "line_end": 414,
-          "signature": "def __init__(self):"
-        },
-        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.order_send": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 416,
-          "line_end": 418,
-          "signature": "def order_send(self, *_a, **_k):"
-        },
-        "tests.test_live_paper.test_paper_session_dry_run_invariant.NoSendMT5.copy_rates_from_pos": {
-          "file": "tests\\test_live_paper.py",
-          "line_start": 420,
-          "line_end": 421,
-          "signature": "def copy_rates_from_pos(self, *_a, **_k):"
+        "src.live.risk.RiskManager._risk_pct": {
+          "file": "src\\live\\risk.py",
+          "line_start": 187,
+          "line_end": 198,
+          "signature": "def _risk_pct(self, signal: Signal, account: Account, contract, lot: float) -> float:"
         }
       },
       "files": {
@@ -5082,6 +5226,10 @@
           "last_modified": "2026-08-27T21:27:50",
           "hash": "sha256:714af37b320c62d9"
         },
+        "src\\live\\paper.py": {
+          "last_modified": "2026-08-28T00:50:30",
+          "hash": "sha256:3f02dfaf4c4663c0"
+        },
         "src\\live\\parity_gate.py": {
           "last_modified": "2026-08-28T00:10:51",
           "hash": "sha256:51c41b12dde49fc6"
@@ -5093,10 +5241,6 @@
         "src\\live\\reconciliation.py": {
           "last_modified": "2026-08-27T22:40:38",
           "hash": "sha256:c22f5362169760c8"
-        },
-        "src\\live\\risk.py": {
-          "last_modified": "2026-08-27T12:35:03",
-          "hash": "sha256:6cc28b26647e101d"
         },
         "src\\live\\safety.py": {
           "last_modified": "2026-08-27T23:00:09",
@@ -5210,6 +5354,10 @@
           "last_modified": "2026-08-27T13:39:35",
           "hash": "sha256:85be3e5b2defc312"
         },
+        "tests\\test_live_paper.py": {
+          "last_modified": "2026-08-28T00:51:40",
+          "hash": "sha256:3a24cf9c48783c13"
+        },
         "tests\\test_live_parity_gate.py": {
           "last_modified": "2026-08-28T00:10:51",
           "hash": "sha256:d2400a37ceb927f0"
@@ -5254,16 +5402,20 @@
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
         },
-        "src\\live\\paper.py": {
-          "last_modified": "2026-08-28T00:50:30",
-          "hash": "sha256:3f02dfaf4c4663c0"
+        "src\\live\\portfolio_dd.py": {
+          "last_modified": "2026-08-28T01:13:59",
+          "hash": "sha256:3686bb722ad324ab"
         },
-        "tests\\test_live_paper.py": {
-          "last_modified": "2026-08-28T00:51:40",
-          "hash": "sha256:3a24cf9c48783c13"
+        "tests\\test_live_portfolio_dd.py": {
+          "last_modified": "2026-08-28T01:16:14",
+          "hash": "sha256:e2c56fc6c51dc39d"
+        },
+        "src\\live\\risk.py": {
+          "last_modified": "2026-08-28T01:17:32",
+          "hash": "sha256:bfe6542448e43220"
         }
       },
-      "last_full_scan": "2026-08-28T00:27:54"
+      "last_full_scan": "2026-08-28T00:53:41"
     }
   }
 }

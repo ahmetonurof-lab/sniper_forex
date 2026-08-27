@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from src.live.portfolio_dd import compute_lot_multiplier
 from src.live.strategy_runtime import Signal
 
 
@@ -37,6 +38,11 @@ class RiskDecision:
     # Populated when rejected:
     blocked: bool = False
     checks: list = field(default_factory=list)
+    # Phase 11: DD-based lot multiplier (1.0 / 0.5 / 0.25 / 0.0).
+    # 0.0 means PAUSE (the trade is blocked because portfolio DD > t3).
+    # Callers MUST apply this multiplier to their proposed lot before
+    # sending the order. See `src/live/portfolio_dd.py`.
+    lot_multiplier: float = 1.0
 
 
 class RiskManager:
@@ -69,6 +75,7 @@ class RiskManager:
         spread: float,
         exposure: float = 0.0,
         lot: float = 0.0,
+        portfolio_dd_r: float = 0.0,
     ) -> RiskDecision:
         """Evaluate a signal against risk constraints.
 
@@ -80,6 +87,10 @@ class RiskManager:
             exposure: current total open notional exposure (account currency).
             lot: proposed lot size (from PositionSizer). If 0, exposure and
                 risk-ceiling checks are skipped (cannot size).
+            portfolio_dd_r: realized portfolio drawdown in R (from
+                `PortfolioDD.current_dd_r()`). When > 0, the lot multiplier
+                from `compute_lot_multiplier(dd_r)` is applied. If the
+                multiplier is 0.0 (DD > t3), the trade is BLOCKED (pause).
         """
         checks: list = []
         stop_distance = abs(signal.entry_price - signal.sl)
@@ -148,6 +159,19 @@ class RiskManager:
                     checks=checks,
                 )
 
+        # 6. Portfolio DD scaling (Phase 11, mirrors exp_maxdd_C).
+        # Compute the lot multiplier from current realized DD. If 0.0 -> pause.
+        mult = compute_lot_multiplier(portfolio_dd_r)
+        if mult <= 0.0:
+            checks.append("portfolio_dd_pause")
+            return RiskDecision(
+                approved=False,
+                reason=(f"portfolio DD {portfolio_dd_r:.2f}R > t3 " f"(PAUSE)"),
+                blocked=True,
+                checks=checks,
+                lot_multiplier=0.0,
+            )
+
         return RiskDecision(
             approved=True,
             reason="ok",
@@ -155,6 +179,7 @@ class RiskManager:
             risk_amount=account.balance * risk_pct,
             risk_pct=risk_pct,
             checks=checks,
+            lot_multiplier=mult,
         )
 
     # -- helpers ---------------------------------------------------------
