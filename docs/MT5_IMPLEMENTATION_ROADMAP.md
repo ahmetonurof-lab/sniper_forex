@@ -15,7 +15,7 @@
 ```
 Current Phase:        PHASE 3 — STRATEGY RUNTIME
 Last Completed Phase: PHASE 2 — MARKET DATA / 15M CANDLE FEED (2026-08-27)
-Last Commit:          <PHASE2_COMMIT_HASH> (phase2: M1 feed + 15m candle aggregation)
+Last Commit:          b81115d (phase2: M1 feed + 15m candle aggregation)
 Blocking Issue:       none
 Next Action:          Start PHASE 3 (strategy runtime port)
 ```
@@ -122,7 +122,7 @@ MT5 DEMO
 - **Acceptance criteria:** Same M1 input → same 15m OHLC/timestamp as canonical
   backtest.
 - **Status:** COMPLETE (2026-08-27)
-- **Commit:** <PHASE2_COMMIT_HASH>
+- **Commit:** b81115d
 - **Known risks:** Aggregation boundary parity (must match `resample_15m()`).
 - **Notes:** Canonical engines load 15m feather directly; live must aggregate M1
   with the SAME boundary (`resample_15m()`: epoch//15min, drop <3-bar buckets).
