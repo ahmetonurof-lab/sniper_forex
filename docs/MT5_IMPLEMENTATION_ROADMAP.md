@@ -15,7 +15,7 @@
 ```
 Current Phase:        PHASE 2 — MARKET DATA / 15M CANDLE FEED
 Last Completed Phase: PHASE 1 — MT5 FOUNDATION (2026-08-27)
-Last Commit:          <PHASE1_COMMIT_HASH> (phase1: MT5 connection + data layer hardening)
+Last Commit:          d997cd3 (phase1: MT5 connection + data layer hardening)
 Blocking Issue:       none
 Next Action:          Start PHASE 2 (M1 feed + 15m candle aggregation)
 ```
@@ -93,7 +93,7 @@ MT5 DEMO
   - tick/rates access PASS ✅
   - frozen engines unchanged (git diff CLEAN) ✅
 - **Status:** COMPLETE (2026-08-27)
-- **Commit:** <PHASE1_COMMIT_HASH>
+- **Commit:** d997cd3
 - **Known risks:** MT5 terminal environment dependency; credentials must never
   be logged.
 - **Notes:** Phase 0 `MT5Connection` had no reconnect and only `print()` error
