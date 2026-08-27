@@ -2086,6 +2086,72 @@
           "line_end": 56,
           "signature": "def clear(self, symbol: str) -> None:"
         },
+        "src.live.strategy_runtime._to_nexus_bar": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 79,
+          "line_end": 92,
+          "signature": "def _to_nexus_bar(bar: Bar) -> NexusBar:"
+        },
+        "src.live.strategy_runtime._is_fresh_fvg": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 95,
+          "line_end": 105,
+          "signature": "def _is_fresh_fvg(fvg, bars_15m: List[Bar], current_index: int) -> bool:"
+        },
+        "src.live.strategy_runtime._compute_atr": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 108,
+          "line_end": 126,
+          "signature": "def _compute_atr(bars: List[Bar], period: int=14) -> float:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.__init__": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 136,
+          "line_end": 158,
+          "signature": "def __init__(self, symbol: str):"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.warmup": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 161,
+          "line_end": 179,
+          "signature": "def warmup(self, bars_15m: List[Bar]) -> None:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.on_bar": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 182,
+          "line_end": 339,
+          "signature": "def on_bar(self, bar: Bar) -> Optional[Signal]:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime._create_pending": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 342,
+          "line_end": 378,
+          "signature": "def _create_pending(self, fvg, i: int) -> None:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime._fill_pending": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 380,
+          "line_end": 473,
+          "signature": "def _fill_pending(self, bar: Bar) -> bool:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime._close_trade": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 476,
+          "line_end": 496,
+          "signature": "def _close_trade(self, exit_info: dict, i: int, bar: Bar) -> None:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.to_state": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 499,
+          "line_end": 542,
+          "signature": "def to_state(self) -> dict:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.from_state": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 544,
+          "line_end": 583,
+          "signature": "def from_state(self, state: dict) -> None:"
+        },
         "src.strategy.data_loader.DataLoader.__init__": {
           "file": "src\\strategy\\data_loader.py",
           "line_start": 28,
@@ -3585,72 +3651,6 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
-        },
-        "src.live.strategy_runtime._to_nexus_bar": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 79,
-          "line_end": 92,
-          "signature": "def _to_nexus_bar(bar: Bar) -> NexusBar:"
-        },
-        "src.live.strategy_runtime._is_fresh_fvg": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 95,
-          "line_end": 105,
-          "signature": "def _is_fresh_fvg(fvg, bars_15m: List[Bar], current_index: int) -> bool:"
-        },
-        "src.live.strategy_runtime._compute_atr": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 108,
-          "line_end": 126,
-          "signature": "def _compute_atr(bars: List[Bar], period: int=14) -> float:"
-        },
-        "src.live.strategy_runtime.StrategyRuntime.__init__": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 136,
-          "line_end": 158,
-          "signature": "def __init__(self, symbol: str):"
-        },
-        "src.live.strategy_runtime.StrategyRuntime.warmup": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 161,
-          "line_end": 179,
-          "signature": "def warmup(self, bars_15m: List[Bar]) -> None:"
-        },
-        "src.live.strategy_runtime.StrategyRuntime.on_bar": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 182,
-          "line_end": 339,
-          "signature": "def on_bar(self, bar: Bar) -> Optional[Signal]:"
-        },
-        "src.live.strategy_runtime.StrategyRuntime._create_pending": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 342,
-          "line_end": 378,
-          "signature": "def _create_pending(self, fvg, i: int) -> None:"
-        },
-        "src.live.strategy_runtime.StrategyRuntime._fill_pending": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 380,
-          "line_end": 468,
-          "signature": "def _fill_pending(self, bar: Bar) -> None:"
-        },
-        "src.live.strategy_runtime.StrategyRuntime._close_trade": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 471,
-          "line_end": 491,
-          "signature": "def _close_trade(self, exit_info: dict, i: int, bar: Bar) -> None:"
-        },
-        "src.live.strategy_runtime.StrategyRuntime.to_state": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 494,
-          "line_end": 537,
-          "signature": "def to_state(self) -> dict:"
-        },
-        "src.live.strategy_runtime.StrategyRuntime.from_state": {
-          "file": "src\\live\\strategy_runtime.py",
-          "line_start": 539,
-          "line_end": 578,
-          "signature": "def from_state(self, state: dict) -> None:"
         }
       },
       "files": {
@@ -3890,6 +3890,10 @@
           "last_modified": "2026-08-27T11:48:55",
           "hash": "sha256:d33ba24022a86ca0"
         },
+        "src\\live\\strategy_runtime.py": {
+          "last_modified": "2026-08-27T12:16:11",
+          "hash": "sha256:b049f577d5c74499"
+        },
         "src\\live\\__init__.py": {
           "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:23cf5262aeae383c"
@@ -3975,8 +3979,8 @@
           "hash": "sha256:6bbb87bd987a4739"
         },
         "tests\\test_live_strategy_runtime.py": {
-          "last_modified": "2026-08-27T11:48:55",
-          "hash": "sha256:b59e71ab90f176db"
+          "last_modified": "2026-08-27T12:16:40",
+          "hash": "sha256:75ebfcb47b6c2165"
         },
         "tests\\test_mt5_connection_hardening.py": {
           "last_modified": "2026-08-27T10:17:17",
@@ -3997,13 +4001,9 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
-        },
-        "src\\live\\strategy_runtime.py": {
-          "last_modified": "2026-08-27T12:12:44",
-          "hash": "sha256:14f8a638fc83185b"
         }
       },
-      "last_full_scan": "2026-08-27T12:12:24"
+      "last_full_scan": "2026-08-27T12:17:24"
     }
   }
 }
