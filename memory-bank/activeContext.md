@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 4 — RISK + POSITION SIZING.
-- **Last Completed Phase:** PHASE 3 — STRATEGY RUNTIME (2026-08-27, commit 18ba794).
+- **Current Phase:** PHASE 5 — EXECUTION.
+- **Last Completed Phase:** PHASE 4 — RISK + POSITION SIZING (2026-08-27, commit <PHASE4_COMMIT_HASH>).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,25 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 4 — RISK + POSITION SIZING (COMPLETE 2026-08-27)
+- **New:** `src/live/risk.py`, `src/live/sizing.py`.
+- **New:** `tests/test_live_risk_sizing.py` (12 synthetic unit tests).
+- **`RiskManager`** (`risk.py`): pure/injectable gatekeeper. `Account`
+  (balance/equity), `RiskDecision` (approved/blocked/reason/checks). Checks:
+  stop_distance<=0, stop below broker stops_level, excessive spread (ratio vs
+  stop), risk-per-trade ceiling, exposure cap (notional as multiple of
+  equity). Any fail → `approved=False`, `blocked=True`, reason + checks logged
+  (acceptance: risk fail → NO trade).
+- **`PositionSizer`** (`sizing.py`): `ContractSpec` (volume min/max/step,
+  tick_size, tick_value, contract_size, stops_level, digits) + `SizingResult`.
+  Lot = balance*risk_per_trade / (ticks*tick_value), rounded down to
+  volume_step, clamped to [volume_min, volume_max]. Stop distance rounded to
+  symbol digits to avoid float drift.
+- **Tests:** 12/12 PASS; full suite 132/132 PASS.
+- **Frozen engines:** unchanged (git diff CLEAN).
+- **Next:** PHASE 5 — order execution engine (`src/live/execution.py`).
+  Execution DISABLED by default (SIGNAL_ONLY / DRY_RUN must NOT send orders).
 
 ---
 

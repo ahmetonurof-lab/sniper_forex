@@ -2050,6 +2050,42 @@
           "line_end": 95,
           "signature": "def in_session(dt_server: datetime, start_hour: int=SESSION_START_HOUR, end_hour: int=SESSION_END_HOUR) -> bool:"
         },
+        "src.live.risk.RiskManager.__init__": {
+          "file": "src\\live\\risk.py",
+          "line_start": 50,
+          "line_end": 63,
+          "signature": "def __init__(self, max_spread_ratio: float=0.5, max_exposure_mult: float=20.0, max_risk_per_trade: float=0.01):"
+        },
+        "src.live.risk.RiskManager.evaluate": {
+          "file": "src\\live\\risk.py",
+          "line_start": 65,
+          "line_end": 159,
+          "signature": "def evaluate(self, signal: Signal, account: Account, contract, spread: float, exposure: float=0.0, lot: float=0.0) -> RiskDecision:"
+        },
+        "src.live.risk.RiskManager._risk_pct": {
+          "file": "src\\live\\risk.py",
+          "line_start": 163,
+          "line_end": 174,
+          "signature": "def _risk_pct(self, signal: Signal, account: Account, contract, lot: float) -> float:"
+        },
+        "src.live.sizing.PositionSizer.__init__": {
+          "file": "src\\live\\sizing.py",
+          "line_start": 55,
+          "line_end": 56,
+          "signature": "def __init__(self, risk_per_trade: float=0.003):"
+        },
+        "src.live.sizing.PositionSizer.compute_lot": {
+          "file": "src\\live\\sizing.py",
+          "line_start": 58,
+          "line_end": 120,
+          "signature": "def compute_lot(self, signal: Signal, balance: float, contract: ContractSpec) -> SizingResult:"
+        },
+        "src.live.sizing.PositionSizer._round_to_step": {
+          "file": "src\\live\\sizing.py",
+          "line_start": 123,
+          "line_end": 127,
+          "signature": "@staticmethod"
+        },
         "src.live.state.StateStore.__init__": {
           "file": "src\\live\\state.py",
           "line_start": 25,
@@ -3651,6 +3687,96 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
+        },
+        "tests.test_live_risk_sizing._signal": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 22,
+          "line_end": 43,
+          "signature": "def _signal(entry=1.1, sl=1.095, tp=1.109, direction='bullish', symbol='EURUSD') -> Signal:"
+        },
+        "tests.test_live_risk_sizing._contract": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 46,
+          "line_end": 59,
+          "signature": "def _contract(**overrides) -> ContractSpec:"
+        },
+        "tests.test_live_risk_sizing._account": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 62,
+          "line_end": 63,
+          "signature": "def _account(balance=10000.0, equity=10000.0) -> Account:"
+        },
+        "tests.test_live_risk_sizing.test_lot_calculation_standard_formula": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 69,
+          "line_end": 78,
+          "signature": "def test_lot_calculation_standard_formula():"
+        },
+        "tests.test_live_risk_sizing.test_lot_rounds_down_to_volume_step": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 81,
+          "line_end": 90,
+          "signature": "def test_lot_rounds_down_to_volume_step():"
+        },
+        "tests.test_live_risk_sizing.test_lot_clamped_to_volume_min": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 93,
+          "line_end": 103,
+          "signature": "def test_lot_clamped_to_volume_min():"
+        },
+        "tests.test_live_risk_sizing.test_lot_clamped_to_volume_max": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 106,
+          "line_end": 115,
+          "signature": "def test_lot_clamped_to_volume_max():"
+        },
+        "tests.test_live_risk_sizing.test_lot_zero_on_invalid_stop": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 118,
+          "line_end": 126,
+          "signature": "def test_lot_zero_on_invalid_stop():"
+        },
+        "tests.test_live_risk_sizing.test_lot_zero_on_invalid_contract": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 129,
+          "line_end": 137,
+          "signature": "def test_lot_zero_on_invalid_contract():"
+        },
+        "tests.test_live_risk_sizing.test_risk_approves_clean_signal": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 143,
+          "line_end": 148,
+          "signature": "def test_risk_approves_clean_signal():"
+        },
+        "tests.test_live_risk_sizing.test_risk_blocks_stop_below_stops_level": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 151,
+          "line_end": 159,
+          "signature": "def test_risk_blocks_stop_below_stops_level():"
+        },
+        "tests.test_live_risk_sizing.test_risk_blocks_excessive_spread": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 162,
+          "line_end": 168,
+          "signature": "def test_risk_blocks_excessive_spread():"
+        },
+        "tests.test_live_risk_sizing.test_risk_blocks_exposure_cap": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 171,
+          "line_end": 180,
+          "signature": "def test_risk_blocks_exposure_cap():"
+        },
+        "tests.test_live_risk_sizing.test_risk_blocks_risk_per_trade_ceiling": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 183,
+          "line_end": 190,
+          "signature": "def test_risk_blocks_risk_per_trade_ceiling():"
+        },
+        "tests.test_live_risk_sizing.test_risk_blocks_zero_stop": {
+          "file": "tests\\test_live_risk_sizing.py",
+          "line_start": 193,
+          "line_end": 204,
+          "signature": "def test_risk_blocks_zero_stop():"
         }
       },
       "files": {
@@ -3886,6 +4012,14 @@
           "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:9981835fc87e4e30"
         },
+        "src\\live\\risk.py": {
+          "last_modified": "2026-08-27T12:29:33",
+          "hash": "sha256:dbebf8f8144c1b41"
+        },
+        "src\\live\\sizing.py": {
+          "last_modified": "2026-08-27T12:30:21",
+          "hash": "sha256:42b6f1e66c8696d7"
+        },
         "src\\live\\state.py": {
           "last_modified": "2026-08-27T11:48:55",
           "hash": "sha256:d33ba24022a86ca0"
@@ -4001,9 +4135,13 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
+        },
+        "tests\\test_live_risk_sizing.py": {
+          "last_modified": "2026-08-27T12:33:54",
+          "hash": "sha256:b339b25c26444c63"
         }
       },
-      "last_full_scan": "2026-08-27T12:17:24"
+      "last_full_scan": "2026-08-27T12:33:47"
     }
   }
 }

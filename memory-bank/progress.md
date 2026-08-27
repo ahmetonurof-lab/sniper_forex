@@ -101,6 +101,37 @@
   min/max/step, stop distance, spread, exposure, broker constraints;
   `src/live/risk.py`, `src/live/sizing.py`; RISK_PER_TRADE=0.003 reference).
 
+### PHASE 4 — RISK + POSITION SIZING (COMPLETE 2026-08-27)
+
+- **What was done:** Built the risk engine + lot sizing for the live runtime.
+- **Files changed:**
+  - `src/live/risk.py` — NEW, `RiskManager` + `Account` + `RiskDecision`.
+    Pure/injectable gatekeeper (no MT5 dependency).
+  - `src/live/sizing.py` — NEW, `PositionSizer` + `ContractSpec` + `SizingResult`.
+  - `tests/test_live_risk_sizing.py` — NEW, 12 synthetic unit tests.
+- **Key design decisions:**
+  - Risk checks (any fail → `approved=False`, `blocked=True`, reason + checks
+    logged): stop_distance<=0, stop below broker stops_level, excessive spread
+    (ratio vs stop distance), risk-per-trade ceiling, exposure cap (notional as
+    a multiple of equity, leverage-style).
+  - Lot = balance*risk_per_trade / (ticks*tick_value); rounded down to
+    volume_step; clamped to [volume_min, volume_max].
+  - Stop distance rounded to symbol digits to avoid float drift (e.g.
+    0.0050000...115 → 0.005).
+  - `RISK_PER_TRADE=0.003` from `experiment/config.py` is the default.
+- **Tests run:**
+  - `python -m pytest tests/test_live_risk_sizing.py` → 12/12 PASS.
+  - `python -m pytest tests/` → 132/132 PASS.
+- **Result:** Lot math correct (standard MT5 formula); volume min/max/step
+  respected; risk fail → NO trade (blocked + logged) per acceptance criteria.
+- **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` git
+  diff CLEAN (verified). No strategy behavior changed.
+- **Decision:** PHASE 4 COMPLETE. Proceed to PHASE 5.
+- **Next task:** PHASE 5 — EXECUTION (order execution engine: order_check,
+  order_send, market order, SL/TP, magic number, comment, duplicate protection,
+  rejection handling, retry; `src/live/execution.py`). Execution DISABLED by
+  default — SIGNAL_ONLY / DRY_RUN must NOT send real orders.
+
 ---
 
 ## MAXDD RESEARCH LINE — Per-Experiment Log

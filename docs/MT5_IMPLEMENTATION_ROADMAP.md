@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 4 — RISK + POSITION SIZING
-Last Completed Phase: PHASE 3 — STRATEGY RUNTIME (2026-08-27)
-Last Commit:          18ba794 (phase3: strategy runtime + replay parity)
+Current Phase:        PHASE 5 — EXECUTION
+Last Completed Phase: PHASE 4 — RISK + POSITION SIZING (2026-08-27)
+Last Commit:          <PHASE4_COMMIT_HASH> (phase4: risk engine + lot sizing)
 Blocking Issue:       none
-Next Action:          Start PHASE 4 (risk engine + lot sizing)
+Next Action:          Start PHASE 5 (order execution engine)
 ```
 
 ---
@@ -165,7 +165,7 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 4 — RISK + POSITION SIZING
+### [x] PHASE 4 — RISK + POSITION SIZING
 
 - **Objective:** Risk engine + lot sizing.
 - **Tasks:**
@@ -185,10 +185,18 @@ MT5 DEMO
 - **Tests:** Synthetic risk scenarios (limit breach, high spread, stop-level).
 - **Acceptance criteria:** If risk check fails → NO trade. Trade blocked and
   logged.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+- **Status:** COMPLETE (2026-08-27)
+- **Commit:** <PHASE4_COMMIT_HASH>
 - **Known risks:** Incorrect risk math → demo loss.
 - **Notes:** `RISK_PER_TRADE=0.003` in `experiment/config.py` is the reference.
+  `src/live/risk.py` = `RiskManager` + `Account` + `RiskDecision` (pure,
+  injectable). Checks: stop_distance<=0, stop below broker stops_level,
+  excessive spread (ratio vs stop), risk-per-trade ceiling, exposure cap
+  (notional as multiple of equity). Any fail → `approved=False`, `blocked=True`,
+  reason + checks logged. `src/live/sizing.py` = `PositionSizer` + `ContractSpec`
+  + `SizingResult`. Lot = balance*risk / (ticks*tick_value), rounded down to
+  volume_step, clamped to [volume_min, volume_max]. Stop distance rounded to
+  symbol digits to avoid float drift.
 
 ---
 
