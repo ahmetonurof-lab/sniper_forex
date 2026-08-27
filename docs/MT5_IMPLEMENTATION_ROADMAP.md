@@ -15,7 +15,7 @@
 ```
 Current Phase:        PHASE 6 — POSITION MANAGER + RECONCILIATION
 Last Completed Phase: PHASE 5 — EXECUTION (2026-08-27)
-Last Commit:          (pending)
+Last Commit:          d210dcf (phase5: order execution engine)
 Blocking Issue:       none
 Next Action:          Start PHASE 6 (position tracking + state↔MT5 reconciliation)
 ```
@@ -222,7 +222,7 @@ MT5 DEMO
 - **Acceptance criteria:** Order sent with SL/TP, dup prevented, reject logged +
   retried. ✅
 - **Status:** COMPLETE (2026-08-27)
-- **Commit:** (pending)
+- **Commit:** d210dcf
 - **Known risks:** Real order sending (demo only).
 - **Notes:** **`signal_only=True` default** — NO real order is sent until
   the caller explicitly opts in. `OrderRequest` carries signal + lot + contract;
