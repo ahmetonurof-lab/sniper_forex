@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-27T23:12:46",
+  "generated_at": "2026-08-28T01:26:21",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2314,6 +2314,30 @@
           "line_end": 215,
           "signature": "def can_enable_execution(report: Optional[ParityReport]=None) -> bool:"
         },
+        "src.live.portfolio_dd.PortfolioDD.current_dd_r": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 55,
+          "line_end": 58,
+          "signature": "def current_dd_r(self) -> float:"
+        },
+        "src.live.portfolio_dd.PortfolioDD.current_equity_r": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 60,
+          "line_end": 61,
+          "signature": "def current_equity_r(self) -> float:"
+        },
+        "src.live.portfolio_dd.PortfolioDD.record_realized": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 63,
+          "line_end": 68,
+          "signature": "def record_realized(self, pnl_r: float) -> None:"
+        },
+        "src.live.portfolio_dd.compute_lot_multiplier": {
+          "file": "src\\live\\portfolio_dd.py",
+          "line_start": 71,
+          "line_end": 93,
+          "signature": "def compute_lot_multiplier(dd_r: float, t1: float=DEFAULT_T1, t2: float=DEFAULT_T2, t3: float=DEFAULT_T3) -> float:"
+        },
         "src.live.position_manager.Position.matches": {
           "file": "src\\live\\position_manager.py",
           "line_start": 58,
@@ -2391,6 +2415,24 @@
           "line_start": 96,
           "line_end": 164,
           "signature": "def reconcile(self, local: Dict[int, Position], remote: Dict[int, Position]) -> ReconciliationDecision:"
+        },
+        "src.live.risk.RiskManager.__init__": {
+          "file": "src\\live\\risk.py",
+          "line_start": 55,
+          "line_end": 68,
+          "signature": "def __init__(self, max_spread_ratio: float=0.5, max_exposure_mult: float=20.0, max_risk_per_trade: float=0.01):"
+        },
+        "src.live.risk.RiskManager.evaluate": {
+          "file": "src\\live\\risk.py",
+          "line_start": 70,
+          "line_end": 183,
+          "signature": "def evaluate(self, signal: Signal, account: Account, contract, spread: float, exposure: float=0.0, lot: float=0.0, portfolio_dd_r: float=0.0) -> RiskDecision:"
+        },
+        "src.live.risk.RiskManager._risk_pct": {
+          "file": "src\\live\\risk.py",
+          "line_start": 187,
+          "line_end": 198,
+          "signature": "def _risk_pct(self, signal: Signal, account: Account, contract, lot: float) -> float:"
         },
         "src.live.safety.SafetyDecision.is_clean": {
           "file": "src\\live\\safety.py",
@@ -4186,6 +4228,126 @@
           "line_end": 86,
           "signature": "def test_can_enable_execution_consistent_with_report():"
         },
+        "tests.test_live_portfolio_dd._signal": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 41,
+          "line_end": 61,
+          "signature": "def _signal(side: str='long', entry: float=1.1, sl: float=1.095, tp: float=1.109) -> Signal:"
+        },
+        "tests.test_live_portfolio_dd._contract": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 64,
+          "line_end": 75,
+          "signature": "def _contract() -> ContractSpec:"
+        },
+        "tests.test_live_portfolio_dd.test_portfolio_dd_zero_state": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 81,
+          "line_end": 84,
+          "signature": "def test_portfolio_dd_zero_state():"
+        },
+        "tests.test_live_portfolio_dd.test_portfolio_dd_record_profit_updates_peak": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 87,
+          "line_end": 92,
+          "signature": "def test_portfolio_dd_record_profit_updates_peak():"
+        },
+        "tests.test_live_portfolio_dd.test_portfolio_dd_record_loss_creates_dd": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 95,
+          "line_end": 100,
+          "signature": "def test_portfolio_dd_record_loss_creates_dd():"
+        },
+        "tests.test_live_portfolio_dd.test_portfolio_dd_recovery_shrinks_dd": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 103,
+          "line_end": 110,
+          "signature": "def test_portfolio_dd_recovery_shrinks_dd():"
+        },
+        "tests.test_live_portfolio_dd.test_portfolio_dd_dd_never_negative": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 113,
+          "line_end": 118,
+          "signature": "def test_portfolio_dd_dd_never_negative():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_default_when_dd_zero": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 124,
+          "line_end": 125,
+          "signature": "def test_multiplier_default_when_dd_zero():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_default_when_dd_below_t1": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 128,
+          "line_end": 130,
+          "signature": "def test_multiplier_default_when_dd_below_t1():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_half_when_dd_between_t1_and_t2": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 133,
+          "line_end": 135,
+          "signature": "def test_multiplier_half_when_dd_between_t1_and_t2():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_quarter_when_dd_between_t2_and_t3": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 138,
+          "line_end": 140,
+          "signature": "def test_multiplier_quarter_when_dd_between_t2_and_t3():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_pause_when_dd_above_t3": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 143,
+          "line_end": 145,
+          "signature": "def test_multiplier_pause_when_dd_above_t3():"
+        },
+        "tests.test_live_portfolio_dd.test_multiplier_custom_thresholds": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 148,
+          "line_end": 152,
+          "signature": "def test_multiplier_custom_thresholds():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_default_dd_is_full_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 158,
+          "line_end": 168,
+          "signature": "def test_risk_manager_default_dd_is_full_size():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_explicit_dd_zero_full_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 171,
+          "line_end": 181,
+          "signature": "def test_risk_manager_explicit_dd_zero_full_size():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_3R_half_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 184,
+          "line_end": 194,
+          "signature": "def test_risk_manager_dd_3R_half_size():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_5R_quarter_size": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 197,
+          "line_end": 207,
+          "signature": "def test_risk_manager_dd_5R_quarter_size():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_7R_pause_blocks_trade": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 210,
+          "line_end": 223,
+          "signature": "def test_risk_manager_dd_7R_pause_blocks_trade():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_pause_does_not_trigger_when_other_check_fails": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 226,
+          "line_end": 238,
+          "signature": "def test_risk_manager_dd_pause_does_not_trigger_when_other_check_fails():"
+        },
+        "tests.test_live_portfolio_dd.test_risk_manager_dd_does_not_break_existing_phase4_paths": {
+          "file": "tests\\test_live_portfolio_dd.py",
+          "line_start": 241,
+          "line_end": 254,
+          "signature": "def test_risk_manager_dd_does_not_break_existing_phase4_paths():"
+        },
         "tests.test_live_position_reconciliation.FakePos.__init__": {
           "file": "tests\\test_live_position_reconciliation.py",
           "line_start": 43,
@@ -4821,168 +4983,6 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
-        },
-        "src.live.portfolio_dd.PortfolioDD.current_dd_r": {
-          "file": "src\\live\\portfolio_dd.py",
-          "line_start": 55,
-          "line_end": 58,
-          "signature": "def current_dd_r(self) -> float:"
-        },
-        "src.live.portfolio_dd.PortfolioDD.current_equity_r": {
-          "file": "src\\live\\portfolio_dd.py",
-          "line_start": 60,
-          "line_end": 61,
-          "signature": "def current_equity_r(self) -> float:"
-        },
-        "src.live.portfolio_dd.PortfolioDD.record_realized": {
-          "file": "src\\live\\portfolio_dd.py",
-          "line_start": 63,
-          "line_end": 68,
-          "signature": "def record_realized(self, pnl_r: float) -> None:"
-        },
-        "src.live.portfolio_dd.compute_lot_multiplier": {
-          "file": "src\\live\\portfolio_dd.py",
-          "line_start": 71,
-          "line_end": 93,
-          "signature": "def compute_lot_multiplier(dd_r: float, t1: float=DEFAULT_T1, t2: float=DEFAULT_T2, t3: float=DEFAULT_T3) -> float:"
-        },
-        "tests.test_live_portfolio_dd._signal": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 40,
-          "line_end": 60,
-          "signature": "def _signal(side: str='long', entry: float=1.1, sl: float=1.095, tp: float=1.109) -> Signal:"
-        },
-        "tests.test_live_portfolio_dd._contract": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 63,
-          "line_end": 74,
-          "signature": "def _contract() -> ContractSpec:"
-        },
-        "tests.test_live_portfolio_dd.test_portfolio_dd_zero_state": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 80,
-          "line_end": 83,
-          "signature": "def test_portfolio_dd_zero_state():"
-        },
-        "tests.test_live_portfolio_dd.test_portfolio_dd_record_profit_updates_peak": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 86,
-          "line_end": 91,
-          "signature": "def test_portfolio_dd_record_profit_updates_peak():"
-        },
-        "tests.test_live_portfolio_dd.test_portfolio_dd_record_loss_creates_dd": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 94,
-          "line_end": 99,
-          "signature": "def test_portfolio_dd_record_loss_creates_dd():"
-        },
-        "tests.test_live_portfolio_dd.test_portfolio_dd_recovery_shrinks_dd": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 102,
-          "line_end": 109,
-          "signature": "def test_portfolio_dd_recovery_shrinks_dd():"
-        },
-        "tests.test_live_portfolio_dd.test_portfolio_dd_dd_never_negative": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 112,
-          "line_end": 117,
-          "signature": "def test_portfolio_dd_dd_never_negative():"
-        },
-        "tests.test_live_portfolio_dd.test_multiplier_default_when_dd_zero": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 123,
-          "line_end": 124,
-          "signature": "def test_multiplier_default_when_dd_zero():"
-        },
-        "tests.test_live_portfolio_dd.test_multiplier_default_when_dd_below_t1": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 127,
-          "line_end": 129,
-          "signature": "def test_multiplier_default_when_dd_below_t1():"
-        },
-        "tests.test_live_portfolio_dd.test_multiplier_half_when_dd_between_t1_and_t2": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 132,
-          "line_end": 134,
-          "signature": "def test_multiplier_half_when_dd_between_t1_and_t2():"
-        },
-        "tests.test_live_portfolio_dd.test_multiplier_quarter_when_dd_between_t2_and_t3": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 137,
-          "line_end": 139,
-          "signature": "def test_multiplier_quarter_when_dd_between_t2_and_t3():"
-        },
-        "tests.test_live_portfolio_dd.test_multiplier_pause_when_dd_above_t3": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 142,
-          "line_end": 144,
-          "signature": "def test_multiplier_pause_when_dd_above_t3():"
-        },
-        "tests.test_live_portfolio_dd.test_multiplier_custom_thresholds": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 147,
-          "line_end": 151,
-          "signature": "def test_multiplier_custom_thresholds():"
-        },
-        "tests.test_live_portfolio_dd.test_risk_manager_default_dd_is_full_size": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 157,
-          "line_end": 167,
-          "signature": "def test_risk_manager_default_dd_is_full_size():"
-        },
-        "tests.test_live_portfolio_dd.test_risk_manager_explicit_dd_zero_full_size": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 170,
-          "line_end": 180,
-          "signature": "def test_risk_manager_explicit_dd_zero_full_size():"
-        },
-        "tests.test_live_portfolio_dd.test_risk_manager_dd_3R_half_size": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 183,
-          "line_end": 193,
-          "signature": "def test_risk_manager_dd_3R_half_size():"
-        },
-        "tests.test_live_portfolio_dd.test_risk_manager_dd_5R_quarter_size": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 196,
-          "line_end": 206,
-          "signature": "def test_risk_manager_dd_5R_quarter_size():"
-        },
-        "tests.test_live_portfolio_dd.test_risk_manager_dd_7R_pause_blocks_trade": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 209,
-          "line_end": 222,
-          "signature": "def test_risk_manager_dd_7R_pause_blocks_trade():"
-        },
-        "tests.test_live_portfolio_dd.test_risk_manager_dd_pause_does_not_trigger_when_other_check_fails": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 225,
-          "line_end": 237,
-          "signature": "def test_risk_manager_dd_pause_does_not_trigger_when_other_check_fails():"
-        },
-        "tests.test_live_portfolio_dd.test_risk_manager_dd_does_not_break_existing_phase4_paths": {
-          "file": "tests\\test_live_portfolio_dd.py",
-          "line_start": 240,
-          "line_end": 253,
-          "signature": "def test_risk_manager_dd_does_not_break_existing_phase4_paths():"
-        },
-        "src.live.risk.RiskManager.__init__": {
-          "file": "src\\live\\risk.py",
-          "line_start": 55,
-          "line_end": 68,
-          "signature": "def __init__(self, max_spread_ratio: float=0.5, max_exposure_mult: float=20.0, max_risk_per_trade: float=0.01):"
-        },
-        "src.live.risk.RiskManager.evaluate": {
-          "file": "src\\live\\risk.py",
-          "line_start": 70,
-          "line_end": 183,
-          "signature": "def evaluate(self, signal: Signal, account: Account, contract, spread: float, exposure: float=0.0, lot: float=0.0, portfolio_dd_r: float=0.0) -> RiskDecision:"
-        },
-        "src.live.risk.RiskManager._risk_pct": {
-          "file": "src\\live\\risk.py",
-          "line_start": 187,
-          "line_end": 198,
-          "signature": "def _risk_pct(self, signal: Signal, account: Account, contract, lot: float) -> float:"
         }
       },
       "files": {
@@ -5234,6 +5234,10 @@
           "last_modified": "2026-08-28T00:10:51",
           "hash": "sha256:51c41b12dde49fc6"
         },
+        "src\\live\\portfolio_dd.py": {
+          "last_modified": "2026-08-28T01:17:32",
+          "hash": "sha256:092405dccf689d61"
+        },
         "src\\live\\position_manager.py": {
           "last_modified": "2026-08-27T22:40:38",
           "hash": "sha256:2c4ac58f51f072cf"
@@ -5241,6 +5245,10 @@
         "src\\live\\reconciliation.py": {
           "last_modified": "2026-08-27T22:40:38",
           "hash": "sha256:c22f5362169760c8"
+        },
+        "src\\live\\risk.py": {
+          "last_modified": "2026-08-28T01:17:32",
+          "hash": "sha256:bfe6542448e43220"
         },
         "src\\live\\safety.py": {
           "last_modified": "2026-08-27T23:00:09",
@@ -5362,6 +5370,10 @@
           "last_modified": "2026-08-28T00:10:51",
           "hash": "sha256:d2400a37ceb927f0"
         },
+        "tests\\test_live_portfolio_dd.py": {
+          "last_modified": "2026-08-28T01:17:32",
+          "hash": "sha256:5d803551219de2f6"
+        },
         "tests\\test_live_position_reconciliation.py": {
           "last_modified": "2026-08-27T22:40:38",
           "hash": "sha256:c4047a5927e98de9"
@@ -5401,21 +5413,9 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
-        },
-        "src\\live\\portfolio_dd.py": {
-          "last_modified": "2026-08-28T01:13:59",
-          "hash": "sha256:3686bb722ad324ab"
-        },
-        "tests\\test_live_portfolio_dd.py": {
-          "last_modified": "2026-08-28T01:16:14",
-          "hash": "sha256:e2c56fc6c51dc39d"
-        },
-        "src\\live\\risk.py": {
-          "last_modified": "2026-08-28T01:17:32",
-          "hash": "sha256:bfe6542448e43220"
         }
       },
-      "last_full_scan": "2026-08-28T00:53:41"
+      "last_full_scan": "2026-08-28T01:26:21"
     }
   }
 }
