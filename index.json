@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-27T22:10:17",
+  "generated_at": "2026-08-27T22:52:56",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2110,6 +2110,84 @@
           "line_end": 369,
           "signature": "def _normalize_result(self, result: Any) -> Dict[str, Any]:"
         },
+        "src.live.position_manager.Position.matches": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 58,
+          "line_end": 66,
+          "signature": "def matches(self, other: 'Position') -> bool:"
+        },
+        "src.live.position_manager.PositionUpdate.symbols": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 101,
+          "line_end": 107,
+          "signature": "@property"
+        },
+        "src.live.position_manager._normalize_side": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 110,
+          "line_end": 124,
+          "signature": "def _normalize_side(raw_side: Any) -> str:"
+        },
+        "src.live.position_manager._to_position": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 127,
+          "line_end": 154,
+          "signature": "def _to_position(raw: Any, magic: int) -> Optional[Position]:"
+        },
+        "src.live.position_manager.PositionManager.__init__": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 167,
+          "line_end": 175,
+          "signature": "def __init__(self, magic: int=DEFAULT_MAGIC, mt5: Any=None):"
+        },
+        "src.live.position_manager.PositionManager.update": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 178,
+          "line_end": 233,
+          "signature": "def update(self) -> PositionUpdate:"
+        },
+        "src.live.position_manager.PositionManager.get_snapshot": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 235,
+          "line_end": 237,
+          "signature": "def get_snapshot(self) -> Dict[int, Position]:"
+        },
+        "src.live.position_manager.PositionManager.get_for_symbol": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 239,
+          "line_end": 241,
+          "signature": "def get_for_symbol(self, symbol: str) -> List[Position]:"
+        },
+        "src.live.position_manager.PositionManager.restore": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 243,
+          "line_end": 249,
+          "signature": "def restore(self, positions: List[Position]) -> None:"
+        },
+        "src.live.position_manager.PositionManager.clear": {
+          "file": "src\\live\\position_manager.py",
+          "line_start": 251,
+          "line_end": 253,
+          "signature": "def clear(self) -> None:"
+        },
+        "src.live.reconciliation.ReconciliationDecision.is_clean": {
+          "file": "src\\live\\reconciliation.py",
+          "line_start": 64,
+          "line_end": 65,
+          "signature": "@property"
+        },
+        "src.live.reconciliation._worse": {
+          "file": "src\\live\\reconciliation.py",
+          "line_start": 77,
+          "line_end": 78,
+          "signature": "def _worse(a: ReconcileStatus, b: ReconcileStatus) -> ReconcileStatus:"
+        },
+        "src.live.reconciliation.Reconciler.reconcile": {
+          "file": "src\\live\\reconciliation.py",
+          "line_start": 96,
+          "line_end": 164,
+          "signature": "def reconcile(self, local: Dict[int, Position], remote: Dict[int, Position]) -> ReconciliationDecision:"
+        },
         "src.live.risk.RiskManager.__init__": {
           "file": "src\\live\\risk.py",
           "line_start": 49,
@@ -3562,6 +3640,126 @@
           "line_end": 329,
           "signature": "def test_magic_and_comment_override_in_payload():"
         },
+        "tests.test_live_position_reconciliation.FakePos.__init__": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 43,
+          "line_end": 69,
+          "signature": "def __init__(self, ticket: int, symbol: str, type_: int, volume: float, price_open: float, sl: float, tp: float, magic: int, comment: str='', time: Optional[float]=None, profit: float=0.0, swap: float"
+        },
+        "tests.test_live_position_reconciliation.FakeMT5.__init__": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 79,
+          "line_end": 82,
+          "signature": "def __init__(self):"
+        },
+        "tests.test_live_position_reconciliation.FakeMT5.positions_get": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 84,
+          "line_end": 88,
+          "signature": "def positions_get(self):"
+        },
+        "tests.test_live_position_reconciliation._make_pos": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 94,
+          "line_end": 119,
+          "signature": "def _make_pos(ticket: int=12345, symbol: str='EURUSD', side: str='long', volume: float=0.06, entry: float=1.1, sl: float=1.095, tp: float=1.109, magic: int=DEFAULT_MAGIC, comment: str='', profit: floa"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_ignores_other_magic": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 125,
+          "line_end": 136,
+          "signature": "def test_position_manager_ignores_other_magic():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_normalizes_side_numeric_and_string": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 139,
+          "line_end": 152,
+          "signature": "def test_position_manager_normalizes_side_numeric_and_string():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_first_update_reports_all_as_opens": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 158,
+          "line_end": 169,
+          "signature": "def test_position_manager_first_update_reports_all_as_opens():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_no_change_no_events": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 172,
+          "line_end": 184,
+          "signature": "def test_position_manager_no_change_no_events():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_detects_close_with_last_known_state": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 187,
+          "line_end": 214,
+          "signature": "def test_position_manager_detects_close_with_last_known_state():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_detects_new_open_alongside_close": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 217,
+          "line_end": 233,
+          "signature": "def test_position_manager_detects_new_open_alongside_close():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_survives_mt5_exception": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 236,
+          "line_end": 245,
+          "signature": "def test_position_manager_survives_mt5_exception():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_restore_seeds_snapshot": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 251,
+          "line_end": 263,
+          "signature": "def test_position_manager_restore_seeds_snapshot():"
+        },
+        "tests.test_live_position_reconciliation.test_position_manager_clear_drops_snapshot": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 266,
+          "line_end": 271,
+          "signature": "def test_position_manager_clear_drops_snapshot():"
+        },
+        "tests.test_live_position_reconciliation.test_reconciler_clean_when_both_match": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 277,
+          "line_end": 288,
+          "signature": "def test_reconciler_clean_when_both_match():"
+        },
+        "tests.test_live_position_reconciliation.test_reconciler_orphan_when_local_open_remote_closed": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 291,
+          "line_end": 300,
+          "signature": "def test_reconciler_orphan_when_local_open_remote_closed():"
+        },
+        "tests.test_live_position_reconciliation.test_reconciler_unknown_open_when_mt5_has_unexpected_ticket": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 303,
+          "line_end": 311,
+          "signature": "def test_reconciler_unknown_open_when_mt5_has_unexpected_ticket():"
+        },
+        "tests.test_live_position_reconciliation.test_reconciler_mismatch_on_volume_change": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 314,
+          "line_end": 323,
+          "signature": "def test_reconciler_mismatch_on_volume_change():"
+        },
+        "tests.test_live_position_reconciliation.test_reconciler_mismatch_on_sl_change": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 326,
+          "line_end": 334,
+          "signature": "def test_reconciler_mismatch_on_sl_change():"
+        },
+        "tests.test_live_position_reconciliation.test_reconciler_aggregates_worst_status": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 337,
+          "line_end": 353,
+          "signature": "def test_reconciler_aggregates_worst_status():"
+        },
+        "tests.test_live_position_reconciliation.test_reconciler_block_trading_on_any_non_ok": {
+          "file": "tests\\test_live_position_reconciliation.py",
+          "line_start": 356,
+          "line_end": 369,
+          "signature": "def test_reconciler_block_trading_on_any_non_ok():"
+        },
         "tests.test_live_risk_sizing._signal": {
           "file": "tests\\test_live_risk_sizing.py",
           "line_start": 22,
@@ -3951,204 +4149,6 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
-        },
-        "src.live.reconciliation.ReconciliationDecision.is_clean": {
-          "file": "src\\live\\reconciliation.py",
-          "line_start": 63,
-          "line_end": 64,
-          "signature": "@property"
-        },
-        "src.live.reconciliation._worse": {
-          "file": "src\\live\\reconciliation.py",
-          "line_start": 76,
-          "line_end": 77,
-          "signature": "def _worse(a: ReconcileStatus, b: ReconcileStatus) -> ReconcileStatus:"
-        },
-        "src.live.reconciliation.Reconciler.reconcile": {
-          "file": "src\\live\\reconciliation.py",
-          "line_start": 95,
-          "line_end": 165,
-          "signature": "def reconcile(self, local: Dict[int, Position], remote: Dict[int, Position]) -> ReconciliationDecision:"
-        },
-        "tests.test_live_position_reconciliation.FakePos.__init__": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 45,
-          "line_end": 71,
-          "signature": "def __init__(self, ticket: int, symbol: str, type_: int, volume: float, price_open: float, sl: float, tp: float, magic: int, comment: str='', time: Optional[float]=None, profit: float=0.0, swap: float"
-        },
-        "tests.test_live_position_reconciliation.FakeMT5.__init__": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 81,
-          "line_end": 84,
-          "signature": "def __init__(self):"
-        },
-        "tests.test_live_position_reconciliation.FakeMT5.positions_get": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 86,
-          "line_end": 90,
-          "signature": "def positions_get(self):"
-        },
-        "tests.test_live_position_reconciliation._make_pos": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 96,
-          "line_end": 121,
-          "signature": "def _make_pos(ticket: int=12345, symbol: str='EURUSD', side: str='long', volume: float=0.06, entry: float=1.1, sl: float=1.095, tp: float=1.109, magic: int=DEFAULT_MAGIC, comment: str='', profit: floa"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_ignores_other_magic": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 127,
-          "line_end": 138,
-          "signature": "def test_position_manager_ignores_other_magic():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_normalizes_side_numeric_and_string": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 141,
-          "line_end": 152,
-          "signature": "def test_position_manager_normalizes_side_numeric_and_string():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_first_update_reports_all_as_opens": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 158,
-          "line_end": 169,
-          "signature": "def test_position_manager_first_update_reports_all_as_opens():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_no_change_no_events": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 172,
-          "line_end": 184,
-          "signature": "def test_position_manager_no_change_no_events():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_detects_close_with_last_known_state": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 187,
-          "line_end": 214,
-          "signature": "def test_position_manager_detects_close_with_last_known_state():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_detects_new_open_alongside_close": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 217,
-          "line_end": 233,
-          "signature": "def test_position_manager_detects_new_open_alongside_close():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_survives_mt5_exception": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 236,
-          "line_end": 245,
-          "signature": "def test_position_manager_survives_mt5_exception():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_restore_seeds_snapshot": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 251,
-          "line_end": 261,
-          "signature": "def test_position_manager_restore_seeds_snapshot():"
-        },
-        "tests.test_live_position_reconciliation.test_position_manager_clear_drops_snapshot": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 264,
-          "line_end": 269,
-          "signature": "def test_position_manager_clear_drops_snapshot():"
-        },
-        "tests.test_live_position_reconciliation.test_reconciler_clean_when_both_match": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 275,
-          "line_end": 286,
-          "signature": "def test_reconciler_clean_when_both_match():"
-        },
-        "tests.test_live_position_reconciliation.test_reconciler_orphan_when_local_open_remote_closed": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 289,
-          "line_end": 298,
-          "signature": "def test_reconciler_orphan_when_local_open_remote_closed():"
-        },
-        "tests.test_live_position_reconciliation.test_reconciler_unknown_open_when_mt5_has_unexpected_ticket": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 301,
-          "line_end": 309,
-          "signature": "def test_reconciler_unknown_open_when_mt5_has_unexpected_ticket():"
-        },
-        "tests.test_live_position_reconciliation.test_reconciler_mismatch_on_volume_change": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 312,
-          "line_end": 321,
-          "signature": "def test_reconciler_mismatch_on_volume_change():"
-        },
-        "tests.test_live_position_reconciliation.test_reconciler_mismatch_on_sl_change": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 324,
-          "line_end": 332,
-          "signature": "def test_reconciler_mismatch_on_sl_change():"
-        },
-        "tests.test_live_position_reconciliation.test_reconciler_aggregates_worst_status": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 335,
-          "line_end": 351,
-          "signature": "def test_reconciler_aggregates_worst_status():"
-        },
-        "tests.test_live_position_reconciliation.test_reconciler_block_trading_on_any_non_ok": {
-          "file": "tests\\test_live_position_reconciliation.py",
-          "line_start": 354,
-          "line_end": 367,
-          "signature": "def test_reconciler_block_trading_on_any_non_ok():"
-        },
-        "src.live.position_manager.Position.matches": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 58,
-          "line_end": 66,
-          "signature": "def matches(self, other: 'Position') -> bool:"
-        },
-        "src.live.position_manager.PositionUpdate.symbols": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 101,
-          "line_end": 107,
-          "signature": "@property"
-        },
-        "src.live.position_manager._normalize_side": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 110,
-          "line_end": 124,
-          "signature": "def _normalize_side(raw_side: Any) -> str:"
-        },
-        "src.live.position_manager._to_position": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 127,
-          "line_end": 154,
-          "signature": "def _to_position(raw: Any, magic: int) -> Optional[Position]:"
-        },
-        "src.live.position_manager.PositionManager.__init__": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 167,
-          "line_end": 175,
-          "signature": "def __init__(self, magic: int=DEFAULT_MAGIC, mt5: Any=None):"
-        },
-        "src.live.position_manager.PositionManager.update": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 178,
-          "line_end": 233,
-          "signature": "def update(self) -> PositionUpdate:"
-        },
-        "src.live.position_manager.PositionManager.get_snapshot": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 235,
-          "line_end": 237,
-          "signature": "def get_snapshot(self) -> Dict[int, Position]:"
-        },
-        "src.live.position_manager.PositionManager.get_for_symbol": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 239,
-          "line_end": 241,
-          "signature": "def get_for_symbol(self, symbol: str) -> List[Position]:"
-        },
-        "src.live.position_manager.PositionManager.restore": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 243,
-          "line_end": 249,
-          "signature": "def restore(self, positions: List[Position]) -> None:"
-        },
-        "src.live.position_manager.PositionManager.clear": {
-          "file": "src\\live\\position_manager.py",
-          "line_start": 251,
-          "line_end": 253,
-          "signature": "def clear(self) -> None:"
         }
       },
       "files": {
@@ -4388,6 +4388,14 @@
           "last_modified": "2026-08-27T21:27:50",
           "hash": "sha256:714af37b320c62d9"
         },
+        "src\\live\\position_manager.py": {
+          "last_modified": "2026-08-27T22:40:38",
+          "hash": "sha256:2c4ac58f51f072cf"
+        },
+        "src\\live\\reconciliation.py": {
+          "last_modified": "2026-08-27T22:40:38",
+          "hash": "sha256:c22f5362169760c8"
+        },
         "src\\live\\risk.py": {
           "last_modified": "2026-08-27T12:35:03",
           "hash": "sha256:6cc28b26647e101d"
@@ -4492,6 +4500,10 @@
           "last_modified": "2026-08-27T13:39:35",
           "hash": "sha256:85be3e5b2defc312"
         },
+        "tests\\test_live_position_reconciliation.py": {
+          "last_modified": "2026-08-27T22:40:38",
+          "hash": "sha256:c4047a5927e98de9"
+        },
         "tests\\test_live_risk_sizing.py": {
           "last_modified": "2026-08-27T12:35:03",
           "hash": "sha256:9ad55cdaf40596c5"
@@ -4519,21 +4531,9 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
-        },
-        "src\\live\\reconciliation.py": {
-          "last_modified": "2026-08-27T22:31:38",
-          "hash": "sha256:93adaf6ae66c2462"
-        },
-        "tests\\test_live_position_reconciliation.py": {
-          "last_modified": "2026-08-27T22:32:54",
-          "hash": "sha256:f0ff56d1b1337dbc"
-        },
-        "src\\live\\position_manager.py": {
-          "last_modified": "2026-08-27T22:40:38",
-          "hash": "sha256:2c4ac58f51f072cf"
         }
       },
-      "last_full_scan": "2026-08-27T22:10:17"
+      "last_full_scan": "2026-08-27T22:52:56"
     }
   }
 }
