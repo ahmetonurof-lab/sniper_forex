@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 7 — LOGGING + SAFETY.
-- **Last Completed Phase:** PHASE 6 — POSITION MANAGER + RECONCILIATION (2026-08-27, commit 193ff5f).
+- **Current Phase:** PHASE 8 — FULL BACKTEST/LIVE PARITY.
+- **Last Completed Phase:** PHASE 7 — LOGGING + SAFETY (2026-08-27, commit a289a48).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,24 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 7 — LOGGING + SAFETY (COMPLETE 2026-08-27)
+- **New:** `src/live/audit.py` (`AuditEvent`, `EventType`, `AuditChain`).
+- **New:** `src/live/safety.py` (`SafetyCheck`, `SafetyDecision`, `SafetyMonitor`).
+- **New:** `tests/test_live_audit_safety.py` (19 synthetic unit tests).
+- **`AuditChain`** (`audit.py`): pure in-memory append-only event log + JSONL flush.
+  - `EventType` enum: CANDLE / SIGNAL / RISK / ORDER / FILL / POSITION / EXIT / SAFETY / RECONCILE / ERROR.
+  - `append(timestamp, event_type, symbol, payload)` and `append_event(event)`.
+  - `save(path)` writes JSONL atomic via tmp+rename; `load(path)` returns count loaded.
+  - `events` is a snapshot (read-only, copy semantics).
+- **`SafetyMonitor`** (`safety.py`): pure composite gate, 5 guards in fixed severity order.
+  - Guards: KILL_SWITCH > STALE_DATA > CONNECTION > SPREAD > RECONCILIATION.
+  - Any guard fail -> `allowed=False`, `failing_check=<that guard>`, `reason=<human-readable>`.
+  - Reconciliation `None` (first tick) does NOT block (initial state).
+  - Defaults: `max_spread_points=30`, `stale_seconds=1800` (30 min, 1 bar + slack).
+  - Runtime loop calls `check(...)` at top of each tick; skip trading if blocked.
+- **Tests:** 19/19 PASS; live suite 75/75 PASS (phase2/4/5/6/7). Frozen engines unchanged (git diff CLEAN).
+- **Next:** PHASE 8 — deterministic parity tests (same 15m data → identical trade list between backtest and live runtime). Execution must NOT be enabled without parity PASS.
 
 ### PHASE 6 — POSITION MANAGER + RECONCILIATION (COMPLETE 2026-08-27)
 - **New:** `src/live/position_manager.py` (`Position`, `ClosedTrade`, `PositionManager`, `PositionUpdate`).

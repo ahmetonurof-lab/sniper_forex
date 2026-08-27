@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 7 — LOGGING + SAFETY
-Last Completed Phase: PHASE 6 — POSITION MANAGER + RECONCILIATION (2026-08-27)
-Last Commit:          193ff5f (phase6: position manager + reconciliation)
+Current Phase:        PHASE 8 — FULL BACKTEST/LIVE PARITY
+Last Completed Phase: PHASE 7 — LOGGING + SAFETY (2026-08-27)
+Last Commit:          a289a48 (phase7: audit chain + safety monitor)
 Blocking Issue:       none
-Next Action:          Start PHASE 7 (audit chain + fail-safe)
+Next Action:          Start PHASE 8 (deterministic replay parity tests)
 ```
 
 ---
@@ -276,7 +276,7 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 7 — LOGGING + SAFETY
+### [x] PHASE 7 — LOGGING + SAFETY
 
 - **Objective:** Full audit chain + fail-safe.
 - **Tasks:**
@@ -284,16 +284,29 @@ MT5 DEMO
   - Safety: kill switch, stale data block, connection failure block, excessive
     spread block, reconciliation failure block.
 - **Files:**
-  - `src/live/audit.py` (new)
-  - `src/live/safety.py` (new)
+  - `src/live/audit.py` (new — `AuditEvent`, `EventType`, `AuditChain`)
+  - `src/live/safety.py` (new — `SafetyCheck`, `SafetyDecision`, `SafetyMonitor`)
+  - `tests/test_live_audit_safety.py` (new — 19 synthetic unit tests)
 - **Dependencies:** All prior.
-- **Tests:** Audit trail integrity; fail-safe trigger.
+- **Tests:** 19/19 PASS; live suite 75/75 PASS (phase2/4/5/6/7). Frozen engines unchanged (git diff CLEAN).
 - **Acceptance criteria:** Every signal→order→fill recorded; safety condition →
-  bot stops trading.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+  bot stops trading. ✅
+- **Status:** COMPLETE (2026-08-27)
+- **Commit:** a289a48
 - **Known risks:** —
-- **Notes:** —
+- **Notes:** **`AuditChain`** (`audit.py`): pure in-memory append-only event
+  log + JSONL flush (`save`/`load`, atomic via tmp+rename). `EventType`
+  enum: CANDLE / SIGNAL / RISK / ORDER / FILL / POSITION / EXIT / SAFETY
+  / RECONCILE / ERROR. Each event has timestamp + symbol + free-form
+  payload (json-serializable). **`SafetyMonitor`** (`safety.py`): pure
+  composite gate with 5 guards in fixed severity order
+  (KILL_SWITCH > STALE_DATA > CONNECTION > SPREAD > RECONCILIATION).
+  Any guard fail -> `allowed=False`, `failing_check=that guard`,
+  `reason=human-readable string`. Reconciliation None (first tick) does
+  NOT block. Default thresholds: `max_spread_points=30`, `stale_seconds=1800`
+  (30 min, one 15m bar + slack). Runtime loop expected to call
+  `check(...)` at the top of each tick and skip trading if blocked.
+  Frozen engines untouched.
 
 ---
 
