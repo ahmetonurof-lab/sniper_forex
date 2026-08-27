@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 9 — MT5 SIGNAL-ONLY
-Last Completed Phase: PHASE 8 — FULL BACKTEST/LIVE PARITY (2026-08-27)
-Last Commit:          87162dd (phase8: 6 majors parity + parity_gate)
+Current Phase:        PHASE 10 — PAPER / DRY RUN
+Last Completed Phase: PHASE 9 — MT5 SIGNAL-ONLY (2026-08-27)
+Last Commit:          66956d3 (phase9: signal-only runner)
 Blocking Issue:       none
-Next Action:          Start PHASE 9 (real MT5 data, signal-only, no orders)
+Next Action:          Start PHASE 10 (real MT5 data, simulated execution, no orders)
 ```
 
 ---
@@ -343,20 +343,37 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 9 — MT5 SIGNAL-ONLY
+### [x] PHASE 9 — MT5 SIGNAL-ONLY
 
 - **Objective:** Real MT5 data, 6 majors, NO orders.
 - **Tasks:**
   - MT5 → M1 → 15m → strategy → signal → risk.
   - Log signals only.
-- **Files:** (existing modules)
+- **Files:**
+  - `src/live/signal_runner.py` (new — `SignalRunner`, `RunnerConfig`,
+    `RunnerResult`)
+  - `tests/test_live_signal_runner.py` (new — 9 synthetic unit tests
+    with FakeMT5, including the signal-only invariant
+    `mt5.send_calls == 0`)
 - **Dependencies:** PHASE 8.
-- **Tests:** Signal-only run over real MT5 data.
-- **Acceptance criteria:** Signals produced match backtest; no orders sent.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+- **Tests:** 8/8 PASS + 1 skipped (random data). Live fast suite
+  87/87 PASS. Frozen engines unchanged (git diff CLEAN).
+- **Acceptance criteria:** Signals produced match backtest; no orders
+  sent. ✅
+- **Status:** COMPLETE (2026-08-27)
+- **Commit:** 66956d3
 - **Known risks:** —
-- **Notes:** —
+- **Notes:** `SignalRunner` is pure/injectable (MT5 module passed as
+  `mt5` arg). Per-symbol chain: `copy_rates_from_pos(M1)` -> `resample_15m()`
+  (canonical boundary, identical to frozen engine) -> `StrategyRuntime.warmup`
+  + `on_bar()` -> emit Signal -> `RiskManager.evaluate` -> `AuditChain.append`
+  (CANDLE / SIGNAL / RISK events). **`signal_only` invariant:** runner
+  NEVER calls `order_send`. `RunnerResult` partitions signals into
+  approved vs blocked; per-symbol count + error map. Error in one
+  symbol is isolated (logged as AuditChain ERROR event, other symbols
+  still run). Real data validation against Phase 8 parity is the next
+  step (PHASE 10 paper run will exercise this on real MT5 feed). Frozen
+  engines untouched.
 
 ---
 

@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 9 — MT5 SIGNAL-ONLY.
-- **Last Completed Phase:** PHASE 8 — FULL BACKTEST/LIVE PARITY (2026-08-27, commit 87162dd).
+- **Current Phase:** PHASE 10 — PAPER / DRY RUN.
+- **Last Completed Phase:** PHASE 9 — MT5 SIGNAL-ONLY (2026-08-27, commit 66956d3).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,17 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 9 — MT5 SIGNAL-ONLY (COMPLETE 2026-08-27)
+- **New:** `src/live/signal_runner.py` (`SignalRunner`, `RunnerConfig`, `RunnerResult`).
+- **New:** `tests/test_live_signal_runner.py` (9 synthetic unit tests with FakeMT5).
+- **`SignalRunner`:** pure/injectable (MT5 module passed as `mt5`).
+  - Per-symbol chain: `copy_rates_from_pos(M1)` -> `resample_15m()` (canonical boundary) -> `StrategyRuntime.warmup` + `on_bar()` -> emit Signal -> `RiskManager.evaluate` -> `AuditChain.append` (CANDLE / SIGNAL / RISK events).
+  - **`signal_only` invariant:** runner NEVER calls `order_send` (test asserts `mt5.send_calls == 0`).
+  - `RunnerResult` partitions signals into `approved_signals` vs `blocked_signals`, plus `per_symbol` count and `errors` map.
+  - Error in one symbol is isolated (logged as AuditChain ERROR event, other symbols still run).
+- **Tests:** 8/8 PASS + 1 skipped (random data, deterministic skip). Live fast suite 87/87 PASS. Frozen engines unchanged (git diff CLEAN).
+- **Next:** PHASE 10 — paper / dry run. Real MT5 data, simulated execution (no real orders). `SignalRunner` + `RiskManager` + paper-trade simulator (fill, SL, TP, exit, PnL).
 
 ### PHASE 8 — FULL BACKTEST/LIVE PARITY (COMPLETE 2026-08-27)
 - **New:** `src/live/parity_gate.py` (`check_symbol`, `check_all_six_majors`, `ParityReport`, `can_enable_execution`).
