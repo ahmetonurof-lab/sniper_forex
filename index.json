@@ -2164,6 +2164,60 @@
           "line_end": 369,
           "signature": "def _normalize_result(self, result: Any) -> Dict[str, Any]:"
         },
+        "src.live.parity_gate.ParityReport.canonical_total": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 55,
+          "line_end": 56,
+          "signature": "@property"
+        },
+        "src.live.parity_gate.ParityReport.signal_total": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 59,
+          "line_end": 60,
+          "signature": "@property"
+        },
+        "src.live.parity_gate._load_15m": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 63,
+          "line_end": 90,
+          "signature": "def _load_15m(symbol: str) -> Optional[List[Bar]]:"
+        },
+        "src.live.parity_gate._run_canonical": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 93,
+          "line_end": 96,
+          "signature": "def _run_canonical(symbol: str, bars_15m: List[Bar]):"
+        },
+        "src.live.parity_gate._run_runtime": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 99,
+          "line_end": 109,
+          "signature": "def _run_runtime(symbol: str, bars_15m: List[Bar]):"
+        },
+        "src.live.parity_gate._diff_trades": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 112,
+          "line_end": 152,
+          "signature": "def _diff_trades(symbol: str, canonical, signals) -> List[str]:"
+        },
+        "src.live.parity_gate.check_symbol": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 155,
+          "line_end": 168,
+          "signature": "def check_symbol(symbol: str) -> Tuple[bool, int, int, List[str]]:"
+        },
+        "src.live.parity_gate.check_all_six_majors": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 171,
+          "line_end": 201,
+          "signature": "def check_all_six_majors() -> ParityReport:"
+        },
+        "src.live.parity_gate.can_enable_execution": {
+          "file": "src\\live\\parity_gate.py",
+          "line_start": 204,
+          "line_end": 215,
+          "signature": "def can_enable_execution(report: Optional[ParityReport]=None) -> bool:"
+        },
         "src.live.position_manager.Position.matches": {
           "file": "src\\live\\position_manager.py",
           "line_start": 58,
@@ -3826,6 +3880,36 @@
           "line_end": 329,
           "signature": "def test_magic_and_comment_override_in_payload():"
         },
+        "tests.test_live_parity_gate.test_six_majors_universe_complete": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 24,
+          "line_end": 33,
+          "signature": "def test_six_majors_universe_complete():"
+        },
+        "tests.test_live_parity_gate.test_check_symbol_missing_data_returns_clean": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 36,
+          "line_end": 43,
+          "signature": "def test_check_symbol_missing_data_returns_clean():"
+        },
+        "tests.test_live_parity_gate.test_parity_report_aggregates_totals": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 46,
+          "line_end": 57,
+          "signature": "def test_parity_report_aggregates_totals():"
+        },
+        "tests.test_live_parity_gate.test_check_all_six_majors_returns_report": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 60,
+          "line_end": 72,
+          "signature": "def test_check_all_six_majors_returns_report():"
+        },
+        "tests.test_live_parity_gate.test_can_enable_execution_consistent_with_report": {
+          "file": "tests\\test_live_parity_gate.py",
+          "line_start": 75,
+          "line_end": 86,
+          "signature": "def test_can_enable_execution_consistent_with_report():"
+        },
         "tests.test_live_position_reconciliation.FakePos.__init__": {
           "file": "tests\\test_live_position_reconciliation.py",
           "line_start": 43,
@@ -4150,6 +4234,42 @@
           "line_end": 184,
           "signature": "def test_data_layer_get_symbols_list_captures_exception():"
         },
+        "tests.test_parity_6majors._load_15m": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 48,
+          "line_end": 75,
+          "signature": "def _load_15m(symbol: str) -> List[Bar]:"
+        },
+        "tests.test_parity_6majors._run_canonical": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 78,
+          "line_end": 82,
+          "signature": "def _run_canonical(symbol: str, bars_15m: List[Bar]):"
+        },
+        "tests.test_parity_6majors._run_runtime": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 85,
+          "line_end": 96,
+          "signature": "def _run_runtime(symbol: str, bars_15m: List[Bar]):"
+        },
+        "tests.test_parity_6majors._diff_trades": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 99,
+          "line_end": 140,
+          "signature": "def _diff_trades(symbol: str, canonical, signals) -> List[str]:"
+        },
+        "tests.test_parity_6majors.test_parity_per_symbol": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 147,
+          "line_end": 156,
+          "signature": "@pytest.mark.parametrize('symbol', SIX_MAJORS)"
+        },
+        "tests.test_parity_6majors.test_parity_summary_all_six_majors": {
+          "file": "tests\\test_parity_6majors.py",
+          "line_start": 162,
+          "line_end": 185,
+          "signature": "def test_parity_summary_all_six_majors():"
+        },
         "tools.code-index-system.gitignore_utils._load_gitignore_spec": {
           "file": "tools\\code-index-system\\gitignore_utils.py",
           "line_start": 20,
@@ -4336,125 +4456,125 @@
           "line_end": 90,
           "signature": "def main():"
         },
-        "tests.test_parity_6majors._load_15m": {
-          "file": "tests\\test_parity_6majors.py",
-          "line_start": 47,
-          "line_end": 74,
-          "signature": "def _load_15m(symbol: str) -> List[Bar]:"
+        "src.live.signal_runner.SignalRunner.__init__": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 85,
+          "line_end": 97,
+          "signature": "def __init__(self, mt5: Any=None, risk_manager: Optional[RiskManager]=None, default_spread: float=0.0001):"
         },
-        "tests.test_parity_6majors._run_canonical": {
-          "file": "tests\\test_parity_6majors.py",
-          "line_start": 77,
-          "line_end": 81,
-          "signature": "def _run_canonical(symbol: str, bars_15m: List[Bar]):"
+        "src.live.signal_runner.SignalRunner.run_session": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 100,
+          "line_end": 162,
+          "signature": "def run_session(self, config: RunnerConfig, audit: AuditChain) -> RunnerResult:"
         },
-        "tests.test_parity_6majors._run_runtime": {
-          "file": "tests\\test_parity_6majors.py",
-          "line_start": 84,
-          "line_end": 95,
-          "signature": "def _run_runtime(symbol: str, bars_15m: List[Bar]):"
+        "src.live.signal_runner.SignalRunner._run_symbol": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 165,
+          "line_end": 209,
+          "signature": "def _run_symbol(self, symbol: str, config: RunnerConfig, audit: AuditChain) -> List[Signal]:"
         },
-        "tests.test_parity_6majors._diff_trades": {
-          "file": "tests\\test_parity_6majors.py",
-          "line_start": 98,
-          "line_end": 145,
-          "signature": "def _diff_trades(symbol: str, canonical, signals) -> List[str]:"
+        "src.live.signal_runner.SignalRunner._rates_to_bars": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 212,
+          "line_end": 245,
+          "signature": "@staticmethod"
         },
-        "tests.test_parity_6majors.test_parity_per_symbol": {
-          "file": "tests\\test_parity_6majors.py",
-          "line_start": 152,
-          "line_end": 161,
-          "signature": "@pytest.mark.parametrize('symbol', SIX_MAJORS)"
+        "src.live.signal_runner.SignalRunner._contract_for": {
+          "file": "src\\live\\signal_runner.py",
+          "line_start": 247,
+          "line_end": 263,
+          "signature": "def _contract_for(self, symbol: str, config: RunnerConfig) -> ContractSpec:"
         },
-        "tests.test_parity_6majors.test_parity_summary_all_six_majors": {
-          "file": "tests\\test_parity_6majors.py",
-          "line_start": 167,
-          "line_end": 190,
-          "signature": "def test_parity_summary_all_six_majors():"
+        "tests.test_live_signal_runner.FakeMT5.__init__": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 63,
+          "line_end": 71,
+          "signature": "def __init__(self, rates_by_symbol: Optional[Dict[str, List[FakeRate]]]=None, error_symbols: Optional[List[str]]=None):"
         },
-        "src.live.parity_gate.ParityReport.canonical_total": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 54,
-          "line_end": 55,
-          "signature": "@property"
+        "tests.test_live_signal_runner.FakeMT5.copy_rates_from_pos": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 73,
+          "line_end": 80,
+          "signature": "def copy_rates_from_pos(self, symbol: str, timeframe: str, start: int, count: int):"
         },
-        "src.live.parity_gate.ParityReport.signal_total": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 58,
-          "line_end": 59,
-          "signature": "@property"
+        "tests.test_live_signal_runner.FakeMT5.order_send": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 82,
+          "line_end": 84,
+          "signature": "def order_send(self, *_args, **_kwargs):"
         },
-        "src.live.parity_gate._load_15m": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 62,
-          "line_end": 89,
-          "signature": "def _load_15m(symbol: str) -> Optional[List[Bar]]:"
+        "tests.test_live_signal_runner._make_m1_bars": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 90,
+          "line_end": 125,
+          "signature": "def _make_m1_bars(symbol: str, n: int=200, start_price: float=1.1, seed: int=1) -> List[Bar]:"
         },
-        "src.live.parity_gate._run_canonical": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 92,
-          "line_end": 95,
-          "signature": "def _run_canonical(symbol: str, bars_15m: List[Bar]):"
+        "tests.test_live_signal_runner._bars_to_rates": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 128,
+          "line_end": 141,
+          "signature": "def _bars_to_rates(bars: List[Bar]) -> List[FakeRate]:"
         },
-        "src.live.parity_gate._run_runtime": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 98,
-          "line_end": 108,
-          "signature": "def _run_runtime(symbol: str, bars_15m: List[Bar]):"
-        },
-        "src.live.parity_gate._diff_trades": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 111,
+        "tests.test_live_signal_runner._make_fake_mt5": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 144,
           "line_end": 151,
-          "signature": "def _diff_trades(symbol: str, canonical, signals) -> List[str]:"
+          "signature": "def _make_fake_mt5(symbols: List[str], n_bars: int=5000, seed: int=1) -> FakeMT5:"
         },
-        "src.live.parity_gate.check_symbol": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 154,
-          "line_end": 167,
-          "signature": "def check_symbol(symbol: str) -> Tuple[bool, int, int, List[str]]:"
+        "tests.test_live_signal_runner.test_signal_runner_does_not_send_orders": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 157,
+          "line_end": 170,
+          "signature": "def test_signal_runner_does_not_send_orders():"
         },
-        "src.live.parity_gate.check_all_six_majors": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 170,
-          "line_end": 200,
-          "signature": "def check_all_six_majors() -> ParityReport:"
+        "tests.test_live_signal_runner.test_signal_runner_audit_records_candle_and_signal_events": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 176,
+          "line_end": 192,
+          "signature": "def test_signal_runner_audit_records_candle_and_signal_events():"
         },
-        "src.live.parity_gate.can_enable_execution": {
-          "file": "src\\live\\parity_gate.py",
-          "line_start": 203,
-          "line_end": 214,
-          "signature": "def can_enable_execution(report: Optional[ParityReport]=None) -> bool:"
+        "tests.test_live_signal_runner.test_signal_runner_signal_event_payload_has_expected_fields": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 195,
+          "line_end": 212,
+          "signature": "def test_signal_runner_signal_event_payload_has_expected_fields():"
         },
-        "tests.test_live_parity_gate.test_six_majors_universe_complete": {
-          "file": "tests\\test_live_parity_gate.py",
-          "line_start": 24,
-          "line_end": 33,
-          "signature": "def test_six_majors_universe_complete():"
+        "tests.test_live_signal_runner.test_signal_runner_returns_result_with_per_symbol_count": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 218,
+          "line_end": 232,
+          "signature": "def test_signal_runner_returns_result_with_per_symbol_count():"
         },
-        "tests.test_live_parity_gate.test_check_symbol_missing_data_returns_clean": {
-          "file": "tests\\test_live_parity_gate.py",
-          "line_start": 36,
-          "line_end": 43,
-          "signature": "def test_check_symbol_missing_data_returns_clean():"
+        "tests.test_live_signal_runner.test_signal_runner_approved_vs_blocked_partition": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 235,
+          "line_end": 249,
+          "signature": "def test_signal_runner_approved_vs_blocked_partition():"
         },
-        "tests.test_live_parity_gate.test_parity_report_aggregates_totals": {
-          "file": "tests\\test_live_parity_gate.py",
-          "line_start": 46,
-          "line_end": 57,
-          "signature": "def test_parity_report_aggregates_totals():"
+        "tests.test_live_signal_runner.test_signal_runner_error_in_one_symbol_does_not_stop_others": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 255,
+          "line_end": 283,
+          "signature": "def test_signal_runner_error_in_one_symbol_does_not_stop_others():"
         },
-        "tests.test_live_parity_gate.test_check_all_six_majors_returns_report": {
-          "file": "tests\\test_live_parity_gate.py",
-          "line_start": 60,
-          "line_end": 72,
-          "signature": "def test_check_all_six_majors_returns_report():"
+        "tests.test_live_signal_runner.test_signal_runner_does_not_call_mt5_initialize": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 289,
+          "line_end": 300,
+          "signature": "def test_signal_runner_does_not_call_mt5_initialize():"
         },
-        "tests.test_live_parity_gate.test_can_enable_execution_consistent_with_report": {
-          "file": "tests\\test_live_parity_gate.py",
-          "line_start": 75,
-          "line_end": 86,
-          "signature": "def test_can_enable_execution_consistent_with_report():"
+        "tests.test_live_signal_runner.test_runner_config_defaults_sane": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 306,
+          "line_end": 312,
+          "signature": "def test_runner_config_defaults_sane():"
+        },
+        "tests.test_live_signal_runner.test_signal_runner_contract_default_is_conservative_usd_account": {
+          "file": "tests\\test_live_signal_runner.py",
+          "line_start": 315,
+          "line_end": 325,
+          "signature": "def test_signal_runner_contract_default_is_conservative_usd_account():"
         }
       },
       "files": {
@@ -4698,6 +4818,10 @@
           "last_modified": "2026-08-27T21:27:50",
           "hash": "sha256:714af37b320c62d9"
         },
+        "src\\live\\parity_gate.py": {
+          "last_modified": "2026-08-28T00:10:51",
+          "hash": "sha256:51c41b12dde49fc6"
+        },
         "src\\live\\position_manager.py": {
           "last_modified": "2026-08-27T22:40:38",
           "hash": "sha256:2c4ac58f51f072cf"
@@ -4818,6 +4942,10 @@
           "last_modified": "2026-08-27T13:39:35",
           "hash": "sha256:85be3e5b2defc312"
         },
+        "tests\\test_live_parity_gate.py": {
+          "last_modified": "2026-08-28T00:10:51",
+          "hash": "sha256:d2400a37ceb927f0"
+        },
         "tests\\test_live_position_reconciliation.py": {
           "last_modified": "2026-08-27T22:40:38",
           "hash": "sha256:c4047a5927e98de9"
@@ -4833,6 +4961,10 @@
         "tests\\test_mt5_connection_hardening.py": {
           "last_modified": "2026-08-27T10:17:17",
           "hash": "sha256:d6bdfc4333fd08f5"
+        },
+        "tests\\test_parity_6majors.py": {
+          "last_modified": "2026-08-28T00:10:51",
+          "hash": "sha256:bb109d90e7a44fb8"
         },
         "tools\\code-index-system\\gitignore_utils.py": {
           "last_modified": "2026-08-22T18:51:03",
@@ -4850,20 +4982,16 @@
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
         },
-        "tests\\test_parity_6majors.py": {
-          "last_modified": "2026-08-27T23:53:45",
-          "hash": "sha256:6d74cc080e9489c9"
+        "src\\live\\signal_runner.py": {
+          "last_modified": "2026-08-28T00:20:06",
+          "hash": "sha256:1c6d25e8be42562a"
         },
-        "src\\live\\parity_gate.py": {
-          "last_modified": "2026-08-27T23:54:37",
-          "hash": "sha256:8b3dc44bd951ceab"
-        },
-        "tests\\test_live_parity_gate.py": {
-          "last_modified": "2026-08-28T00:10:51",
-          "hash": "sha256:d2400a37ceb927f0"
+        "tests\\test_live_signal_runner.py": {
+          "last_modified": "2026-08-28T00:25:50",
+          "hash": "sha256:d7e230d348008711"
         }
       },
-      "last_full_scan": "2026-08-27T23:12:46"
+      "last_full_scan": "2026-08-28T00:13:16"
     }
   }
 }
