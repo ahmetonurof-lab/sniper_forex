@@ -15,7 +15,7 @@
 ```
 Current Phase:        PHASE 4 — RISK + POSITION SIZING
 Last Completed Phase: PHASE 3 — STRATEGY RUNTIME (2026-08-27)
-Last Commit:          <PHASE3_COMMIT_HASH> (phase3: strategy runtime + replay parity)
+Last Commit:          18ba794 (phase3: strategy runtime + replay parity)
 Blocking Issue:       none
 Next Action:          Start PHASE 4 (risk engine + lot sizing)
 ```
@@ -153,7 +153,7 @@ MT5 DEMO
 - **Acceptance criteria:** Historical replay parity with canonical engine
   (signal/SL/TP).
 - **Status:** COMPLETE (2026-08-27)
-- **Commit:** <PHASE3_COMMIT_HASH>
+- **Commit:** 18ba794
 - **Known risks:** Port errors; external nexus path dependency.
 - **Notes:** Reuse `SessionManager` and `trailing_adapter` directly. Port the
   entry/SL/TP core from `run_test_a` (copy-adapt, do NOT modify frozen engine).
