@@ -15,7 +15,7 @@
 ```
 Current Phase:        PHASE 5 — EXECUTION
 Last Completed Phase: PHASE 4 — RISK + POSITION SIZING (2026-08-27)
-Last Commit:          <PHASE4_COMMIT_HASH> (phase4: risk engine + lot sizing)
+Last Commit:          ca7af81 (phase4: risk engine + lot sizing)
 Blocking Issue:       none
 Next Action:          Start PHASE 5 (order execution engine)
 ```
@@ -186,7 +186,7 @@ MT5 DEMO
 - **Acceptance criteria:** If risk check fails → NO trade. Trade blocked and
   logged.
 - **Status:** COMPLETE (2026-08-27)
-- **Commit:** <PHASE4_COMMIT_HASH>
+- **Commit:** ca7af81
 - **Known risks:** Incorrect risk math → demo loss.
 - **Notes:** `RISK_PER_TRADE=0.003` in `experiment/config.py` is the reference.
   `src/live/risk.py` = `RiskManager` + `Account` + `RiskDecision` (pure,

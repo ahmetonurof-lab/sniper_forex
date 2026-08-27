@@ -15,7 +15,7 @@
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
 - **Current Phase:** PHASE 5 — EXECUTION.
-- **Last Completed Phase:** PHASE 4 — RISK + POSITION SIZING (2026-08-27, commit <PHASE4_COMMIT_HASH>).
+- **Last Completed Phase:** PHASE 4 — RISK + POSITION SIZING (2026-08-27, commit ca7af81).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
