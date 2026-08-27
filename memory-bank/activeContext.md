@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 5 — EXECUTION.
-- **Last Completed Phase:** PHASE 4 — RISK + POSITION SIZING (2026-08-27, commit ca7af81).
+- **Current Phase:** PHASE 6 — POSITION MANAGER + RECONCILIATION.
+- **Last Completed Phase:** PHASE 5 — EXECUTION (2026-08-27, commit pending).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,26 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 5 — EXECUTION (COMPLETE 2026-08-27)
+- **New:** `src/live/execution.py` (order execution engine).
+- **New:** `tests/test_live_execution.py` (12 synthetic unit tests).
+- **`Execution`** (`execution.py`): pure / injectable (MT5 module passed in).
+  - **`OrderRequest`**: signal + lot + contract + deviation + magic + comment.
+  - **`ExecutionResult`**: sent/filled/dry_run/retcode/order_id/deal_id/fill_price/reason/attempts/duplicate/retries.
+  - **`signal_only=True` default** — NO real order sent until caller opts in.
+  - **Flow**: lot<=0 guard → duplicate guard (`(sym, dir, sl, tp)` fingerprint,
+    5s cooldown) → `order_check` (no send on validation fail) → `signal_only`
+    short-circuit → `order_send` with retry on retriable retcodes
+    (REQUOTE, PRICE_CHANGED, PRICE_OFF, CONNECTION, TIMEOUT, RETRY).
+  - **Non-retriable rejects** (REJECT, INVALID, etc.) — single attempt.
+  - **Exceptions in `order_send`** treated as retriable.
+  - **Magic** = 9007001 default, **comment** = `SNIPER_FX|<sym>|<dir>|sweep<i>|z<j>`.
+  - Fill = `TRADE_RETCODE_DONE` only; partial-fill / reject are NOT treated as filled.
+- **Tests:** 12/12 PASS; full suite 144/144 PASS.
+- **Frozen engines:** unchanged (git diff CLEAN).
+- **Next:** PHASE 6 — position manager + state↔MT5 reconciliation
+  (`src/live/position_manager.py`, `src/live/reconciliation.py`).
 
 ### PHASE 4 — RISK + POSITION SIZING (COMPLETE 2026-08-27)
 - **New:** `src/live/risk.py`, `src/live/sizing.py`.

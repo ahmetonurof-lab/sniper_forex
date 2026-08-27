@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 5 — EXECUTION
-Last Completed Phase: PHASE 4 — RISK + POSITION SIZING (2026-08-27)
-Last Commit:          ca7af81 (phase4: risk engine + lot sizing)
+Current Phase:        PHASE 6 — POSITION MANAGER + RECONCILIATION
+Last Completed Phase: PHASE 5 — EXECUTION (2026-08-27)
+Last Commit:          (pending)
 Blocking Issue:       none
-Next Action:          Start PHASE 5 (order execution engine)
+Next Action:          Start PHASE 6 (position tracking + state↔MT5 reconciliation)
 ```
 
 ---
@@ -200,7 +200,7 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 5 — EXECUTION
+### [x] PHASE 5 — EXECUTION
 
 - **Objective:** Order execution engine.
 - **Tasks:**
@@ -215,15 +215,26 @@ MT5 DEMO
   - Retry
 - **Files:**
   - `src/live/execution.py` (new)
+  - `tests/test_live_execution.py` (new — 12 synthetic unit tests)
 - **Dependencies:** PHASE 1, 4.
 - **Tests:** order_check validation; rejected/requote injection; duplicate order.
+  - 12/12 PASS; full suite 144/144 PASS.
 - **Acceptance criteria:** Order sent with SL/TP, dup prevented, reject logged +
-  retried.
-- **Status:** NOT STARTED
+  retried. ✅
+- **Status:** COMPLETE (2026-08-27)
 - **Commit:** (pending)
 - **Known risks:** Real order sending (demo only).
-- **Notes:** **Execution is DISABLED by default.** SIGNAL_ONLY / DRY_RUN must
-  NOT send real orders.
+- **Notes:** **`signal_only=True` default** — NO real order is sent until
+  the caller explicitly opts in. `OrderRequest` carries signal + lot + contract;
+  `Execution.send()` runs `order_check` first (no send on validation fail), then
+  `order_send` with retry on retriable retcodes (REQUOTE, PRICE_CHANGED,
+  PRICE_OFF, CONNECTION, TIMEOUT, RETRY). Non-retriable rejects (REJECT, etc.)
+  do NOT retry. Duplicate protection: per-(symbol, direction, sl, tp)
+  fingerprint with configurable cooldown (`duplicate_window_sec`, default 5s)
+  prevents double-click + retry storms. Magic (default 9007001) + comment
+  (`SNIPER_FX|<sym>|<dir>|sweep<i>|z<j>`) are auto-injected. Exceptions in
+  `order_send` are treated as retriable. Frozen engines untouched (git diff
+  CLEAN).
 
 ---
 
