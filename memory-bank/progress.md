@@ -35,6 +35,36 @@
   closed candle, dup/missing detection, warmup, timezone, canonical 15m
   aggregation parity with `resample_15m()`).
 
+### PHASE 2 — MARKET DATA / 15M CANDLE FEED (COMPLETE 2026-08-27)
+
+- **What was done:** Built the live M1 feed → canonical 15m closed candle
+  production under the new `src/live/` package.
+- **Files changed:**
+  - `src/live/__init__.py` — NEW, live runtime package.
+  - `src/live/clock.py` — NEW, server-time UTC offset (summer +3 / winter +2),
+    session window 19:00→01:00, server↔UTC conversion.
+  - `src/live/candle_feed.py` — NEW, `M1CandleFeed` (fetch_m1, find_duplicates,
+    find_missing, is_closed_m1, warmup, update) + `resample_15m()` parity.
+  - `tests/test_live_candle_feed.py` — NEW, 16 synthetic unit tests.
+- **Key design decisions:**
+  - `resample_15m()` re-implemented to match the frozen engine EXACTLY
+    (epoch//15min slot, first-bar label, drop <3-bar buckets) — live runtime
+    does NOT import from the frozen research engine.
+  - Server-time → UTC conversion uses the CURRENT server offset (one offset per
+    live session), not each bar's own date — matches how MT5 reports time.
+- **Tests run:**
+  - `python -m pytest tests/test_live_candle_feed.py` → 16/16 PASS.
+  - `python -m pytest tests/` → 116/116 PASS.
+- **Result:** Same M1 input → same 15m OHLC/timestamp as canonical backtest
+  (parity verified). Dup/missing detection, forming-vs-closed, warmup, timezone
+  all PASS.
+- **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` git
+  diff CLEAN (verified). No strategy behavior changed.
+- **Decision:** PHASE 2 COMPLETE. Proceed to PHASE 3.
+- **Next task:** PHASE 3 — STRATEGY RUNTIME (port backtest strategy behavior to
+  live runtime: SessionManager → CBDR → Sweep → Bias → FVG → EQ → First FVG →
+  First Touch → Signal; per-symbol state; candle event loop; restart recovery).
+
 ---
 
 ## MAXDD RESEARCH LINE — Per-Experiment Log

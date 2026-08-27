@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 2 — MARKET DATA / 15M CANDLE FEED.
-- **Last Completed Phase:** PHASE 1 — MT5 FOUNDATION (2026-08-27).
+- **Current Phase:** PHASE 3 — STRATEGY RUNTIME.
+- **Last Completed Phase:** PHASE 2 — MARKET DATA / 15M CANDLE FEED (2026-08-27).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -29,6 +29,19 @@
 - **Tests:** architecture 7/7 PASS; hardening unit tests 10/10 PASS; full suite 100/100 PASS.
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 2 — M1 feed + 15m candle aggregation (parity with `resample_15m()`).
+
+### PHASE 2 — MARKET DATA / 15M CANDLE FEED (COMPLETE 2026-08-27)
+- **New:** `src/live/` package — `candle_feed.py`, `clock.py`.
+- **New:** `tests/test_live_candle_feed.py` (16 synthetic unit tests).
+- **`M1CandleFeed`:** `fetch_m1` (server-time→UTC), `find_duplicates`,
+  `find_missing`, `is_closed_m1` (forming vs closed), `warmup`, `update`.
+- **`resample_15m()`:** re-implemented canonical boundary (epoch//15min slot,
+  first-bar label, drop <3-bar buckets) — parity with frozen engine.
+- **`clock.py`:** server UTC offset (summer +3 / winter +2), session window
+  19:00→01:00. Server→UTC uses CURRENT offset (one offset per live session).
+- **Tests:** 16/16 PASS; full suite 116/116 PASS.
+- **Frozen engines:** unchanged (git diff CLEAN).
+- **Next:** PHASE 3 — strategy runtime port.
 
 ---
 

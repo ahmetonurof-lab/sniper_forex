@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 2 — MARKET DATA / 15M CANDLE FEED
-Last Completed Phase: PHASE 1 — MT5 FOUNDATION (2026-08-27)
-Last Commit:          d997cd3 (phase1: MT5 connection + data layer hardening)
+Current Phase:        PHASE 3 — STRATEGY RUNTIME
+Last Completed Phase: PHASE 2 — MARKET DATA / 15M CANDLE FEED (2026-08-27)
+Last Commit:          <PHASE2_COMMIT_HASH> (phase2: M1 feed + 15m candle aggregation)
 Blocking Issue:       none
-Next Action:          Start PHASE 2 (M1 feed + 15m candle aggregation)
+Next Action:          Start PHASE 3 (strategy runtime port)
 ```
 
 ---
@@ -103,7 +103,7 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 2 — MARKET DATA / 15M CANDLE FEED
+### [x] PHASE 2 — MARKET DATA / 15M CANDLE FEED
 
 - **Objective:** Reliable M1 feed → canonical 15m closed candle production.
 - **Tasks:**
@@ -121,11 +121,16 @@ MT5 DEMO
 - **Tests:** Synthetic M1→15m aggregation; dup/missing injection; forming candle.
 - **Acceptance criteria:** Same M1 input → same 15m OHLC/timestamp as canonical
   backtest.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+- **Status:** COMPLETE (2026-08-27)
+- **Commit:** <PHASE2_COMMIT_HASH>
 - **Known risks:** Aggregation boundary parity (must match `resample_15m()`).
 - **Notes:** Canonical engines load 15m feather directly; live must aggregate M1
   with the SAME boundary (`resample_15m()`: epoch//15min, drop <3-bar buckets).
+  Implemented `src/live/candle_feed.py` (M1CandleFeed: fetch_m1, find_duplicates,
+  find_missing, is_closed_m1, warmup, update; resample_15m parity) and
+  `src/live/clock.py` (server-time UTC offset summer/winter, session window).
+  Server-time -> UTC conversion uses CURRENT offset (one offset per live session).
+  Frozen engines untouched.
 
 ---
 
