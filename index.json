@@ -2050,6 +2050,42 @@
           "line_end": 95,
           "signature": "def in_session(dt_server: datetime, start_hour: int=SESSION_START_HOUR, end_hour: int=SESSION_END_HOUR) -> bool:"
         },
+        "src.live.state.StateStore.__init__": {
+          "file": "src\\live\\state.py",
+          "line_start": 25,
+          "line_end": 27,
+          "signature": "def __init__(self, state_dir: str='state'):"
+        },
+        "src.live.state.StateStore._path": {
+          "file": "src\\live\\state.py",
+          "line_start": 29,
+          "line_end": 30,
+          "signature": "def _path(self, symbol: str) -> Path:"
+        },
+        "src.live.state.StateStore.save": {
+          "file": "src\\live\\state.py",
+          "line_start": 32,
+          "line_end": 37,
+          "signature": "def save(self, symbol: str, state: dict) -> None:"
+        },
+        "src.live.state.StateStore.load": {
+          "file": "src\\live\\state.py",
+          "line_start": 39,
+          "line_end": 47,
+          "signature": "def load(self, symbol: str) -> Optional[dict]:"
+        },
+        "src.live.state.StateStore.exists": {
+          "file": "src\\live\\state.py",
+          "line_start": 49,
+          "line_end": 50,
+          "signature": "def exists(self, symbol: str) -> bool:"
+        },
+        "src.live.state.StateStore.clear": {
+          "file": "src\\live\\state.py",
+          "line_start": 52,
+          "line_end": 56,
+          "signature": "def clear(self, symbol: str) -> None:"
+        },
         "src.strategy.data_loader.DataLoader.__init__": {
           "file": "src\\strategy\\data_loader.py",
           "line_start": 28,
@@ -3250,6 +3286,48 @@
           "line_end": 258,
           "signature": "def test_in_session_spans_midnight(self):"
         },
+        "tests.test_live_strategy_runtime._load_15m": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 28,
+          "line_end": 56,
+          "signature": "def _load_15m(symbol: str) -> list[Bar]:"
+        },
+        "tests.test_live_strategy_runtime._run_canonical": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 59,
+          "line_end": 63,
+          "signature": "def _run_canonical(symbol: str, bars_15m: list[Bar]):"
+        },
+        "tests.test_live_strategy_runtime._run_runtime": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 66,
+          "line_end": 77,
+          "signature": "def _run_runtime(symbol: str, bars_15m: list[Bar]):"
+        },
+        "tests.test_live_strategy_runtime._assert_parity": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 80,
+          "line_end": 110,
+          "signature": "def _assert_parity(symbol: str, bars_15m: list[Bar]):"
+        },
+        "tests.test_live_strategy_runtime.test_replay_parity_with_canonical_engine": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 114,
+          "line_end": 118,
+          "signature": "@pytest.mark.parametrize('symbol', ['EURUSD', 'GBPUSD'])"
+        },
+        "tests.test_live_strategy_runtime.test_runtime_produces_signals_on_real_data": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 121,
+          "line_end": 127,
+          "signature": "def test_runtime_produces_signals_on_real_data():"
+        },
+        "tests.test_live_strategy_runtime.test_state_roundtrip_preserves_runtime": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 130,
+          "line_end": 156,
+          "signature": "def test_state_roundtrip_preserves_runtime():"
+        },
         "tests.test_mt5_connection_hardening._make_connection": {
           "file": "tests\\test_mt5_connection_hardening.py",
           "line_start": 26,
@@ -3507,6 +3585,72 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
+        },
+        "src.live.strategy_runtime._to_nexus_bar": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 79,
+          "line_end": 92,
+          "signature": "def _to_nexus_bar(bar: Bar) -> NexusBar:"
+        },
+        "src.live.strategy_runtime._is_fresh_fvg": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 95,
+          "line_end": 105,
+          "signature": "def _is_fresh_fvg(fvg, bars_15m: List[Bar], current_index: int) -> bool:"
+        },
+        "src.live.strategy_runtime._compute_atr": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 108,
+          "line_end": 126,
+          "signature": "def _compute_atr(bars: List[Bar], period: int=14) -> float:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.__init__": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 136,
+          "line_end": 158,
+          "signature": "def __init__(self, symbol: str):"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.warmup": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 161,
+          "line_end": 179,
+          "signature": "def warmup(self, bars_15m: List[Bar]) -> None:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.on_bar": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 182,
+          "line_end": 339,
+          "signature": "def on_bar(self, bar: Bar) -> Optional[Signal]:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime._create_pending": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 342,
+          "line_end": 378,
+          "signature": "def _create_pending(self, fvg, i: int) -> None:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime._fill_pending": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 380,
+          "line_end": 468,
+          "signature": "def _fill_pending(self, bar: Bar) -> None:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime._close_trade": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 471,
+          "line_end": 491,
+          "signature": "def _close_trade(self, exit_info: dict, i: int, bar: Bar) -> None:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.to_state": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 494,
+          "line_end": 537,
+          "signature": "def to_state(self) -> dict:"
+        },
+        "src.live.strategy_runtime.StrategyRuntime.from_state": {
+          "file": "src\\live\\strategy_runtime.py",
+          "line_start": 539,
+          "line_end": 578,
+          "signature": "def from_state(self, state: dict) -> None:"
         }
       },
       "files": {
@@ -3735,15 +3879,19 @@
           "hash": "sha256:04d0998d95c220e1"
         },
         "src\\live\\candle_feed.py": {
-          "last_modified": "2026-08-27T11:08:22",
+          "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:5a5d3afb48794264"
         },
         "src\\live\\clock.py": {
-          "last_modified": "2026-08-27T11:08:00",
+          "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:9981835fc87e4e30"
         },
+        "src\\live\\state.py": {
+          "last_modified": "2026-08-27T11:48:55",
+          "hash": "sha256:d33ba24022a86ca0"
+        },
         "src\\live\\__init__.py": {
-          "last_modified": "2026-08-27T11:05:18",
+          "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:23cf5262aeae383c"
         },
         "src\\strategy\\data_loader.py": {
@@ -3823,8 +3971,12 @@
           "hash": "sha256:67acae6947a7c0b6"
         },
         "tests\\test_live_candle_feed.py": {
-          "last_modified": "2026-08-27T11:09:50",
+          "last_modified": "2026-08-27T11:34:21",
           "hash": "sha256:6bbb87bd987a4739"
+        },
+        "tests\\test_live_strategy_runtime.py": {
+          "last_modified": "2026-08-27T11:48:55",
+          "hash": "sha256:b59e71ab90f176db"
         },
         "tests\\test_mt5_connection_hardening.py": {
           "last_modified": "2026-08-27T10:17:17",
@@ -3845,9 +3997,13 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
+        },
+        "src\\live\\strategy_runtime.py": {
+          "last_modified": "2026-08-27T12:12:44",
+          "hash": "sha256:14f8a638fc83185b"
         }
       },
-      "last_full_scan": "2026-08-27T11:10:52"
+      "last_full_scan": "2026-08-27T12:12:24"
     }
   }
 }

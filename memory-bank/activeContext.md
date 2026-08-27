@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 3 — STRATEGY RUNTIME.
-- **Last Completed Phase:** PHASE 2 — MARKET DATA / 15M CANDLE FEED (2026-08-27).
+- **Current Phase:** PHASE 4 — RISK + POSITION SIZING.
+- **Last Completed Phase:** PHASE 3 — STRATEGY RUNTIME (2026-08-27).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -42,6 +42,28 @@
 - **Tests:** 16/16 PASS; full suite 116/116 PASS.
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 3 — strategy runtime port.
+
+### PHASE 3 — STRATEGY RUNTIME (COMPLETE 2026-08-27)
+- **New:** `src/live/strategy_runtime.py`, `src/live/state.py`.
+- **New:** `tests/test_live_strategy_runtime.py` (4 replay parity tests).
+- **`StrategyRuntime`:** ports `run_test_a` entry/SL/TP core. Reuses
+  `SessionManager`, `apply_trailing`/`check_exit`/`_norm_side`, nexus
+  `detect_fvgs`. Pending-entry model: touch on closed bar → pending (SL/TP at
+  bar i) → fill at next bar open → active trade + Signal.
+- **`StateStore`:** atomic JSON persistence (`state/<SYMBOL>.json`) for restart
+  recovery; `save`/`load`/`exists`/`clear`.
+- **Parity:** EURUSD + GBPUSD replay match canonical signal/SL/TP.
+- **Two parity gotchas fixed:**
+  1. Entry bar must be processed immediately (apply_trailing + check_exit on
+     the fill bar) — otherwise a trade that trails+exits on its own entry bar
+     is missed.
+  2. Sweep must NOT be reset at pending/touch time. Reset only after a trade is
+     created. MIN_RISK_DIST failure must fall through to re-scan FVGs with the
+     same sweep (canonical `continue`s).
+- **Tests:** 4/4 PASS; full suite 120/120 PASS.
+- **Frozen engines:** unchanged (git diff CLEAN).
+- **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
+  `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
 
 ---
 

@@ -65,6 +65,42 @@
   live runtime: SessionManager → CBDR → Sweep → Bias → FVG → EQ → First FVG →
   First Touch → Signal; per-symbol state; candle event loop; restart recovery).
 
+### PHASE 3 — STRATEGY RUNTIME (COMPLETE 2026-08-27)
+
+- **What was done:** Ported the backtest strategy entry/SL/TP core to a live
+  runtime with per-symbol state and restart recovery.
+- **Files changed:**
+  - `src/live/strategy_runtime.py` — NEW, `StrategyRuntime` + `Signal`. Ports
+    `run_test_a` entry/SL/TP core. Reuses `SessionManager`,
+    `apply_trailing`/`check_exit`/`_norm_side`, nexus `detect_fvgs`.
+  - `src/live/state.py` — NEW, `StateStore` atomic JSON persistence
+    (`state/<SYMBOL>.json`) for restart recovery.
+  - `tests/test_live_strategy_runtime.py` — NEW, 4 replay parity tests.
+- **Key design decisions:**
+  - Pending-entry model: touch on closed bar i → pending (SL/TP at bar i) →
+    fill at next bar open → active trade + Signal.
+  - Live runtime does NOT import from the frozen research engine — it reuses
+    shared modules (`SessionManager`, `trailing_adapter`) and nexus FVG.
+- **Parity bug fixed (EURUSD 406 vs 407 signals):**
+  1. Entry bar must be processed immediately (apply_trailing + check_exit on
+     the fill bar) — otherwise a trade that trails+exits on its own entry bar
+     is missed.
+  2. Sweep must NOT be reset at pending/touch time. Reset only after a trade is
+     created. MIN_RISK_DIST failure must fall through to re-scan FVGs with the
+     same sweep (canonical `continue`s).
+- **Tests run:**
+  - `python -m pytest tests/test_live_strategy_runtime.py` → 4/4 PASS.
+  - `python -m pytest tests/` → 120/120 PASS.
+- **Result:** EURUSD + GBPUSD replay parity with canonical engine
+  (signal/SL/TP). State roundtrip preserves runtime.
+- **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` git
+  diff CLEAN (verified). No strategy behavior changed.
+- **Decision:** PHASE 3 COMPLETE. Proceed to PHASE 4.
+- **Next task:** PHASE 4 — RISK + POSITION SIZING (risk engine + lot sizing:
+  account balance/equity, risk per trade, lot calc, contract specs, volume
+  min/max/step, stop distance, spread, exposure, broker constraints;
+  `src/live/risk.py`, `src/live/sizing.py`; RISK_PER_TRADE=0.003 reference).
+
 ---
 
 ## MAXDD RESEARCH LINE — Per-Experiment Log

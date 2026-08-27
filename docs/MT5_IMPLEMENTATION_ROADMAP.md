@@ -13,11 +13,11 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        PHASE 3 — STRATEGY RUNTIME
-Last Completed Phase: PHASE 2 — MARKET DATA / 15M CANDLE FEED (2026-08-27)
-Last Commit:          b81115d (phase2: M1 feed + 15m candle aggregation)
+Current Phase:        PHASE 4 — RISK + POSITION SIZING
+Last Completed Phase: PHASE 3 — STRATEGY RUNTIME (2026-08-27)
+Last Commit:          <PHASE3_COMMIT_HASH> (phase3: strategy runtime + replay parity)
 Blocking Issue:       none
-Next Action:          Start PHASE 3 (strategy runtime port)
+Next Action:          Start PHASE 4 (risk engine + lot sizing)
 ```
 
 ---
@@ -134,7 +134,7 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 3 — STRATEGY RUNTIME
+### [x] PHASE 3 — STRATEGY RUNTIME
 
 - **Objective:** Port backtest strategy behavior to live runtime.
 - **Tasks:**
@@ -152,11 +152,16 @@ MT5 DEMO
   canonical engine.
 - **Acceptance criteria:** Historical replay parity with canonical engine
   (signal/SL/TP).
-- **Status:** NOT STARTED
-- **Commit:** (pending)
+- **Status:** COMPLETE (2026-08-27)
+- **Commit:** <PHASE3_COMMIT_HASH>
 - **Known risks:** Port errors; external nexus path dependency.
 - **Notes:** Reuse `SessionManager` and `trailing_adapter` directly. Port the
   entry/SL/TP core from `run_test_a` (copy-adapt, do NOT modify frozen engine).
+  Parity achieved: EURUSD + GBPUSD replay match canonical signal/SL/TP.
+  Two parity gotchas fixed: (1) entry bar must be processed immediately
+  (apply_trailing + check_exit on the fill bar); (2) sweep must NOT be reset at
+  pending/touch time — reset only after a trade is created, and MIN_RISK_DIST
+  failure must fall through to re-scan FVGs with the same sweep.
 
 ---
 
