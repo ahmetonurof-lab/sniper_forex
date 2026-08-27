@@ -14,10 +14,10 @@
 
 ```
 Current Phase:        PHASE 11 — CONTROLLED MT5 DEMO
-Last Completed Phase: PHASE 10 — PAPER / DRY RUN (2026-08-28)
-Last Commit:          3ed3e7a (phase10: paper trading)
-Blocking Issue:       none
-Next Action:          Start PHASE 11 (controlled demo: 1 symbol -> 6 majors)
+Last Completed Phase: PHASE 11 — DD SCALING OVERLAY (2026-08-28)
+Last Commit:          d3c3ecb (phase11: portfolio DD + DD-based risk scaling)
+Blocking Issue:       real-data parity regression (38 vs 16 trades) — pending debug
+Next Action:          Debug parity regression, then controlled MT5 demo
 ```
 
 ---
@@ -411,22 +411,47 @@ MT5 DEMO
 
 ---
 
-### [ ] PHASE 11 — CONTROLLED MT5 DEMO
+### [~] PHASE 11 — CONTROLLED MT5 DEMO
 
 - **Objective:** Real demo orders, controlled.
-- **Tasks:**
-  - First: 1 symbol → low risk → controlled monitoring.
-  - Then: 6 majors.
-  - Reconciliation, logging, safety, kill switch mandatory.
-- **Files:** (existing modules)
-- **Dependencies:** All prior phases PASS.
-- **Tests:** Controlled demo run.
-- **Acceptance criteria:** Orders sent correctly, SL/TP placed, reconciliation
-  works, audit trail complete.
-- **Status:** NOT STARTED
-- **Commit:** (pending)
-- **Known risks:** Real demo orders.
-- **Notes:** Only after all previous phases PASS.
+- **Status:** DD scaling overlay implemented (2026-08-28, commit d3c3ecb).
+  Controlled MT5 demo run pending parity-regression debug.
+- **Tasks (DD scaling subset — DONE):**
+  - `src/live/portfolio_dd.py` (new — `PortfolioDD`, `compute_lot_multiplier`,
+    default thresholds 2R/4R/6R mirroring `experiment/exp_maxdd_C`)
+  - `src/live/risk.py` (extended — `RiskManager.evaluate(..., portfolio_dd_r=...)`
+    returns `lot_multiplier` in `RiskDecision`; multiplier 0.0 = PAUSE)
+  - `tests/test_live_portfolio_dd.py` (new — 18 synthetic unit tests)
+- **Tests:** 18/18 PASS. Live fast suite 128/128 PASS. Frozen engines
+  unchanged (git diff CLEAN).
+- **DD scaling design:** Mirrors `experiment/exp_maxdd_C_dd_risk_scaling.py`
+  on the live runtime. Thresholds 2R/4R/6R and multipliers 0.50/0.25/0.00
+  (pause). Live behavior: after each closed trade, `record_realized(pnl_r)`
+  updates peak + DD. Before each new entry, `current_dd_r()` is passed
+  to `RiskManager.evaluate()`. The returned `lot_multiplier` must be
+  applied to the proposed lot before sending the order. Backward
+  compatible: default `portfolio_dd_r=0.0` → multiplier 1.0 (Phase 4
+  tests unchanged).
+- **Research result (C2 + DD scaling, 6 majors 2.7Y):** Trades 2302,
+  WinRate 69.37%, TotalR 2827.55 (vs 2875.00 baseline), AvgR 1.2283,
+  PF 5.13 (vs 5.08), **MaxDD% 1.85% (vs 2.73% baseline — %32 reduction)**,
+  paused 0. Best result in MaxDD research.
+- **Tasks (controlled demo — PENDING):**
+  - Debug parity regression on real MT5 data (canonical 38 trades vs
+    live 16 signals on EURUSD 65K M1 from 2026-06-25 to 2026-08-28).
+  - Run 1 symbol low-risk paper demo.
+  - Then 6 majors with DD scaling.
+  - Reconciliation, logging, safety, kill switch (PHASE 6-7 already
+    in place) must all be active.
+  - `parity_gate.can_enable_execution()` MUST pass before turning off
+    `signal_only` (PHASE 8 still pending real-data verification).
+- **Known risks:** Real demo orders; parity regression on real data.
+- **Notes:** `signal_only=True` default is preserved — DD scaling
+  overlay does not change the "no real orders" invariant. The overlay
+  only affects the *lot multiplier* returned by risk, not the order
+  sending decision. Phase 11 demo (1 symbol) should start in
+  `signal_only=True` mode, log signals + scaled lot decisions, and
+  only switch to real orders after parity is fixed.
 
 ---
 

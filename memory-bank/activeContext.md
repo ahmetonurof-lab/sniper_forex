@@ -14,8 +14,8 @@
 > This section reflects production-transition state only. Research state below.
 
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
-- **Current Phase:** PHASE 11 — CONTROLLED MT5 DEMO.
-- **Last Completed Phase:** PHASE 10 — PAPER / DRY RUN (2026-08-28, commit 3ed3e7a).
+- **Current Phase:** PHASE 11 — DD SCALING OVERLAY (DONE), CONTROLLED MT5 DEMO (PENDING parity fix).
+- **Last Completed Phase:** PHASE 11 (DD scaling subset, 2026-08-28, commit d3c3ecb).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -64,6 +64,16 @@
 - **Frozen engines:** unchanged (git diff CLEAN).
 - **Next:** PHASE 4 — risk engine + lot sizing (`src/live/risk.py`,
   `src/live/sizing.py`). RISK_PER_TRADE=0.003 reference.
+
+### PHASE 11 — DD SCALING OVERLAY (PARTIAL, 2026-08-28)
+- **New:** `src/live/portfolio_dd.py` (`PortfolioDD`, `compute_lot_multiplier`, defaults t1=2, t2=4, t3=6).
+- **Extended:** `src/live/risk.py` — `RiskManager.evaluate(..., portfolio_dd_r=...)` returns `lot_multiplier` in `RiskDecision`. Multiplier 0.0 = PAUSE.
+- **New:** `tests/test_live_portfolio_dd.py` (18 synthetic unit tests).
+- **Design:** Mirrors `experiment/exp_maxdd_C_dd_risk_scaling.py` overlay on the live runtime. Frozen engine untouched. Live: `record_realized(pnl_r)` after each closed trade → updates peak+DD. Before each new entry, `current_dd_r()` passed to `RiskManager.evaluate()`. Returned `lot_multiplier` applied to proposed lot.
+- **Backward compat:** Default `portfolio_dd_r=0.0` → multiplier 1.0. Phase 4 tests still pass.
+- **Research result (C2 + DD scaling, 6 majors 2.7Y, frozen):** Trades 2302, WinRate 69.37%, TotalR 2827.55, AvgR 1.2283, PF **5.13** (vs 5.08), **MaxDD% 1.85% (vs 2.73% — %32 reduction)**, paused 0. Best MaxDD result.
+- **Tests:** 18/18 PASS. Live fast suite 128/128 PASS. Frozen engines unchanged.
+- **⚠ Parity regression on real data (BLOCKER for full Phase 11 demo):** Canonical `run_test_a` finds 38 trades on real MT5 65K M1 (2026-06-25→2026-08-28), live `StrategyRuntime` finds 16. Same M1 data, different counts. Phase 8 feather parity still PASS. Root cause: TBD (likely warmup/state initialization on short real-data window).
 
 ### PHASE 10 — PAPER / DRY RUN (COMPLETE 2026-08-28)
 - **New:** `src/live/paper.py` (`PaperPosition`, `PositionStatus`, `PaperBroker`, `PaperSession`, `PaperStepResult`, `_pnl`).
