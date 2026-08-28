@@ -28,11 +28,12 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from src.live.audit import AuditChain, EventType
-from src.live.candle_feed import M1CandleFeed
-from src.live.clock import _utcnow_naive, server_to_utc
+from src.live.candle_feed import M1CandleFeed, resample_15m
+from src.live.clock import _utcnow_naive, server_to_utc_historical
 from src.live.position_manager import Position
 from src.live.risk import Account, RiskManager
-from src.live.sizing import ContractSpec
+from src.live.portfolio_dd import PortfolioDD
+from src.live.sizing import ContractSpec, PositionSizer
 from src.live.strategy_runtime import Signal, StrategyRuntime
 from src.strategy.models import Bar
 
@@ -298,6 +299,10 @@ class PaperSession:
         self.contract = contract
         self._last_processed_m1_ts: Optional[float] = None
         self._warmed: bool = False
+        self._paper_context: dict = {}
+        self._paper_dd = PortfolioDD(starting_balance_r=100.0)
+        # P2-6 — keep partial M1 tail across steps for 15m continuity
+        self._partial_m1_tail: List[Bar] = []
 
     def warmup(self, n_15m: int = 200) -> int:
         """Pull historical M1, resample 15m, warm the runtime.
@@ -322,6 +327,16 @@ class PaperSession:
         self._last_processed_m1_ts = (
             float(m1_bars[-1].timestamp.timestamp()) if m1_bars else None
         )
+        # Initialize partial tail with any unclosed M1 after the last full bucket
+        # (for P2-6 incremental 15m continuity).
+        if m1_bars:
+            # Keep the tail that doesn't complete a 15m bucket at the end.
+            # Minimal approach: keep up to 14 bars (one full 15m missing one) as partial.
+            self._partial_m1_tail = (
+                m1_bars[-14:] if len(m1_bars) >= 14 else list(m1_bars)
+            )
+        else:
+            self._partial_m1_tail = []
         return len(bars_15m)
 
     def run_step(
@@ -368,6 +383,17 @@ class PaperSession:
                 if self.contract is not None and closed:
                     for c in closed:
                         self.broker.update_pnl(c.ticket, self.contract, c.exit_price)
+                        # Update paper PortfolioDD with realized PnL (rehearsal, not MT5 authoritative)
+                        if c.pnl != 0.0:
+                            # Lock initial risk cash per unit from paper context for R conversion
+                            context = self._paper_context.get(c.ticket, {})
+                            initial_risk_total = context.get(
+                                "initial_risk_cash_total", 10.0
+                            )
+                            # Minimal R conversion: use locked initial risk basis
+                            # (simplified for paper rehearsal; full deal-level tracking uses TradeLifecycle)
+                            pnl_r = c.pnl / (initial_risk_total or 10.0)
+                            self._paper_dd.record_realized(pnl_r)
                         audit.append(
                             time.time(),
                             EventType.EXIT,
@@ -381,57 +407,117 @@ class PaperSession:
                         )
             result.ticks_processed = len(ticks)
 
-        # 2) Run strategy on every new M1 -> detect closed 15m -> on_bar.
-        # We simulate by checking whether a 15m boundary is crossed.
-        self._advance_strategy(m1_bars, audit, result)
+        # P2-6 — Combine previous partial M1 tail + new M1 before aggregation
+        combined_m1 = list(self._partial_m1_tail) + list(m1_bars)
+        # Filter forming M1 already applied to new m1_bars above; partial tail
+        # is retained from previous step and should be treated as historical.
+        # For simplicity we treat all combined bars equally (they are all
+        # past bars except possibly the very newest, which is handled by
+        # is_closed_m1 in fetch/update paths); here we rely on the caller
+        # providing closed M1 bars.
+        new_15m = resample_15m(combined_m1) if combined_m1 else []
+        # Emit only unseen completed 15m candles
+        emitted_15m: List[Bar] = []
+        for c in new_15m:
+            if (
+                self._last_processed_m1_ts is None
+                or c.timestamp > self._last_processed_m1_ts
+            ):
+                emitted_15m.append(c)
+        if emitted_15m:
+            self._last_processed_m1_ts = emitted_15m[-1].timestamp
+
+        # 2) Run strategy on emitted 15m candles (not on the raw M1 tail directly)
+        # We pass emitted_15m to the strategy replay logic.
+        if emitted_15m:
+            self._run_on_15m(emitted_15m, audit, result, combined_m1)
+        else:
+            # If nothing emitted, just process ticks and retain partial tail
+            pass
+
+        # Update partial tail: keep the newest uncompleted M1 bars (up to 14)
+        # from the combined stream for next step continuity.
+        if combined_m1:
+            # Retain last up-to-14 bars that didn't form a complete 15m bucket
+            # (minimal approximation: keep the tail not fully covered by emitted 15m).
+            last_emitted_slot = None
+            if emitted_15m:
+                last_emitted_slot = int(
+                    emitted_15m[-1].timestamp.timestamp() * 1000 // (15 * 60 * 1000)
+                ) * (15 * 60 * 1000)
+            # Keep bars after the last fully emitted 15m bucket.
+            new_tail: List[Bar] = []
+            for b in combined_m1:
+                ts_ms = int(b.timestamp.timestamp() * 1000)
+                if last_emitted_slot is not None and ts_ms >= last_emitted_slot:
+                    new_tail.append(b)
+                elif last_emitted_slot is None:
+                    new_tail.append(b)
+            # Limit tail size to avoid unbounded growth (max 14 M1 bars = ~1 15m gap)
+            self._partial_m1_tail = (
+                new_tail[-14:] if len(new_tail) > 14 else list(new_tail)
+            )
+        else:
+            self._partial_m1_tail = []
         return result
 
-    def _advance_strategy(
+    def _run_on_15m(
         self,
-        m1_bars: List[Bar],
+        emitted_15m: List[Bar],
         audit: AuditChain,
         result: PaperStepResult,
+        combined_m1: List[Bar],
     ) -> int:
-        """Replay M1 bars through StrategyRuntime; emit paper opens on signals."""
-        from src.live.candle_feed import resample_15m
-
-        if not m1_bars:
-            return 0
-        # Find the highest ts we've already processed.
-        if self._last_processed_m1_ts is None:
-            start = 0
-        else:
-            start = 0
-            for i, b in enumerate(m1_bars):
-                if float(b.timestamp.timestamp()) > self._last_processed_m1_ts:
-                    start = i
-                    break
-            else:
-                return 0
-        new_m1 = m1_bars[start:]
-        if not new_m1:
-            return 0
-        new_15m = resample_15m(new_m1)
-        if not new_15m:
-            return 0
+        """Replay emitted 15m candles through StrategyRuntime; emit paper opens."""
         n_new = 0
-        for c in new_15m:
+        for c in emitted_15m:
             sig = self.runtime.on_bar(c)
             if sig is not None:
-                # Risk gate
+                # Risk gate with same live semantics (base lot + DD multiplier + quantization)
                 contract = self.contract or self._default_contract()
                 account = Account(balance=self.broker.equity, equity=self.broker.equity)
+                base_sizer = PositionSizer()
+                base_result = base_sizer.compute_lot(
+                    sig, balance=account.balance, contract=contract
+                )
+                base_lot = base_result.lot
+                current_dd_r = self._paper_dd.current_dd_r() if self._paper_dd else 0.0
                 decision = self.risk_manager.evaluate(
-                    sig, account=account, contract=contract, spread=0.0, lot=0.0
+                    sig,
+                    account=account,
+                    contract=contract,
+                    spread=0.0,
+                    lot=base_lot,
+                    portfolio_dd_r=current_dd_r,
+                )
+                final_lot = (
+                    PositionSizer.apply_scaling_and_quantize(
+                        base_lot=base_lot,
+                        lot_multiplier=decision.lot_multiplier,
+                        volume_step=contract.volume_step,
+                        volume_min=contract.volume_min,
+                        volume_max=contract.volume_max,
+                    )
+                    if base_lot > 0
+                    else 0.0
                 )
                 audit.append(
                     time.time(),
                     EventType.SIGNAL,
                     self.symbol,
-                    {"direction": sig.direction, "approved": decision.approved},
+                    {
+                        "direction": sig.direction,
+                        "approved": decision.approved,
+                        "lot_multiplier": decision.lot_multiplier,
+                        "base_lot": base_lot,
+                        "final_lot": final_lot,
+                    },
                 )
-                if decision.approved and not decision.blocked:
-                    pos = self.broker.open(sig, volume=0.0, contract=contract)
+                if decision.approved and not decision.blocked and final_lot > 0:
+                    pos = self.broker.open(sig, volume=final_lot, contract=contract)
+                    self._persist_paper_context(
+                        pos, base_lot, final_lot, decision.lot_multiplier
+                    )
                     result.new_opens.append(pos)
                     audit.append(
                         time.time(),
@@ -443,12 +529,29 @@ class PaperSession:
                             "entry": pos.entry_price,
                             "sl": pos.sl,
                             "tp": pos.tp,
+                            "volume": final_lot,
                         },
                     )
             n_new += 1
-        # Update the cursor
-        self._last_processed_m1_ts = float(new_m1[-1].timestamp.timestamp())
         return n_new
+
+    def _persist_paper_context(
+        self,
+        pos,
+        base_lot: float,
+        final_lot: float,
+        lot_multiplier: float,
+    ) -> None:
+        self._paper_context[pos.ticket] = {
+            "base_lot": float(base_lot),
+            "final_lot": float(final_lot),
+            "lot_multiplier": float(lot_multiplier),
+            "symbol": pos.symbol,
+            "side": pos.side,
+            "entry_price": pos.entry_price,
+            "initial_sl": pos.sl,
+            "initial_risk_cash_total": float(self.broker.equity or 10000.0),
+        }
 
     def _default_contract(self) -> ContractSpec:
         return ContractSpec(
@@ -491,7 +594,7 @@ def _rates_to_bars(rates: Any) -> List[Bar]:
         import pandas as pd
 
         ts_server = pd.Timestamp(ts, unit="s")
-        ts_utc = pd.Timestamp(server_to_utc(ts_server.to_pydatetime()))
+        ts_utc = pd.Timestamp(server_to_utc_historical(ts_server.to_pydatetime()))
         bars.append(
             Bar(
                 index=i,

@@ -28,7 +28,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from src.data.mt5_data import MT5DataLayer
-from src.live.clock import server_to_utc
+from src.live.clock import server_to_utc_historical
 from src.strategy.models import Bar
 
 # Canonical 15m bucket size in ms
@@ -93,7 +93,7 @@ class M1CandleFeed:
         bars: List[Bar] = []
         for i, r in enumerate(rates):
             ts_server = pd.Timestamp(r["time"], unit="s")
-            ts_utc = pd.Timestamp(server_to_utc(ts_server.to_pydatetime()))
+            ts_utc = pd.Timestamp(server_to_utc_historical(ts_server.to_pydatetime()))
             bars.append(
                 Bar(
                     index=i,

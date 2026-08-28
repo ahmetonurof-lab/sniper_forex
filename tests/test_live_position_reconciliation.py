@@ -234,15 +234,26 @@ def test_position_manager_detects_new_open_alongside_close():
 
 
 def test_position_manager_survives_mt5_exception():
-    """If positions_get raises, update() must not crash — it returns an
-    empty update (caller can decide to block trading)."""
+    """If positions_get raises, update() preserves the previous snapshot,
+    emits no synthetic close, and flags fetch_failed / stale_snapshot_preserved."""
     mt5 = FakeMT5()
-    mt5.raise_on_get = True
+    # Seed a previous snapshot
+    mt5.positions = [
+        FakePos(10, "EURUSD", 0, 0.06, 1.10, 1.095, 1.109, magic=DEFAULT_MAGIC),
+    ]
     pm = PositionManager(mt5=mt5)
+    pm.update()  # seed snapshot
+
+    mt5.raise_on_get = True
     update = pm.update()
-    assert update.positions == {}
-    assert update.new_opens == []
+    assert update.fetch_failed is True
+    assert update.fetch_ok is False
+    assert update.stale_snapshot_preserved is True
+    # Previous snapshot preserved (no synthetic close fabricated)
     assert update.closed_trades == []
+    assert update.new_opens == []
+    # Positions remain the previous snapshot
+    assert 10 in update.positions
 
 
 # ── Restart recovery ─────────────────────────────────────────────
@@ -272,6 +283,52 @@ def test_position_manager_clear_drops_snapshot():
 
 
 # ── Reconciler ───────────────────────────────────────────────────
+
+
+def test_position_manager_confirmed_empty_state_on_success():
+    """Successful fetch with zero bot-owned positions is a confirmed empty
+    snapshot (not a fetch failure)."""
+    mt5 = FakeMT5()
+    # Seed a position then clear it via successful empty response
+    mt5.positions = [
+        FakePos(10, "EURUSD", 0, 0.06, 1.10, 1.095, 1.109, magic=DEFAULT_MAGIC),
+    ]
+    pm = PositionManager(mt5=mt5)
+    pm.update()  # seed snapshot
+
+    mt5.positions = []
+    update = pm.update()
+    assert update.fetch_failed is False
+    assert update.fetch_ok is True
+    # Confirmed empty bot snapshot: no synthetic preservation needed,
+    # previous open is genuinely closed by broker.
+    assert len(update.closed_trades) == 1
+    assert len(update.positions) == 0
+
+
+def test_position_manager_failure_followed_by_success_recovers():
+    """Fetch failure preserves snapshot; next successful empty response
+    produces genuine closes without duplicate events."""
+    mt5 = FakeMT5()
+    mt5.positions = [
+        FakePos(10, "EURUSD", 0, 0.06, 1.10, 1.095, 1.109, magic=DEFAULT_MAGIC),
+    ]
+    pm = PositionManager(mt5=mt5)
+    pm.update()  # seed
+
+    # Failure
+    mt5.raise_on_get = True
+    fail_update = pm.update()
+    assert fail_update.fetch_failed is True
+    assert fail_update.closed_trades == []
+
+    # Recovery: successful empty response -> real close
+    mt5.raise_on_get = False
+    mt5.positions = []
+    success_update = pm.update()
+    assert success_update.fetch_failed is False
+    assert len(success_update.closed_trades) == 1
+    assert success_update.closed_trades[0].ticket == 10
 
 
 def test_reconciler_clean_when_both_match():

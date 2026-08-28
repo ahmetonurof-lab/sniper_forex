@@ -197,10 +197,10 @@ class TestWarmup:
         monkeypatch.setattr(feed.data, "get_rates", fake_fetch)
         m15 = feed.warmup("EURUSD", n_15m=3)
         assert len(m15) == 3
-        # fetch_m1 converts server-time -> UTC. July = summer = UTC+3, so
-        # server 00:00 -> UTC 21:00 previous day.
-        assert m15[0].timestamp == pd.Timestamp("2025-12-31 21:00:00")
-        assert m15[2].timestamp == pd.Timestamp("2025-12-31 21:30:00")
+        # fetch_m1 converts server-time -> UTC using the bar's own date.
+        # January bar = winter = UTC+2, so server 00:00 -> UTC 22:00 previous day.
+        assert m15[0].timestamp == pd.Timestamp("2025-12-31 22:00:00")
+        assert m15[2].timestamp == pd.Timestamp("2025-12-31 22:30:00")
 
 
 # ---------------------------------------------------------------------------

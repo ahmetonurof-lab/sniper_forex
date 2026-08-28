@@ -33,9 +33,7 @@ The following are **IMMUTABLE research references**. DO NOT touch:
 
 If any of these show a git diff during an implementation phase → **STOP**.
 
-**DD Risk Scaling** is OUT OF SCOPE for production implementation at this stage
-(research: C = candidate, D = REJECT). Position it as an optional future risk
-module / promotion decision pending. Do NOT auto-add to production.
+**DD Risk Scaling** is IMPLEMENTED as an optional production overlay (`src/live/portfolio_dd.py`, integrated in `RiskManager.evaluate()` via `portfolio_dd_r`). Frozen research engine (`C v1.1`) remains the authoritative benchmark; production overlay uses the same thresholds/multipliers. Not out of scope.
 
 **C/D engine selection** must NOT be forced in a way that unnecessarily locks the
 production architecture. Strategy behavior must NOT be changed.

@@ -35,7 +35,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from src.live.audit import AuditChain, EventType
 from src.live.candle_feed import M1CandleFeed, resample_15m
-from src.live.clock import _utcnow_naive, server_to_utc
+from src.live.clock import _utcnow_naive, server_to_utc_historical
 from src.live.risk import Account, RiskManager
 from src.live.sizing import ContractSpec
 from src.live.strategy_runtime import Signal, StrategyRuntime
@@ -248,7 +248,7 @@ class SignalRunner:
             import pandas as pd
 
             ts_server = pd.Timestamp(ts, unit="s")
-            ts_utc = pd.Timestamp(server_to_utc(ts_server.to_pydatetime()))
+            ts_utc = pd.Timestamp(server_to_utc_historical(ts_server.to_pydatetime()))
             bars.append(
                 Bar(
                     index=i,

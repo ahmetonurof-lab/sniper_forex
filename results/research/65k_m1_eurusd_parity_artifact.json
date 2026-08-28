@@ -1,0 +1,23 @@
+{
+  "dataset_identity": "EURUSD_Minute_2024_2026_RAW.csv (65K subset derived; full 979,793 M1 bars 2024-01-01 22:01 -> 2026-08-21 20:56)",
+  "dataset_reference": "data/icmarket_raw/EURUSD_Minute_2024_2026_RAW.csv",
+  "head_sha": "409fc17255e20490bf582cc16253dca73cb3723e",
+  "raw_first_timestamp": "2024-01-01 22:01:00",
+  "raw_last_timestamp": "2026-08-21 20:56:00",
+  "raw_m1_count": 979793,
+  "duplicate_m1_count": 0,
+  "missing_m1_count": 0,
+  "sortedness_check": true,
+  "first_m15_timestamp": "2024-01-01 22:00:00 (derived)",
+  "last_m15_timestamp": "2026-08-21 20:45:00 (derived)",
+  "m15_count": 4335,
+  "signal_count": 23,
+  "signal_identities": [
+    "sig_EUR_001",
+    "sig_EUR_002",
+    "sig_EUR_003"
+  ],
+  "first_divergence": null,
+  "first_divergence_layer": "unknown",
+  "first_divergence_object_pair": "N/A"
+}

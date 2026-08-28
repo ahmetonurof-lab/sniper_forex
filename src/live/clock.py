@@ -66,11 +66,21 @@ def utc_to_server(dt_utc: datetime) -> datetime:
     return dt_utc + timedelta(hours=server_utc_offset())
 
 
+def server_to_utc_historical(dt_server: datetime) -> datetime:
+    """Convert a naive MT5 server time to UTC using the bar's own date (DST-aware).
+
+    Historical bars must NOT use the current session offset; they use the
+    offset that was in effect at the bar's server timestamp.
+    """
+    return dt_server - timedelta(hours=server_utc_offset(dt_server))
+
+
 def server_to_utc(dt_server: datetime) -> datetime:
     """Convert a naive MT5 server time to UTC.
 
     Uses the CURRENT server UTC offset (a live session has one offset at
-    any moment, regardless of each bar's own timestamp).
+    any moment, regardless of each bar's own timestamp). This is appropriate
+    for live-now conversion, NOT for historical-bar normalization.
     """
     return dt_server - timedelta(hours=server_utc_offset())
 

@@ -120,6 +120,32 @@ class PositionSizer:
         )
 
     @staticmethod
+    def apply_scaling_and_quantize(
+        base_lot: float,
+        lot_multiplier: float,
+        volume_step: float,
+        volume_min: float,
+        volume_max: float,
+    ) -> float:
+        """Apply lot multiplier exactly once and quantize to broker rules.
+
+        This is a post-sizing helper; it does NOT modify the base sizing
+        formula (`compute_lot`). Used by the lifecycle/sizing layer to
+        produce the final scaled lot before execution.
+        """
+        scaled = base_lot * float(lot_multiplier)
+        # Quantize down to step
+        if volume_step > 0:
+            scaled = round(int(scaled / volume_step) * volume_step, 10)
+        # Clamp
+        scaled = max(volume_min, min(volume_max, scaled))
+        # If multiplier indicates pause (0.0), force lot to 0 so Execution
+        # rejects it (no order submission).
+        if float(lot_multiplier) <= 0.0:
+            scaled = 0.0
+        return scaled if scaled > 0 else 0.0
+
+    @staticmethod
     def _round_to_step(lot: float, step: float) -> float:
         """Round `lot` down to the nearest multiple of `step`."""
         if step <= 0:

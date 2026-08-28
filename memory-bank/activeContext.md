@@ -22,7 +22,7 @@
 - **Last Completed Work (research):** C v1.1 PROMOTED 2026-08-28 (DD Risk Scaling overlay canonicalized; old `MaxDD% 1.85` reference invalidated due to Exp C cross-symbol `entry_ts` bug fix). See "C v1.1 PROMOTION" section near the bottom of this file.
 - **Last Completed Work (MT5):** REAL-MT5 PARITY REGRESSION FIX (F1+F2+F3) — 2026-08-28 (see end of file).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified post-fix).
-- **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
+- **DD Risk Scaling:** OVERLAY IMPLEMENTED in production (`src/live/portfolio_dd.py`, integrated into `RiskManager.evaluate()` via `portfolio_dd_r`). Not out of scope — live module active; frozen research engine (`C v1.1`) remains the authoritative benchmark reference.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
 
 ### PHASE 1 — MT5 FOUNDATION (COMPLETE 2026-08-27)
@@ -673,3 +673,4 @@ Phase 12 (DD scaling production integration).
 - **Files:** `experiment/main_research_c_v1_1.py` (function body only); `tests/test_main_research_c_v1_1.py` (expectations fixed); `test_causality_synthetic.py`, `test_causality_extended.py` (new).
 - **Benchmark:** dry-run passes; full 2.7Y/6-major pending user direction.
 - **No production / C v1.0 / memory-bank / git changes outside this entry.
+-e "\n---\n### LIVE FIX CHECKPOINT (2026-08-28) - P1-5 / P1-4 / P0-2 / P0-1 / P1-3 / P2-6 / P3-7 PASS\n- Scope: timezone canonicalization, false-close protection, lifecycle/deal owner, DD-scaled lot, paper economic path, paper 15m continuity, doc sync.\n- Protected files preserved: frozen C/D engines and benchmark JSONs untouched.\n- 65K M1 artifact frozen: results/research/65k_m1_eurusd_parity_artifact.json.\n- No strategy optimization. Ready for user direction: commit/push or Phase 12."

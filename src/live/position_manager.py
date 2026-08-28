@@ -96,6 +96,9 @@ class PositionUpdate:
     positions: Dict[int, Position] = field(default_factory=dict)
     new_opens: List[Position] = field(default_factory=list)
     closed_trades: List[ClosedTrade] = field(default_factory=list)
+    fetch_ok: bool = True
+    fetch_failed: bool = False
+    stale_snapshot_preserved: bool = False
 
     @property
     def symbols(self) -> List[str]:
@@ -189,7 +192,15 @@ class PositionManager:
         try:
             raw_positions = self.mt5.positions_get() or []
         except Exception:
-            raw_positions = []
+            # Preserve previous snapshot on fetch failure; emit no synthetic close.
+            return PositionUpdate(
+                positions=dict(self._snapshot),
+                new_opens=[],
+                closed_trades=[],
+                fetch_ok=False,
+                fetch_failed=True,
+                stale_snapshot_preserved=True,
+            )
 
         # Build current dict (bot-owned only)
         current: Dict[int, Position] = {}
@@ -230,6 +241,9 @@ class PositionManager:
             positions=dict(current),
             new_opens=new_opens,
             closed_trades=closed_trades,
+            fetch_ok=True,
+            fetch_failed=False,
+            stale_snapshot_preserved=False,
         )
 
     def get_snapshot(self) -> Dict[int, Position]:
