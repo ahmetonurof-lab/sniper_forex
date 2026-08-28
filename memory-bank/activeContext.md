@@ -1,7 +1,46 @@
 # Active Context — Research Control Panel
 
 > Single source of truth for the MaxDD research line.
-> Last updated: 2026-08-28 (C v1.1 PROMOTED + causality/determinism CORRECTION + 7 regression tests).
+> Last updated: 2026-08-28 (C v1.1 PROMOTED + causality/determinism CORRECTION + 7 regression tests + LIVE FIX CHECKPOINT + MT5 REAL-CHECKPOINT).
+
+CURRENT IMPLEMENTATION STATE (2026-08-28 checkpoint):
+- C v1.0 (experiment/main_research_c_v1_0.py): FROZEN — git diff CLEAN
+- C v1.1 (experiment/main_research_c_v1_1.py): PROMOTED — git diff CLEAN (pre-existing committed state)
+- D v1.0 (experiment/main_research_d_v1_0.py): FROZEN — git diff CLEAN
+- trailing_adapter.py: PROTECTED — git diff CLEAN
+- strategy_runtime.py: PROTECTED — git diff CLEAN
+
+LIVE PRODUCTION PATH TRACE (verified 2026-08-28):
+- src/main.py → src/test_mt5_connection.py → MetaTrader5.initialize() → SignalRunner(mt5=mt5) → M1CandleFeed.fetch_m1 → resample_15m → StrategyRuntime
+- execution.py: direct MetaTrader5.order_send/orders_check (injectable mt5= param) — no abstraction wrapper
+- candle_feed.py: direct MetaTrader5.copy_rates_from_pos — production data path
+- position_manager.py: import var ama SignalRunner/run_session içinde history/deals okuma YOK (koordination kırık)
+- SLTP modification: Execution.modify_position_sl_tp() var ama mt5.TRADE_ACTION_SLTP native request yok (abstraction layer eksik)
+
+VERIFICATION STATUS:
+- Mock verified: PASS (126/126 acceptance tests)
+- Static verified: PASS (caller→callee trace, git diff CLEAN, protected files intact)
+- Real MT5 verified: NOT YET — connection-only gate pending credentials
+- Deployment production-ready: NOT DECLARABLE — real MT5 gate henüz çalıştırılmadı
+
+MT5 GATEWAY STATUS:
+- Architecture: EXISTING DIRECT API (no new wrapper/factory needed)
+- Missing operations: (1) history/deals read in live signal path, (2) native TRADE_ACTION_SLTP MT5 request
+- No new abstraction introduced — minimal addition only
+
+REMAINING GATES (ordered, manual):
+1. REAL MT5 connection-only (initialize→login→account→symbol→M1 read→UTC normalize)
+2. signal-only live run (no orders)
+3. order_check
+4. one DEMO order
+5. broker-confirmed position
+6. broker-confirmed SL/TP
+7. trailing SL modify
+8. close
+9. history deal
+10. realized PnL → PortfolioDD
+11. restart/recovery
+12. reconciliation
 > Canonical engines are NEVER edited:
 >   - `experiment/main_research_c_v1_0.py` — FROZEN C v1.0 baseline
 >   - `experiment/main_research_c_v1_1.py` — PROMOTED C v1.1 (C2 EQ + DD Risk Scaling)

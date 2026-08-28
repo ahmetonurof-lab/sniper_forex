@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-28T18:03:35",
+  "generated_at": "2026-08-28T22:02:56",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -1396,6 +1396,24 @@
           "line_end": 332,
           "signature": "def main():"
         },
+        "scripts.regenerate_artifact.load_m1": {
+          "file": "scripts\\regenerate_artifact.py",
+          "line_start": 30,
+          "line_end": 35,
+          "signature": "def load_m1():"
+        },
+        "scripts.regenerate_artifact.to_bars": {
+          "file": "scripts\\regenerate_artifact.py",
+          "line_start": 38,
+          "line_end": 50,
+          "signature": "def to_bars(df):"
+        },
+        "scripts.regenerate_artifact.compute_metrics": {
+          "file": "scripts\\regenerate_artifact.py",
+          "line_start": 53,
+          "line_end": 105,
+          "signature": "def compute_metrics():"
+        },
         "scripts.run_dukascopy_pipeline.main": {
           "file": "scripts\\run_dukascopy_pipeline.py",
           "line_start": 38,
@@ -2202,164 +2220,236 @@
         },
         "src.live.execution.Execution.__init__": {
           "file": "src\\live\\execution.py",
-          "line_start": 121,
-          "line_end": 143,
+          "line_start": 146,
+          "line_end": 173,
           "signature": "def __init__(self, mt5: Any=None, signal_only: bool=True, magic: int=DEFAULT_MAGIC, comment_prefix: str=DEFAULT_COMMENT_PREFIX, duplicate_window_sec: float=5.0, max_retries: int=2, retry_sleep_sec: fl"
         },
         "src.live.execution.Execution.send": {
           "file": "src\\live\\execution.py",
-          "line_start": 146,
-          "line_end": 283,
+          "line_start": 176,
+          "line_end": 315,
           "signature": "def send(self, request: OrderRequest) -> ExecutionResult:"
+        },
+        "src.live.execution.Execution.modify_position_sl_tp": {
+          "file": "src\\live\\execution.py",
+          "line_start": 318,
+          "line_end": 434,
+          "signature": "def modify_position_sl_tp(self, position_ticket: int, symbol: str, sl: float, tp: float, deviation: int=20, magic: Optional[int]=None) -> ModifyResult:"
+        },
+        "src.live.execution.Execution.confirmed_sl_tp": {
+          "file": "src\\live\\execution.py",
+          "line_start": 436,
+          "line_end": 438,
+          "signature": "def confirmed_sl_tp(self, position_ticket: int) -> Optional[tuple]:"
+        },
+        "src.live.execution.Execution.forget_position": {
+          "file": "src\\live\\execution.py",
+          "line_start": 440,
+          "line_end": 444,
+          "signature": "def forget_position(self, position_ticket: int) -> None:"
         },
         "src.live.execution.Execution._build_request": {
           "file": "src\\live\\execution.py",
-          "line_start": 286,
-          "line_end": 309,
+          "line_start": 447,
+          "line_end": 470,
           "signature": "def _build_request(self, request: OrderRequest) -> Dict[str, Any]:"
         },
         "src.live.execution.Execution._fingerprint": {
           "file": "src\\live\\execution.py",
-          "line_start": 313,
-          "line_end": 315,
+          "line_start": 474,
+          "line_end": 476,
           "signature": "@staticmethod"
         },
         "src.live.execution.Execution._is_duplicate": {
           "file": "src\\live\\execution.py",
-          "line_start": 317,
-          "line_end": 324,
+          "line_start": 478,
+          "line_end": 485,
           "signature": "def _is_duplicate(self, fingerprint: str) -> bool:"
         },
         "src.live.execution.Execution._mark_sent": {
           "file": "src\\live\\execution.py",
-          "line_start": 326,
-          "line_end": 327,
+          "line_start": 487,
+          "line_end": 488,
           "signature": "def _mark_sent(self, fingerprint: str) -> None:"
         },
         "src.live.execution.Execution._is_filled": {
           "file": "src\\live\\execution.py",
-          "line_start": 329,
-          "line_end": 332,
+          "line_start": 490,
+          "line_end": 493,
           "signature": "def _is_filled(self, retcode: Optional[int]) -> bool:"
         },
         "src.live.execution.Execution._is_retriable": {
           "file": "src\\live\\execution.py",
-          "line_start": 334,
-          "line_end": 340,
+          "line_start": 495,
+          "line_end": 501,
           "signature": "def _is_retriable(self, retcode: Optional[int]) -> bool:"
         },
         "src.live.execution.Execution._retcode_name": {
           "file": "src\\live\\execution.py",
-          "line_start": 342,
-          "line_end": 349,
+          "line_start": 503,
+          "line_end": 510,
           "signature": "def _retcode_name(self, retcode: Optional[int]) -> str:"
         },
         "src.live.execution.Execution._normalize_result": {
           "file": "src\\live\\execution.py",
-          "line_start": 351,
-          "line_end": 369,
+          "line_start": 512,
+          "line_end": 533,
           "signature": "def _normalize_result(self, result: Any) -> Dict[str, Any]:"
+        },
+        "src.live.live_runner.default_contract": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 65,
+          "line_end": 71,
+          "signature": "def default_contract(symbol: str) -> ContractSpec:"
+        },
+        "src.live.live_runner.LiveRunner.__init__": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 79,
+          "line_end": 116,
+          "signature": "def __init__(self, symbol: str, mt5: Any=None, execution: Optional[Execution]=None, lifecycle: Optional[TradeLifecycle]=None, risk_manager: Optional[RiskManager]=None, sizer: Optional[PositionSizer]=N"
+        },
+        "src.live.live_runner.LiveRunner._positions_get": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 119,
+          "line_end": 126,
+          "signature": "def _positions_get(self, position_id: int) -> bool:"
+        },
+        "src.live.live_runner.LiveRunner._resolve_position_id": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 128,
+          "line_end": 143,
+          "signature": "def _resolve_position_id(self, result) -> Optional[int]:"
+        },
+        "src.live.live_runner.LiveRunner.on_bar": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 146,
+          "line_end": 248,
+          "signature": "def on_bar(self, bar, account: Account) -> LiveRunnerStepResult:"
+        },
+        "src.live.live_runner.LiveRunner._risk_cash_total": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 251,
+          "line_end": 257,
+          "signature": "@staticmethod"
+        },
+        "src.live.live_runner.LiveRunner.sync_trailing": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 260,
+          "line_end": 268,
+          "signature": "def sync_trailing(self) -> List[TrailingEvent]:"
+        },
+        "src.live.live_runner.LiveRunner.poll_deals": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 271,
+          "line_end": 324,
+          "signature": "def poll_deals(self, now: Optional[float]=None) -> List[dict]:"
+        },
+        "src.live.live_runner.LiveRunner._audit": {
+          "file": "src\\live\\live_runner.py",
+          "line_start": 327,
+          "line_end": 331,
+          "signature": "def _audit(self, event_type: EventType, payload: dict) -> None:"
         },
         "src.live.paper.PaperPosition.to_position": {
           "file": "src\\live\\paper.py",
-          "line_start": 68,
-          "line_end": 80,
+          "line_start": 70,
+          "line_end": 82,
           "signature": "def to_position(self) -> Position:"
         },
         "src.live.paper._pnl": {
           "file": "src\\live\\paper.py",
-          "line_start": 83,
-          "line_end": 107,
+          "line_start": 85,
+          "line_end": 109,
           "signature": "def _pnl(side: str, entry: float, exit_price: float, volume: float, contract_size: float, tick_size: float, tick_value: float) -> float:"
         },
         "src.live.paper.PaperBroker.__init__": {
           "file": "src\\live\\paper.py",
-          "line_start": 116,
-          "line_end": 121,
+          "line_start": 118,
+          "line_end": 123,
           "signature": "def __init__(self, magic: int=9007001, starting_equity: float=10000.0):"
         },
         "src.live.paper.PaperBroker.get_open": {
           "file": "src\\live\\paper.py",
-          "line_start": 124,
-          "line_end": 125,
+          "line_start": 126,
+          "line_end": 127,
           "signature": "def get_open(self) -> List[PaperPosition]:"
         },
         "src.live.paper.PaperBroker.get_closed": {
           "file": "src\\live\\paper.py",
-          "line_start": 127,
-          "line_end": 128,
+          "line_start": 129,
+          "line_end": 130,
           "signature": "def get_closed(self) -> List[PaperPosition]:"
         },
         "src.live.paper.PaperBroker.total_pnl": {
           "file": "src\\live\\paper.py",
-          "line_start": 130,
-          "line_end": 131,
+          "line_start": 132,
+          "line_end": 133,
           "signature": "def total_pnl(self) -> float:"
         },
         "src.live.paper.PaperBroker.open": {
           "file": "src\\live\\paper.py",
-          "line_start": 134,
-          "line_end": 158,
+          "line_start": 136,
+          "line_end": 160,
           "signature": "def open(self, signal: Signal, volume: float, contract: ContractSpec, now: Optional[float]=None) -> PaperPosition:"
         },
         "src.live.paper.PaperBroker.close": {
           "file": "src\\live\\paper.py",
-          "line_start": 160,
-          "line_end": 180,
+          "line_start": 162,
+          "line_end": 182,
           "signature": "def close(self, ticket: int, exit_price: float, now: Optional[float]=None, reason: PositionStatus=PositionStatus.CLOSED_MANUAL) -> Optional[PaperPosition]:"
         },
         "src.live.paper.PaperBroker.update_pnl": {
           "file": "src\\live\\paper.py",
-          "line_start": 182,
-          "line_end": 204,
+          "line_start": 184,
+          "line_end": 206,
           "signature": "def update_pnl(self, ticket: int, contract: ContractSpec, exit_price: float) -> float:"
         },
         "src.live.paper.PaperBroker.on_tick": {
           "file": "src\\live\\paper.py",
-          "line_start": 207,
-          "line_end": 250,
+          "line_start": 209,
+          "line_end": 252,
           "signature": "def on_tick(self, symbol: str, bid: float, ask: float, now: Optional[float]=None) -> List[PaperPosition]:"
         },
         "src.live.paper.PaperSession.__init__": {
           "file": "src\\live\\paper.py",
-          "line_start": 281,
-          "line_end": 305,
+          "line_start": 283,
+          "line_end": 311,
           "signature": "def __init__(self, symbol: str, mt5: Any=None, broker: Optional[PaperBroker]=None, runtime: Optional[StrategyRuntime]=None, risk_manager: Optional[RiskManager]=None, contract: Optional[ContractSpec]=N"
         },
         "src.live.paper.PaperSession.warmup": {
           "file": "src\\live\\paper.py",
-          "line_start": 307,
-          "line_end": 340,
+          "line_start": 313,
+          "line_end": 351,
           "signature": "def warmup(self, n_15m: int=200) -> int:"
         },
         "src.live.paper.PaperSession.run_step": {
           "file": "src\\live\\paper.py",
-          "line_start": 342,
-          "line_end": 462,
+          "line_start": 353,
+          "line_end": 490,
           "signature": "def run_step(self, audit: AuditChain, m1_bars: Optional[List[Bar]]=None, ticks: Optional[List[Dict[str, float]]]=None) -> PaperStepResult:"
         },
         "src.live.paper.PaperSession._run_on_15m": {
           "file": "src\\live\\paper.py",
-          "line_start": 464,
-          "line_end": 536,
+          "line_start": 492,
+          "line_end": 564,
           "signature": "def _run_on_15m(self, emitted_15m: List[Bar], audit: AuditChain, result: PaperStepResult, combined_m1: List[Bar]) -> int:"
         },
         "src.live.paper.PaperSession._persist_paper_context": {
           "file": "src\\live\\paper.py",
-          "line_start": 538,
-          "line_end": 554,
-          "signature": "def _persist_paper_context(self, pos, base_lot: float, final_lot: float, lot_multiplier: float) -> None:"
+          "line_start": 566,
+          "line_end": 592,
+          "signature": "def _persist_paper_context(self, pos, base_lot: float, final_lot: float, lot_multiplier: float, contract: Optional[ContractSpec]) -> None:"
         },
         "src.live.paper.PaperSession._default_contract": {
           "file": "src\\live\\paper.py",
-          "line_start": 556,
-          "line_end": 567,
+          "line_start": 594,
+          "line_end": 605,
           "signature": "def _default_contract(self) -> ContractSpec:"
         },
         "src.live.paper._rates_to_bars": {
           "file": "src\\live\\paper.py",
-          "line_start": 570,
-          "line_end": 609,
+          "line_start": 608,
+          "line_end": 647,
           "signature": "def _rates_to_bars(rates: Any) -> List[Bar]:"
         },
         "src.live.parity_gate.ParityReport.canonical_total": {
@@ -2518,6 +2608,72 @@
           "line_end": 164,
           "signature": "def reconcile(self, local: Dict[int, Position], remote: Dict[int, Position]) -> ReconciliationDecision:"
         },
+        "src.live.recovery._nexus_fvg_from_dict": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 42,
+          "line_end": 54,
+          "signature": "def _nexus_fvg_from_dict(d: dict) -> Any:"
+        },
+        "src.live.recovery._bars_to_json": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 57,
+          "line_end": 77,
+          "signature": "def _bars_to_json(bars: List[Bar]) -> List[dict]:"
+        },
+        "src.live.recovery._bars_from_json": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 80,
+          "line_end": 97,
+          "signature": "def _bars_from_json(rows: List[dict]) -> List[Bar]:"
+        },
+        "src.live.recovery._fvg_to_dict": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 100,
+          "line_end": 109,
+          "signature": "def _fvg_to_dict(fvg: Any) -> dict:"
+        },
+        "src.live.recovery.RuntimeRecovery.__init__": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 115,
+          "line_end": 116,
+          "signature": "def __init__(self, state_dir: str='state'):"
+        },
+        "src.live.recovery.RuntimeRecovery.save": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 118,
+          "line_end": 134,
+          "signature": "def save(self, runtime, symbol: str) -> Path:"
+        },
+        "src.live.recovery.RuntimeRecovery._rebuild_nexus": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 137,
+          "line_end": 158,
+          "signature": "@staticmethod"
+        },
+        "src.live.recovery.RuntimeRecovery.load": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 160,
+          "line_end": 175,
+          "signature": "def load(self, runtime, symbol: str) -> bool:"
+        },
+        "src.live.recovery.RuntimeRecovery.save_lifecycle": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 177,
+          "line_end": 179,
+          "signature": "def save_lifecycle(self, lifecycle, symbol: str) -> Path:"
+        },
+        "src.live.recovery.RuntimeRecovery.load_lifecycle": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 181,
+          "line_end": 186,
+          "signature": "def load_lifecycle(self, lifecycle, symbol: str) -> bool:"
+        },
+        "src.live.recovery.schedule_snapshot": {
+          "file": "src\\live\\recovery.py",
+          "line_start": 189,
+          "line_end": 193,
+          "signature": "def schedule_snapshot(runtime, lifecycle, symbol: str, state_dir: str='state'):"
+        },
         "src.live.risk.RiskManager.__init__": {
           "file": "src\\live\\risk.py",
           "line_start": 55,
@@ -2599,13 +2755,13 @@
         "src.live.sizing.PositionSizer.apply_scaling_and_quantize": {
           "file": "src\\live\\sizing.py",
           "line_start": 123,
-          "line_end": 146,
+          "line_end": 160,
           "signature": "@staticmethod"
         },
         "src.live.sizing.PositionSizer._round_to_step": {
           "file": "src\\live\\sizing.py",
-          "line_start": 149,
-          "line_end": 153,
+          "line_start": 163,
+          "line_end": 167,
           "signature": "@staticmethod"
         },
         "src.live.state.StateStore.__init__": {
@@ -2710,23 +2866,89 @@
           "line_end": 583,
           "signature": "def from_state(self, state: dict) -> None:"
         },
+        "src.live.trade_lifecycle.build_open_context_from_fill": {
+          "file": "src\\live\\trade_lifecycle.py",
+          "line_start": 74,
+          "line_end": 115,
+          "signature": "def build_open_context_from_fill(*, position_id: int, order_id: int, entry_deal_id: int, symbol: str, side: str, entry_price: float, initial_sl: float, base_lot: float, filled_volume: float, lot_multi"
+        },
         "src.live.trade_lifecycle.TradeLifecycle.register_open_context": {
           "file": "src\\live\\trade_lifecycle.py",
-          "line_start": 50,
-          "line_end": 54,
+          "line_start": 134,
+          "line_end": 138,
           "signature": "def register_open_context(self, context: OpenTradeContext) -> None:"
+        },
+        "src.live.trade_lifecycle.TradeLifecycle.record_exit_deal": {
+          "file": "src\\live\\trade_lifecycle.py",
+          "line_start": 142,
+          "line_end": 189,
+          "signature": "def record_exit_deal(self, deal_id: int, position_id: int, net_realized_cash: float, pnl_r: float, timestamp: float=0.0) -> str:"
         },
         "src.live.trade_lifecycle.TradeLifecycle.process_exit_deal": {
           "file": "src\\live\\trade_lifecycle.py",
-          "line_start": 56,
-          "line_end": 80,
+          "line_start": 191,
+          "line_end": 206,
           "signature": "def process_exit_deal(self, deal_id: int, position_id: int, _net_realized_cash: float, pnl_r: float) -> bool:"
+        },
+        "src.live.trade_lifecycle.TradeLifecycle.recover_quarantined": {
+          "file": "src\\live\\trade_lifecycle.py",
+          "line_start": 208,
+          "line_end": 231,
+          "signature": "def recover_quarantined(self, deal_id: int, position_id: int) -> str:"
+        },
+        "src.live.trade_lifecycle.TradeLifecycle.dd_is_reliable": {
+          "file": "src\\live\\trade_lifecycle.py",
+          "line_start": 235,
+          "line_end": 241,
+          "signature": "def dd_is_reliable(self) -> bool:"
         },
         "src.live.trade_lifecycle.TradeLifecycle.rebuild_from_persisted": {
           "file": "src\\live\\trade_lifecycle.py",
-          "line_start": 82,
-          "line_end": 96,
-          "signature": "def rebuild_from_persisted(self, contexts: List[OpenTradeContext]) -> None:"
+          "line_start": 245,
+          "line_end": 296,
+          "signature": "def rebuild_from_persisted(self, contexts: List[OpenTradeContext], realized_journal: Optional[List[RealizedDealRecord]]=None, starting_balance_r: Optional[float]=None) -> None:"
+        },
+        "src.live.trade_lifecycle.TradeLifecycle.to_persisted": {
+          "file": "src\\live\\trade_lifecycle.py",
+          "line_start": 300,
+          "line_end": 349,
+          "signature": "def to_persisted(self) -> dict:"
+        },
+        "src.live.trade_lifecycle.TradeLifecycle.restore_persisted": {
+          "file": "src\\live\\trade_lifecycle.py",
+          "line_start": 351,
+          "line_end": 400,
+          "signature": "def restore_persisted(self, data: dict) -> None:"
+        },
+        "src.live.trailing_bridge.TrailingBridge.register_position": {
+          "file": "src\\live\\trailing_bridge.py",
+          "line_start": 69,
+          "line_end": 71,
+          "signature": "def register_position(self, position_id: int, sl: float, tp: float) -> None:"
+        },
+        "src.live.trailing_bridge.TrailingBridge.confirmed_sl": {
+          "file": "src\\live\\trailing_bridge.py",
+          "line_start": 73,
+          "line_end": 75,
+          "signature": "def confirmed_sl(self, position_id: int) -> Optional[float]:"
+        },
+        "src.live.trailing_bridge.TrailingBridge.forget": {
+          "file": "src\\live\\trailing_bridge.py",
+          "line_start": 77,
+          "line_end": 83,
+          "signature": "def forget(self, position_id: int) -> None:"
+        },
+        "src.live.trailing_bridge.TrailingBridge.audit_trail": {
+          "file": "src\\live\\trailing_bridge.py",
+          "line_start": 85,
+          "line_end": 87,
+          "signature": "def audit_trail(self) -> List[TrailingEvent]:"
+        },
+        "src.live.trailing_bridge.TrailingBridge.sync": {
+          "file": "src\\live\\trailing_bridge.py",
+          "line_start": 90,
+          "line_end": 173,
+          "signature": "def sync(self, runtime: StrategyRuntime, position_id: int) -> TrailingEvent:"
         },
         "src.strategy.data_loader.DataLoader.__init__": {
           "file": "src\\strategy\\data_loader.py",
@@ -3172,6 +3394,60 @@
           "line_end": 68,
           "signature": "def load_artifact() -> dict:"
         },
+        "tests.test_65k_regression_harness._git_head": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 74,
+          "line_end": 77,
+          "signature": "def _git_head() -> str:"
+        },
+        "tests.test_65k_regression_harness._load_m1_df": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 80,
+          "line_end": 85,
+          "signature": "def _load_m1_df():"
+        },
+        "tests.test_65k_regression_harness.test_artifact_head_sha_matches_git_head": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 88,
+          "line_end": 93,
+          "signature": "def test_artifact_head_sha_matches_git_head():"
+        },
+        "tests.test_65k_regression_harness.test_artifact_schema_complete": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 96,
+          "line_end": 106,
+          "signature": "def test_artifact_schema_complete():"
+        },
+        "tests.test_65k_regression_harness.test_dataset_file_exists": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 109,
+          "line_end": 114,
+          "signature": "def test_dataset_file_exists():"
+        },
+        "tests.test_65k_regression_harness.test_m1_invariants_match_artifact": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 117,
+          "line_end": 129,
+          "signature": "def test_m1_invariants_match_artifact():"
+        },
+        "tests.test_65k_regression_harness.test_m15_parity_canonical_matches_artifact": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 132,
+          "line_end": 147,
+          "signature": "def test_m15_parity_canonical_matches_artifact():"
+        },
+        "tests.test_65k_regression_harness.test_signal_replay_matches_artifact": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 150,
+          "line_end": 172,
+          "signature": "def test_signal_replay_matches_artifact():"
+        },
+        "tests.test_65k_regression_harness.test_first_divergence_layer_none": {
+          "file": "tests\\test_65k_regression_harness.py",
+          "line_start": 175,
+          "line_end": 179,
+          "signature": "def test_first_divergence_layer_none():"
+        },
         "tests.test_causality_extended.mk": {
           "file": "tests\\test_causality_extended.py",
           "line_start": 11,
@@ -3225,6 +3501,66 @@
           "line_start": 107,
           "line_end": 111,
           "signature": "def get_mult(surviving_trades, base_trade):"
+        },
+        "tests.test_e2e_live_chain.E2EBroker.__init__": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 41,
+          "line_end": 45,
+          "signature": "def __init__(self):"
+        },
+        "tests.test_e2e_live_chain.E2EBroker.order_check": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 47,
+          "line_end": 48,
+          "signature": "def order_check(self, request):"
+        },
+        "tests.test_e2e_live_chain.E2EBroker.order_send": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 50,
+          "line_end": 64,
+          "signature": "def order_send(self, request):"
+        },
+        "tests.test_e2e_live_chain.E2EBroker.positions_get": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 66,
+          "line_end": 69,
+          "signature": "def positions_get(self, ticket=None, *a, **k):"
+        },
+        "tests.test_e2e_live_chain.E2EBroker.history_deals_get": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 71,
+          "line_end": 75,
+          "signature": "def history_deals_get(self, from_ts, to_ts, ticket=None, *a, **k):"
+        },
+        "tests.test_e2e_live_chain.E2EBroker.emit_exit": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 77,
+          "line_end": 83,
+          "signature": "def emit_exit(self, ticket, position_id, cash, time):"
+        },
+        "tests.test_e2e_live_chain.E2EBroker.close_open": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 85,
+          "line_end": 86,
+          "signature": "def close_open(self, position_id):"
+        },
+        "tests.test_e2e_live_chain._build_runner": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 99,
+          "line_end": 107,
+          "signature": "def _build_runner(fake):"
+        },
+        "tests.test_e2e_live_chain.test_e2e_full_live_chain": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 110,
+          "line_end": 147,
+          "signature": "def test_e2e_full_live_chain():"
+        },
+        "tests.test_e2e_live_chain.test_e2e_loss_reduces_next_entry_lot": {
+          "file": "tests\\test_e2e_live_chain.py",
+          "line_start": 150,
+          "line_end": 167,
+          "signature": "def test_e2e_loss_reduces_next_entry_lot():"
         },
         "tests.test_exp5b_research_eq._make_bar": {
           "file": "tests\\test_exp5b_research_eq.py",
@@ -5326,6 +5662,114 @@
           "line_end": 184,
           "signature": "def test_data_layer_get_symbols_list_captures_exception():"
         },
+        "tests.test_p0_1_mt5_trailing.FakeMT5.__init__": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 46,
+          "line_end": 48,
+          "signature": "def __init__(self, modify_ok: bool=True):"
+        },
+        "tests.test_p0_1_mt5_trailing.FakeMT5.order_check": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 50,
+          "line_end": 51,
+          "signature": "def order_check(self, request):"
+        },
+        "tests.test_p0_1_mt5_trailing.FakeMT5.order_send": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 53,
+          "line_end": 70,
+          "signature": "def order_send(self, request):"
+        },
+        "tests.test_p0_1_mt5_trailing._signal": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 73,
+          "line_end": 82,
+          "signature": "def _signal(side='long'):"
+        },
+        "tests.test_p0_1_mt5_trailing._runtime_with_trade": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 89,
+          "line_end": 107,
+          "signature": "def _runtime_with_trade(side='long'):"
+        },
+        "tests.test_p0_1_mt5_trailing._trailing_chunk": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 110,
+          "line_end": 130,
+          "signature": "def _trailing_chunk():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_modify_builds_trade_action_sltp_and_confirms": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 136,
+          "line_end": 149,
+          "signature": "def test_modify_builds_trade_action_sltp_and_confirms():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_same_sl_never_resent": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 152,
+          "line_end": 160,
+          "signature": "def test_same_sl_never_resent():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_rejection_surfaced_and_local_state_unchanged_then_retry_ok": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 163,
+          "line_end": 175,
+          "signature": "def test_rejection_surfaced_and_local_state_unchanged_then_retry_ok():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_signal_only_modify_is_dry_run": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 178,
+          "line_end": 183,
+          "signature": "def test_signal_only_modify_is_dry_run():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_entry_path_unchanged_captures_fill_metadata": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 186,
+          "line_end": 194,
+          "signature": "def test_entry_path_unchanged_captures_fill_metadata():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_bridge_long_trailing_hop_reaches_broker": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 200,
+          "line_end": 219,
+          "signature": "def test_bridge_long_trailing_hop_reaches_broker():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_bridge_short_trailing_reaches_broker": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 222,
+          "line_end": 237,
+          "signature": "def test_bridge_short_trailing_reaches_broker():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_bridge_no_duplicate_modify_same_bar": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 240,
+          "line_end": 252,
+          "signature": "def test_bridge_no_duplicate_modify_same_bar():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_bridge_stale_position_never_modifies": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 255,
+          "line_end": 265,
+          "signature": "def test_bridge_stale_position_never_modifies():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_bridge_closed_trade_no_modify": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 268,
+          "line_end": 278,
+          "signature": "def test_bridge_closed_trade_no_modify():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_bridge_rejection_not_confirmed_and_surfaced": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 281,
+          "line_end": 291,
+          "signature": "def test_bridge_rejection_not_confirmed_and_surfaced():"
+        },
+        "tests.test_p0_1_mt5_trailing.test_e2e_signal_entry_trailing_modify_confirm": {
+          "file": "tests\\test_p0_1_mt5_trailing.py",
+          "line_start": 297,
+          "line_end": 325,
+          "signature": "def test_e2e_signal_entry_trailing_modify_confirm():"
+        },
         "tests.test_p0_1_risk_sizing.test_apply_scaling_quantizes_correctly": {
           "file": "tests\\test_p0_1_risk_sizing.py",
           "line_start": 7,
@@ -5337,6 +5781,114 @@
           "line_start": 35,
           "line_end": 60,
           "signature": "def test_compute_lot_formula_unchanged():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.FakeMT5.__init__": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 36,
+          "line_end": 40,
+          "signature": "def __init__(self):"
+        },
+        "tests.test_p0_2_lifecycle_wiring.FakeMT5.order_check": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 42,
+          "line_end": 43,
+          "signature": "def order_check(self, request):"
+        },
+        "tests.test_p0_2_lifecycle_wiring.FakeMT5.order_send": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 45,
+          "line_end": 58,
+          "signature": "def order_send(self, request):"
+        },
+        "tests.test_p0_2_lifecycle_wiring.FakeMT5.positions_get": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 60,
+          "line_end": 63,
+          "signature": "def positions_get(self, ticket=None, *a, **k):"
+        },
+        "tests.test_p0_2_lifecycle_wiring.FakeMT5.history_deals_get": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 65,
+          "line_end": 73,
+          "signature": "def history_deals_get(self, from_ts, to_ts, ticket=None, *a, **k):"
+        },
+        "tests.test_p0_2_lifecycle_wiring.FakeMT5.queue_exit": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 75,
+          "line_end": 81,
+          "signature": "def queue_exit(self, ticket, position_id, profit, time, magic=9007001, entry=1):"
+        },
+        "tests.test_p0_2_lifecycle_wiring._signal": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 84,
+          "line_end": 90,
+          "signature": "def _signal():"
+        },
+        "tests.test_p0_2_lifecycle_wiring._runner": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 97,
+          "line_end": 105,
+          "signature": "def _runner(fake=None, lifecycle=None, signal_only=False):"
+        },
+        "tests.test_p0_2_lifecycle_wiring._bar": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 108,
+          "line_end": 109,
+          "signature": "def _bar():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_entry_fill_registers_broker_confirmed_context": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 115,
+          "line_end": 127,
+          "signature": "def test_entry_fill_registers_broker_confirmed_context():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_signal_only_default_sends_nothing": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 130,
+          "line_end": 134,
+          "signature": "def test_signal_only_default_sends_nothing():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_dd_unreliable_pauses_entry": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 137,
+          "line_end": 143,
+          "signature": "def test_dd_unreliable_pauses_entry():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_dd_pause_blocks_order": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 146,
+          "line_end": 160,
+          "signature": "def test_dd_pause_blocks_order():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_minlot_reduction_block_prevents_order": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 163,
+          "line_end": 176,
+          "signature": "def test_minlot_reduction_block_prevents_order():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_exit_deal_recorded_once_via_lifecycle": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 182,
+          "line_end": 197,
+          "signature": "def test_exit_deal_recorded_once_via_lifecycle():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_unknown_exit_quarantined_not_dd": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 200,
+          "line_end": 208,
+          "signature": "def test_unknown_exit_quarantined_not_dd():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_non_bot_magic_deals_ignored": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 211,
+          "line_end": 219,
+          "signature": "def test_non_bot_magic_deals_ignored():"
+        },
+        "tests.test_p0_2_lifecycle_wiring.test_trailing_sync_sends_modify_then_no_duplicate": {
+          "file": "tests\\test_p0_2_lifecycle_wiring.py",
+          "line_start": 225,
+          "line_end": 237,
+          "signature": "def test_trailing_sync_sends_modify_then_no_duplicate():"
         },
         "tests.test_p0_2_trade_lifecycle.test_trade_lifecycle_register_and_process": {
           "file": "tests\\test_p0_2_trade_lifecycle.py",
@@ -5391,6 +5943,234 @@
           "line_start": 53,
           "line_end": 85,
           "signature": "def test_cross_path_parity_same_timestamp():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine._ctx": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 23,
+          "line_end": 26,
+          "signature": "def _ctx(position_id=1, realized=0.0):"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_dd_rebuild_counterexample_start_minus5": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 32,
+          "line_end": 42,
+          "signature": "def test_dd_rebuild_counterexample_start_minus5():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_dd_replay_multi_trade_scenario": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 45,
+          "line_end": 61,
+          "signature": "def test_dd_replay_multi_trade_scenario():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_rebuild_replay_is_idempotent_no_duplicate_dd": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 64,
+          "line_end": 77,
+          "signature": "def test_rebuild_replay_is_idempotent_no_duplicate_dd():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_rebuild_without_journal_marks_dd_unreliable": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 80,
+          "line_end": 84,
+          "signature": "def test_rebuild_without_journal_marks_dd_unreliable():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_known_exit_updates_dd": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 90,
+          "line_end": 96,
+          "signature": "def test_known_exit_updates_dd():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_duplicate_deal_recorded_exactly_once": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 99,
+          "line_end": 105,
+          "signature": "def test_duplicate_deal_recorded_exactly_once():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_unknown_exit_quarantined_dd_unchanged": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 108,
+          "line_end": 116,
+          "signature": "def test_unknown_exit_quarantined_dd_unchanged():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_unknown_exit_process_exit_deal_returns_false": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 119,
+          "line_end": 122,
+          "signature": "def test_unknown_exit_process_exit_deal_returns_false():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_recover_quarantined_idempotent": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 125,
+          "line_end": 138,
+          "signature": "def test_recover_quarantined_idempotent():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_build_open_context_from_fill_rejects_unconfirmed_ids": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 144,
+          "line_end": 160,
+          "signature": "def test_build_open_context_from_fill_rejects_unconfirmed_ids():"
+        },
+        "tests.test_p1_dd_rebuild_and_quarantine.test_to_persisted_restore_roundtrip_json_safe": {
+          "file": "tests\\test_p1_dd_rebuild_and_quarantine.py",
+          "line_start": 166,
+          "line_end": 182,
+          "signature": "def test_to_persisted_restore_roundtrip_json_safe():"
+        },
+        "tests.test_p1_minlot_semantics._scale": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 22,
+          "line_end": 26,
+          "signature": "def _scale(base, mult):"
+        },
+        "tests.test_p1_minlot_semantics.test_full_size_min_lot_entry_still_allowed": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 29,
+          "line_end": 31,
+          "signature": "def test_full_size_min_lot_entry_still_allowed():"
+        },
+        "tests.test_p1_minlot_semantics.test_x05_unachievable_at_min_lot_blocks_trade": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 34,
+          "line_end": 36,
+          "signature": "def test_x05_unachievable_at_min_lot_blocks_trade():"
+        },
+        "tests.test_p1_minlot_semantics.test_x025_unachievable_at_min_lot_blocks_trade": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 39,
+          "line_end": 40,
+          "signature": "def test_x025_unachievable_at_min_lot_blocks_trade():"
+        },
+        "tests.test_p1_minlot_semantics.test_x05_achievable_reduces_effective_risk": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 43,
+          "line_end": 44,
+          "signature": "def test_x05_achievable_reduces_effective_risk():"
+        },
+        "tests.test_p1_minlot_semantics.test_x025_achievable_reduces_effective_risk": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 47,
+          "line_end": 48,
+          "signature": "def test_x025_achievable_reduces_effective_risk():"
+        },
+        "tests.test_p1_minlot_semantics.test_quantize_down_keeps_effective_within_reduction": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 51,
+          "line_end": 55,
+          "signature": "def test_quantize_down_keeps_effective_within_reduction():"
+        },
+        "tests.test_p1_minlot_semantics.test_pause_yields_no_order": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 58,
+          "line_end": 59,
+          "signature": "def test_pause_yields_no_order():"
+        },
+        "tests.test_p1_minlot_semantics.test_effective_multiplier_never_silently_rises_to_x1": {
+          "file": "tests\\test_p1_minlot_semantics.py",
+          "line_start": 62,
+          "line_end": 70,
+          "signature": "def test_effective_multiplier_never_silently_rises_to_x1():"
+        },
+        "tests.test_p1_paper_live._fake_m1_rows": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 25,
+          "line_end": 34,
+          "signature": "def _fake_m1_rows(n, start_utc, px=1.1):"
+        },
+        "tests.test_p1_paper_live.FakeMT5.__init__": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 38,
+          "line_end": 39,
+          "signature": "def __init__(self, start_utc):"
+        },
+        "tests.test_p1_paper_live.FakeMT5.copy_rates_from_pos": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 41,
+          "line_end": 42,
+          "signature": "def copy_rates_from_pos(self, symbol, timeframe, pos, count):"
+        },
+        "tests.test_p1_paper_live._paper_session": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 48,
+          "line_end": 49,
+          "signature": "def _paper_session(contract=None):"
+        },
+        "tests.test_p1_paper_live._sig": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 52,
+          "line_end": 58,
+          "signature": "def _sig():"
+        },
+        "tests.test_p1_paper_live.test_default_contract_open_close_full_chain": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 64,
+          "line_end": 84,
+          "signature": "def test_default_contract_open_close_full_chain():"
+        },
+        "tests.test_p1_paper_live.test_paper_r_conversion_counterexample_plus18R": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 87,
+          "line_end": 105,
+          "signature": "def test_paper_r_conversion_counterexample_plus18R():"
+        },
+        "tests.test_p1_paper_live.test_paper_entry_uses_default_contract_when_none": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 108,
+          "line_end": 112,
+          "signature": "def test_paper_entry_uses_default_contract_when_none():"
+        },
+        "tests.test_p1_paper_live.test_continuity_first_run_step_no_crash_no_duplicate": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 118,
+          "line_end": 132,
+          "signature": "def test_continuity_first_run_step_no_crash_no_duplicate():"
+        },
+        "tests.test_p1_paper_live.test_continuity_stale_warmup_bars_not_reemitted": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 135,
+          "line_end": 144,
+          "signature": "def test_continuity_stale_warmup_bars_not_reemitted():"
+        },
+        "tests.test_p1_paper_live.test_continuity_partial_m1_tail_survives_split_bucket": {
+          "file": "tests\\test_p1_paper_live.py",
+          "line_start": 147,
+          "line_end": 161,
+          "signature": "def test_continuity_partial_m1_tail_survives_split_bucket():"
+        },
+        "tests.test_p1_restart_recovery._bars15": {
+          "file": "tests\\test_p1_restart_recovery.py",
+          "line_start": 37,
+          "line_end": 44,
+          "signature": "def _bars15(n=115, start='2026-08-01 00:00:00'):"
+        },
+        "tests.test_p1_restart_recovery._runtime_with_pending_and_trade": {
+          "file": "tests\\test_p1_restart_recovery.py",
+          "line_start": 47,
+          "line_end": 70,
+          "signature": "def _runtime_with_pending_and_trade():"
+        },
+        "tests.test_p1_restart_recovery._cleanup": {
+          "file": "tests\\test_p1_restart_recovery.py",
+          "line_start": 73,
+          "line_end": 78,
+          "signature": "def _cleanup():"
+        },
+        "tests.test_p1_restart_recovery.test_recovery_roundtrip_full": {
+          "file": "tests\\test_p1_restart_recovery.py",
+          "line_start": 81,
+          "line_end": 118,
+          "signature": "def test_recovery_roundtrip_full():"
+        },
+        "tests.test_p1_restart_recovery.test_recovery_json_serializable_no_string_dump": {
+          "file": "tests\\test_p1_restart_recovery.py",
+          "line_start": 121,
+          "line_end": 135,
+          "signature": "def test_recovery_json_serializable_no_string_dump():"
+        },
+        "tests.test_p1_restart_recovery.test_recovery_lifecycle_journal_restored": {
+          "file": "tests\\test_p1_restart_recovery.py",
+          "line_start": 138,
+          "line_end": 167,
+          "signature": "def test_recovery_lifecycle_journal_restored():"
         },
         "tests.test_p2_6_paper_continuity._m1_bar": {
           "file": "tests\\test_p2_6_paper_continuity.py",
@@ -5699,7 +6479,7 @@
           "hash": "sha256:a00a3b35ef1ee926"
         },
         "experiment\\exp_maxdd_C_dd_risk_scaling.py": {
-          "last_modified": "2026-08-28T17:46:09",
+          "last_modified": "2026-08-28T21:46:40",
           "hash": "sha256:ddb7fd0b934e129e"
         },
         "experiment\\exp_maxdd_D_open_exposure_cap.py": {
@@ -5727,7 +6507,7 @@
           "hash": "sha256:fe39581f2a01d652"
         },
         "experiment\\main_research_c_v1_1.py": {
-          "last_modified": "2026-08-28T17:46:09",
+          "last_modified": "2026-08-28T21:46:40",
           "hash": "sha256:bca2a6e70dd4d7f4"
         },
         "experiment\\main_research_d_v1_0.py": {
@@ -5791,8 +6571,8 @@
           "hash": "sha256:f4aa301a529f9930"
         },
         "scripts\\regenerate_artifact.py": {
-          "last_modified": "2026-08-28T16:46:19",
-          "hash": "sha256:e6a097cb5d2f625c"
+          "last_modified": "2026-08-28T19:48:52",
+          "hash": "sha256:2fa12b4298619dc0"
         },
         "scripts\\run_dukascopy_pipeline.py": {
           "last_modified": "2026-08-22T19:12:27",
@@ -5899,12 +6679,16 @@
           "hash": "sha256:e37e3d38cd9dd438"
         },
         "src\\live\\execution.py": {
-          "last_modified": "2026-08-27T21:27:50",
-          "hash": "sha256:714af37b320c62d9"
+          "last_modified": "2026-08-28T21:46:40",
+          "hash": "sha256:98fa7c70c129ae55"
+        },
+        "src\\live\\live_runner.py": {
+          "last_modified": "2026-08-28T19:32:01",
+          "hash": "sha256:9bfdc86a9c33ad79"
         },
         "src\\live\\paper.py": {
-          "last_modified": "2026-08-28T17:39:04",
-          "hash": "sha256:52eefd2fbe415d95"
+          "last_modified": "2026-08-28T21:46:40",
+          "hash": "sha256:37ab7b12541ef2e1"
         },
         "src\\live\\parity_gate.py": {
           "last_modified": "2026-08-28T00:10:51",
@@ -5922,6 +6706,10 @@
           "last_modified": "2026-08-27T22:40:38",
           "hash": "sha256:c22f5362169760c8"
         },
+        "src\\live\\recovery.py": {
+          "last_modified": "2026-08-28T19:45:54",
+          "hash": "sha256:e133b055a52209c4"
+        },
         "src\\live\\risk.py": {
           "last_modified": "2026-08-28T01:17:32",
           "hash": "sha256:bfe6542448e43220"
@@ -5935,8 +6723,8 @@
           "hash": "sha256:6a8c7f0a2bac88d0"
         },
         "src\\live\\sizing.py": {
-          "last_modified": "2026-08-28T16:21:06",
-          "hash": "sha256:0554f1a875ad2cbf"
+          "last_modified": "2026-08-28T21:46:40",
+          "hash": "sha256:020a90c46685eca2"
         },
         "src\\live\\state.py": {
           "last_modified": "2026-08-27T11:48:55",
@@ -5947,8 +6735,12 @@
           "hash": "sha256:b049f577d5c74499"
         },
         "src\\live\\trade_lifecycle.py": {
-          "last_modified": "2026-08-28T17:39:04",
-          "hash": "sha256:0c256b39a8926ab2"
+          "last_modified": "2026-08-28T21:46:40",
+          "hash": "sha256:622590c3c8819289"
+        },
+        "src\\live\\trailing_bridge.py": {
+          "last_modified": "2026-08-28T19:16:06",
+          "hash": "sha256:73eb6e4e59a63ba8"
         },
         "src\\live\\__init__.py": {
           "last_modified": "2026-08-27T11:34:21",
@@ -6003,8 +6795,8 @@
           "hash": "sha256:f2527764d64e4fcb"
         },
         "tests\\test_65k_regression_harness.py": {
-          "last_modified": "2026-08-28T16:15:28",
-          "hash": "sha256:c7df54f8f828c9b0"
+          "last_modified": "2026-08-28T21:46:40",
+          "hash": "sha256:0a549d9281151572"
         },
         "tests\\test_causality_extended.py": {
           "last_modified": "2026-08-28T14:40:34",
@@ -6013,6 +6805,10 @@
         "tests\\test_causality_synthetic.py": {
           "last_modified": "2026-08-28T14:40:34",
           "hash": "sha256:9694f9a71fe3fca2"
+        },
+        "tests\\test_e2e_live_chain.py": {
+          "last_modified": "2026-08-28T19:51:02",
+          "hash": "sha256:6f15cb0004e3db3b"
         },
         "tests\\test_exp5b_research_eq.py": {
           "last_modified": "2026-08-25T06:20:13",
@@ -6087,16 +6883,24 @@
           "hash": "sha256:95fa6b7d89572f9c"
         },
         "tests\\test_main_research_c_v1_1.py": {
-          "last_modified": "2026-08-28T17:46:09",
+          "last_modified": "2026-08-28T21:46:40",
           "hash": "sha256:58df197d04ea3d62"
         },
         "tests\\test_mt5_connection_hardening.py": {
           "last_modified": "2026-08-27T10:17:17",
           "hash": "sha256:d6bdfc4333fd08f5"
         },
+        "tests\\test_p0_1_mt5_trailing.py": {
+          "last_modified": "2026-08-28T19:22:17",
+          "hash": "sha256:a640baa49876eab1"
+        },
         "tests\\test_p0_1_risk_sizing.py": {
           "last_modified": "2026-08-28T17:39:04",
           "hash": "sha256:0186dcd875a8bf9c"
+        },
+        "tests\\test_p0_2_lifecycle_wiring.py": {
+          "last_modified": "2026-08-28T19:36:27",
+          "hash": "sha256:c2dd4c7c434d32dd"
         },
         "tests\\test_p0_2_trade_lifecycle.py": {
           "last_modified": "2026-08-28T17:28:15",
@@ -6105,6 +6909,22 @@
         "tests\\test_p1_5_timezone.py": {
           "last_modified": "2026-08-28T17:44:53",
           "hash": "sha256:2aca2416ca376d30"
+        },
+        "tests\\test_p1_dd_rebuild_and_quarantine.py": {
+          "last_modified": "2026-08-28T19:28:22",
+          "hash": "sha256:dbd7e1b7c7654b66"
+        },
+        "tests\\test_p1_minlot_semantics.py": {
+          "last_modified": "2026-08-28T19:29:45",
+          "hash": "sha256:2b0b50c7cba9b774"
+        },
+        "tests\\test_p1_paper_live.py": {
+          "last_modified": "2026-08-28T19:44:16",
+          "hash": "sha256:80e952804cfe9b9e"
+        },
+        "tests\\test_p1_restart_recovery.py": {
+          "last_modified": "2026-08-28T19:45:11",
+          "hash": "sha256:fa3ec193b9aeae29"
         },
         "tests\\test_p2_6_paper_continuity.py": {
           "last_modified": "2026-08-28T17:40:27",
@@ -6147,7 +6967,7 @@
           "hash": "sha256:df52f8c14634bd3a"
         }
       },
-      "last_full_scan": "2026-08-28T18:03:35"
+      "last_full_scan": "2026-08-28T22:02:56"
     }
   }
 }

@@ -4,7 +4,15 @@
 > This file is the chronological per-experiment log for the MaxDD research
 > line. Every experiment entry MUST contain: what was tested, which engine,
 > which dataset, isolated variable, result, decision, next test.
-> Last updated: 2026-08-28 (C v1.1 PROMOTED + Exp C cross-symbol bug fix).
+> Last updated: 2026-08-28 (C v1.1 PROMOTED + Exp C cross-symbol bug fix + LIVE FIX CHECKPOINT + MT5 REAL-CHECKPOINT).
+
+### MT5 REAL CHECKPOINT (2026-08-28)
+- LIVE PRODUCTION PATH TRACE: src/main.py → test_mt5_connection.py → MetaTrader5.initialize() → SignalRunner(mt5=) → M1CandleFeed.fetch_m1 → resample_15m → StrategyRuntime
+- execution.py: direct MetaTrader5.order_send (injectable mt5=) — no abstraction/factory wrapper needed
+- Missing live operations: (1) history/deals read in signal path, (2) native TRADE_ACTION_SLTP MT5 modification request
+- Verification: Mock PASS (126), Static PASS (caller→callee + git diff CLEAN), Real MT5 NOT YET — connection-only gate pending MT5 credentials
+- Architecture decision: minimal addition only (no new abstraction)
+- Status: BLOCKED — awaiting MT5 connection credentials for manual gate 1
 
 ---
 
