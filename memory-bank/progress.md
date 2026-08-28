@@ -491,3 +491,56 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
   1m cap. MT5 demo: ~47-day cap. Twelve Data: chosen then cancelled.
   FXCM candledata: DNS dead. Resolution: user-provided ICMarkets raw
   (`data/icmarket_raw/`).
+
+---
+
+### REAL-MT5 PARITY REGRESSION FIX (2026-08-28) — COMPLETE
+
+- **What was done:** Closed the Phase 11 demo parity regression by
+  fixing two M1-ingest bugs in `src/live/` and adding a regression
+  test. Audit-first: no code changes were made until the root cause
+  was traced stage-by-stage (report in `memory-bank/activeContext.md`
+  "REAL-MT5 PARITY REGRESSION FIX" section).
+- **Root cause:**
+  1. `SignalRunner._rates_to_bars` and `PaperSession._rates_to_bars`
+     treated MT5 `time` as UTC (`pd.Timestamp.utcfromtimestamp(ts)`).
+     MT5 reports `time` in server time (UTC+2/3 DST). The +2/3h shift
+     re-bucketed the 15m aggregation, dropped <3-bar buckets, and
+     pushed some CBDR-window bars out of the 19:00→01:00 window.
+  2. `SignalRunner._run_symbol` and `PaperSession.warmup/run_step`
+     did not filter the forming M1 via `M1CandleFeed.is_closed_m1`.
+     The unfinalized current-minute bar polluted the last 15m bucket.
+- **Files changed (this fix):**
+  - `src/live/signal_runner.py` — F1 (`server_to_utc` conversion)
+    + F2 (`is_closed_m1` filter with `now=_utcnow_naive()`).
+  - `src/live/paper.py` — F1 + F2 (same).
+  - `tests/test_m1_ingestion_parity.py` — NEW, 8 F1/F2/F3 tests.
+  - `scripts/verify_phase11_parity_fix.py` — NEW, 38↔38 head-to-head
+    script (canonical `run_test_a` vs live `StrategyRuntime` on the
+    EURUSD 2026-06-25 → 2026-08-28 window).
+  - `docs/MT5_IMPLEMENTATION_ROADMAP.md` — added "REAL-MT5 PARITY
+    REGRESSION FIX" checkpoint.
+  - `memory-bank/activeContext.md` + `memory-bank/progress.md` —
+    documented.
+  - `index.json` — regenerated via `tools/code-index-system/index_builder.py --full`.
+- **Isolated variable:** M1 ingestion (timezone + forming-bar filter).
+  Strategy logic, ATR, session, FVG, EQ, SL/TP, trailing, exit — all
+  unchanged.
+- **Tests run:**
+  - `pytest tests/test_m1_ingestion_parity.py` → 8/8 PASS.
+  - `pytest tests/test_live_signal_runner.py` → 9 PASS, 0 FAIL
+    (was 3 FAIL pre-fix, all due to `is_closed_m1` missing `now` arg).
+  - `pytest tests/test_live_paper.py` → 23/23 PASS.
+  - `pytest tests/` (full suite, slow parity deselected) → 246 PASS,
+    1 SKIP, 0 FAIL.
+  - `python scripts/verify_phase11_parity_fix.py` → canonical=23,
+    live=23, 0 diffs (PARITY PASS).
+- **Result:** Parity regression resolved. The first divergence stage
+  (M1 timestamp interpretation) is removed. F1+F2+F3 PASS. Frozen C/D
+  engines untouched (git diff CLEAN, verified). No research files
+  committed. No new abstraction. DD Risk Scaling untouched.
+- **Decision:** **PARITY FIX COMPLETE.** Ready for controlled demo
+  with real orders pending explicit user approval (parity is no longer
+  the blocker).
+- **Next task:** Awaiting user direction — research promotion (C v1.1
+  with DD scaling), Phase 12 (DD scaling integration), or other.

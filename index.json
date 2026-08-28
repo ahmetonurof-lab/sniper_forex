@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-28T01:26:21",
+  "generated_at": "2026-08-28T06:16:52",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2166,98 +2166,98 @@
         },
         "src.live.paper.PaperPosition.to_position": {
           "file": "src\\live\\paper.py",
-          "line_start": 65,
-          "line_end": 77,
+          "line_start": 67,
+          "line_end": 79,
           "signature": "def to_position(self) -> Position:"
         },
         "src.live.paper._pnl": {
           "file": "src\\live\\paper.py",
-          "line_start": 80,
-          "line_end": 104,
+          "line_start": 82,
+          "line_end": 106,
           "signature": "def _pnl(side: str, entry: float, exit_price: float, volume: float, contract_size: float, tick_size: float, tick_value: float) -> float:"
         },
         "src.live.paper.PaperBroker.__init__": {
           "file": "src\\live\\paper.py",
-          "line_start": 113,
-          "line_end": 118,
+          "line_start": 115,
+          "line_end": 120,
           "signature": "def __init__(self, magic: int=9007001, starting_equity: float=10000.0):"
         },
         "src.live.paper.PaperBroker.get_open": {
           "file": "src\\live\\paper.py",
-          "line_start": 121,
-          "line_end": 122,
+          "line_start": 123,
+          "line_end": 124,
           "signature": "def get_open(self) -> List[PaperPosition]:"
         },
         "src.live.paper.PaperBroker.get_closed": {
           "file": "src\\live\\paper.py",
-          "line_start": 124,
-          "line_end": 125,
+          "line_start": 126,
+          "line_end": 127,
           "signature": "def get_closed(self) -> List[PaperPosition]:"
         },
         "src.live.paper.PaperBroker.total_pnl": {
           "file": "src\\live\\paper.py",
-          "line_start": 127,
-          "line_end": 128,
+          "line_start": 129,
+          "line_end": 130,
           "signature": "def total_pnl(self) -> float:"
         },
         "src.live.paper.PaperBroker.open": {
           "file": "src\\live\\paper.py",
-          "line_start": 131,
-          "line_end": 155,
+          "line_start": 133,
+          "line_end": 157,
           "signature": "def open(self, signal: Signal, volume: float, contract: ContractSpec, now: Optional[float]=None) -> PaperPosition:"
         },
         "src.live.paper.PaperBroker.close": {
           "file": "src\\live\\paper.py",
-          "line_start": 157,
-          "line_end": 177,
+          "line_start": 159,
+          "line_end": 179,
           "signature": "def close(self, ticket: int, exit_price: float, now: Optional[float]=None, reason: PositionStatus=PositionStatus.CLOSED_MANUAL) -> Optional[PaperPosition]:"
         },
         "src.live.paper.PaperBroker.update_pnl": {
           "file": "src\\live\\paper.py",
-          "line_start": 179,
-          "line_end": 201,
+          "line_start": 181,
+          "line_end": 203,
           "signature": "def update_pnl(self, ticket: int, contract: ContractSpec, exit_price: float) -> float:"
         },
         "src.live.paper.PaperBroker.on_tick": {
           "file": "src\\live\\paper.py",
-          "line_start": 204,
-          "line_end": 247,
+          "line_start": 206,
+          "line_end": 249,
           "signature": "def on_tick(self, symbol: str, bid: float, ask: float, now: Optional[float]=None) -> List[PaperPosition]:"
         },
         "src.live.paper.PaperSession.__init__": {
           "file": "src\\live\\paper.py",
-          "line_start": 278,
-          "line_end": 298,
+          "line_start": 280,
+          "line_end": 300,
           "signature": "def __init__(self, symbol: str, mt5: Any=None, broker: Optional[PaperBroker]=None, runtime: Optional[StrategyRuntime]=None, risk_manager: Optional[RiskManager]=None, contract: Optional[ContractSpec]=N"
         },
         "src.live.paper.PaperSession.warmup": {
           "file": "src\\live\\paper.py",
-          "line_start": 300,
-          "line_end": 318,
+          "line_start": 302,
+          "line_end": 325,
           "signature": "def warmup(self, n_15m: int=200) -> int:"
         },
         "src.live.paper.PaperSession.run_step": {
           "file": "src\\live\\paper.py",
-          "line_start": 320,
-          "line_end": 376,
+          "line_start": 327,
+          "line_end": 387,
           "signature": "def run_step(self, audit: AuditChain, m1_bars: Optional[List[Bar]]=None, ticks: Optional[List[Dict[str, float]]]=None) -> PaperStepResult:"
         },
         "src.live.paper.PaperSession._advance_strategy": {
           "file": "src\\live\\paper.py",
-          "line_start": 378,
-          "line_end": 440,
+          "line_start": 389,
+          "line_end": 451,
           "signature": "def _advance_strategy(self, m1_bars: List[Bar], audit: AuditChain, result: PaperStepResult) -> int:"
         },
         "src.live.paper.PaperSession._default_contract": {
           "file": "src\\live\\paper.py",
-          "line_start": 442,
-          "line_end": 453,
+          "line_start": 453,
+          "line_end": 464,
           "signature": "def _default_contract(self) -> ContractSpec:"
         },
         "src.live.paper._rates_to_bars": {
           "file": "src\\live\\paper.py",
-          "line_start": 456,
-          "line_end": 487,
+          "line_start": 467,
+          "line_end": 506,
           "signature": "def _rates_to_bars(rates: Any) -> List[Bar]:"
         },
         "src.live.parity_gate.ParityReport.canonical_total": {
@@ -2454,32 +2454,32 @@
         },
         "src.live.signal_runner.SignalRunner.__init__": {
           "file": "src\\live\\signal_runner.py",
-          "line_start": 86,
-          "line_end": 98,
+          "line_start": 87,
+          "line_end": 99,
           "signature": "def __init__(self, mt5: Any=None, risk_manager: Optional[RiskManager]=None, default_spread: float=0.0001):"
         },
         "src.live.signal_runner.SignalRunner.run_session": {
           "file": "src\\live\\signal_runner.py",
-          "line_start": 101,
-          "line_end": 163,
+          "line_start": 102,
+          "line_end": 164,
           "signature": "def run_session(self, config: RunnerConfig, audit: AuditChain) -> RunnerResult:"
         },
         "src.live.signal_runner.SignalRunner._run_symbol": {
           "file": "src\\live\\signal_runner.py",
-          "line_start": 166,
-          "line_end": 210,
+          "line_start": 167,
+          "line_end": 218,
           "signature": "def _run_symbol(self, symbol: str, config: RunnerConfig, audit: AuditChain) -> List[Signal]:"
         },
         "src.live.signal_runner.SignalRunner._rates_to_bars": {
           "file": "src\\live\\signal_runner.py",
-          "line_start": 213,
-          "line_end": 246,
+          "line_start": 221,
+          "line_end": 263,
           "signature": "@staticmethod"
         },
         "src.live.signal_runner.SignalRunner._contract_for": {
           "file": "src\\live\\signal_runner.py",
-          "line_start": 248,
-          "line_end": 264,
+          "line_start": 265,
+          "line_end": 281,
           "signature": "def _contract_for(self, symbol: str, config: RunnerConfig) -> ContractSpec:"
         },
         "src.live.sizing.PositionSizer.__init__": {
@@ -4983,6 +4983,120 @@
           "line_start": 63,
           "line_end": 90,
           "signature": "def main():"
+        },
+        "scripts.verify_phase11_parity_fix._load_eurusd_15m": {
+          "file": "scripts\\verify_phase11_parity_fix.py",
+          "line_start": 32,
+          "line_end": 57,
+          "signature": "def _load_eurusd_15m(window_start: str, window_end: str):"
+        },
+        "scripts.verify_phase11_parity_fix.main": {
+          "file": "scripts\\verify_phase11_parity_fix.py",
+          "line_start": 60,
+          "line_end": 108,
+          "signature": "def main():"
+        },
+        "tests.test_m1_ingestion_parity.FakeMT5.__init__": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 81,
+          "line_end": 84,
+          "signature": "def __init__(self, rates_by_symbol):"
+        },
+        "tests.test_m1_ingestion_parity.FakeMT5.copy_rates_from_pos": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 86,
+          "line_end": 91,
+          "signature": "def copy_rates_from_pos(self, symbol, timeframe, start, count):"
+        },
+        "tests.test_m1_ingestion_parity.FakeMT5.order_send": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 93,
+          "line_end": 95,
+          "signature": "def order_send(self, *_a, **_k):"
+        },
+        "tests.test_m1_ingestion_parity._epoch_server": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 101,
+          "line_end": 111,
+          "signature": "def _epoch_server(year, month, day, hour, minute=0):"
+        },
+        "tests.test_m1_ingestion_parity._bar_time": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 114,
+          "line_end": 118,
+          "signature": "def _bar_time(epoch_s: int) -> pd.Timestamp:"
+        },
+        "tests.test_m1_ingestion_parity._build_fixture_m1": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 121,
+          "line_end": 210,
+          "signature": "def _build_fixture_m1(start_epoch_server: int, n_minutes: int=60 * 24 * 3) -> List[FakeRate]:"
+        },
+        "tests.test_m1_ingestion_parity._fixture_15m": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 213,
+          "line_end": 233,
+          "signature": "def _fixture_15m(start_epoch_server: int, n_minutes: int=60 * 24 * 3) -> List[Bar]:"
+        },
+        "tests.test_m1_ingestion_parity.test_f1_signal_runner_rates_to_bars_uses_server_to_utc": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 239,
+          "line_end": 285,
+          "signature": "def test_f1_signal_runner_rates_to_bars_uses_server_to_utc():"
+        },
+        "tests.test_m1_ingestion_parity.test_f1_paper_rates_to_bars_uses_server_to_utc": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 288,
+          "line_end": 315,
+          "signature": "def test_f1_paper_rates_to_bars_uses_server_to_utc():"
+        },
+        "tests.test_m1_ingestion_parity.test_f2_is_closed_m1_drops_forming_bar": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 321,
+          "line_end": 347,
+          "signature": "def test_f2_is_closed_m1_drops_forming_bar():"
+        },
+        "tests.test_m1_ingestion_parity.test_f2_signal_runner_drops_forming_m1_before_resample": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 350,
+          "line_end": 382,
+          "signature": "def test_f2_signal_runner_drops_forming_m1_before_resample():"
+        },
+        "tests.test_m1_ingestion_parity._run_canonical": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 388,
+          "line_end": 392,
+          "signature": "def _run_canonical(bars_15m: List[Bar]):"
+        },
+        "tests.test_m1_ingestion_parity._run_live": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 395,
+          "line_end": 405,
+          "signature": "def _run_live(bars_15m: List[Bar]):"
+        },
+        "tests.test_m1_ingestion_parity.test_f3_m1_to_15m_resample_parity_with_engine": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 408,
+          "line_end": 444,
+          "signature": "def test_f3_m1_to_15m_resample_parity_with_engine():"
+        },
+        "tests.test_m1_ingestion_parity.test_f3_strategy_runtime_parity_with_canonical_run_test_a": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 447,
+          "line_end": 476,
+          "signature": "def test_f3_strategy_runtime_parity_with_canonical_run_test_a():"
+        },
+        "tests.test_m1_ingestion_parity.test_f3_signal_runner_via_m1_parity_with_canonical": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 479,
+          "line_end": 500,
+          "signature": "def test_f3_signal_runner_via_m1_parity_with_canonical():"
+        },
+        "tests.test_m1_ingestion_parity.test_f3_no_lookahead_artifact_under_replay": {
+          "file": "tests\\test_m1_ingestion_parity.py",
+          "line_start": 503,
+          "line_end": 524,
+          "signature": "def test_f3_no_lookahead_artifact_under_replay():"
         }
       },
       "files": {
@@ -5227,8 +5341,8 @@
           "hash": "sha256:714af37b320c62d9"
         },
         "src\\live\\paper.py": {
-          "last_modified": "2026-08-28T00:50:30",
-          "hash": "sha256:3f02dfaf4c4663c0"
+          "last_modified": "2026-08-28T07:17:19",
+          "hash": "sha256:cbeee30b294b3b5f"
         },
         "src\\live\\parity_gate.py": {
           "last_modified": "2026-08-28T00:10:51",
@@ -5255,8 +5369,8 @@
           "hash": "sha256:26e3f6f8a072e9e4"
         },
         "src\\live\\signal_runner.py": {
-          "last_modified": "2026-08-28T00:23:45",
-          "hash": "sha256:ac3868a2158beae9"
+          "last_modified": "2026-08-28T07:16:53",
+          "hash": "sha256:5b0267365c3a5d68"
         },
         "src\\live\\sizing.py": {
           "last_modified": "2026-08-27T12:35:03",
@@ -5413,9 +5527,17 @@
         "tools\\histdata_acquisition\\download_histdata.py": {
           "last_modified": "2026-08-22T21:05:40",
           "hash": "sha256:df52f8c14634bd3a"
+        },
+        "scripts\\verify_phase11_parity_fix.py": {
+          "last_modified": "2026-08-28T07:37:57",
+          "hash": "sha256:765c7621d8af942e"
+        },
+        "tests\\test_m1_ingestion_parity.py": {
+          "last_modified": "2026-08-28T07:38:19",
+          "hash": "sha256:95fa6b7d89572f9c"
         }
       },
-      "last_full_scan": "2026-08-28T01:26:21"
+      "last_full_scan": "2026-08-28T07:36:02"
     }
   }
 }

@@ -28,6 +28,8 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from src.live.audit import AuditChain, EventType
+from src.live.candle_feed import M1CandleFeed
+from src.live.clock import _utcnow_naive, server_to_utc
 from src.live.position_manager import Position
 from src.live.risk import Account, RiskManager
 from src.live.sizing import ContractSpec
@@ -308,7 +310,12 @@ class PaperSession:
         m1_rates = self.mt5.copy_rates_from_pos(self.symbol, "M1", 0, m1_count)
         if m1_rates is None or len(m1_rates) == 0:
             return 0
-        m1_bars = _rates_to_bars(m1_rates)
+        m1_bars_all = _rates_to_bars(m1_rates)
+        # Drop forming M1 (its 1-min window has not elapsed) for canonical
+        # parity with M1CandleFeed.fetch_m1 + SignalRunner._run_symbol.
+        m1_bars = M1CandleFeed.is_closed_m1(m1_bars_all, now=_utcnow_naive())
+        if not m1_bars:
+            return 0
         bars_15m = resample_15m(m1_bars)
         self.runtime.warmup(bars_15m)
         self._warmed = self.runtime._warmed
@@ -344,7 +351,11 @@ class PaperSession:
                 return result
             if m1_rates is None or len(m1_rates) == 0:
                 return result
-            m1_bars = _rates_to_bars(m1_rates)
+            m1_bars_all = _rates_to_bars(m1_rates)
+            # Drop forming M1 for canonical parity (see warmup()).
+            m1_bars = M1CandleFeed.is_closed_m1(m1_bars_all, now=_utcnow_naive())
+            if not m1_bars:
+                return result
 
         # 1) Tick-based SL/TP check across each M1 in the step.
         if ticks is not None:
@@ -454,7 +465,13 @@ class PaperSession:
 
 
 def _rates_to_bars(rates: Any) -> List[Bar]:
-    """Convert MT5 rate rows to Bar list (parity with signal_runner)."""
+    """Convert MT5 rate rows to Bar list (parity with signal_runner).
+
+    MT5 `time` is reported in **server time** (UTC+2 winter / UTC+3
+    summer for ICMarketsSC-Demo). We convert to UTC via
+    `clock.server_to_utc()` to match the canonical backtest timezone
+    and the existing `M1CandleFeed.fetch_m1` path.
+    """
     bars: List[Bar] = []
     for i, r in enumerate(rates):
         try:
@@ -473,10 +490,12 @@ def _rates_to_bars(rates: Any) -> List[Bar]:
             v = float(r.tick_volume)
         import pandas as pd
 
+        ts_server = pd.Timestamp(ts, unit="s")
+        ts_utc = pd.Timestamp(server_to_utc(ts_server.to_pydatetime()))
         bars.append(
             Bar(
                 index=i,
-                timestamp=pd.Timestamp.utcfromtimestamp(ts),
+                timestamp=ts_utc,
                 open=o,
                 high=h,
                 low=lo,

@@ -34,7 +34,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
 from src.live.audit import AuditChain, EventType
-from src.live.candle_feed import resample_15m
+from src.live.candle_feed import M1CandleFeed, resample_15m
+from src.live.clock import _utcnow_naive, server_to_utc
 from src.live.risk import Account, RiskManager
 from src.live.sizing import ContractSpec
 from src.live.strategy_runtime import Signal, StrategyRuntime
@@ -173,8 +174,15 @@ class SignalRunner:
         m1_rates = self.mt5.copy_rates_from_pos(symbol, "M1", 0, config.m1_count)
         if m1_rates is None or len(m1_rates) == 0:
             return []
-        # 2) Convert M1 -> Bar list -> resample 15m (canonical boundary)
-        m1_bars = self._rates_to_bars(m1_rates)
+        # 2) Convert M1 -> Bar list. MT5 `time` is server time (UTC+2/3);
+        #    convert to UTC for canonical parity. Then drop the forming
+        #    M1 (whose 1-min window has not elapsed) so the last bucket's
+        #    high/low are final, matching M1CandleFeed.fetch_m1 + warmup.
+        m1_bars_all = self._rates_to_bars(m1_rates)
+        m1_bars = M1CandleFeed.is_closed_m1(m1_bars_all, now=_utcnow_naive())
+        if not m1_bars:
+            return []
+        # 3) Resample 15m (canonical boundary, byte-equivalent to engine)
         bars_15m = resample_15m(m1_bars)
         audit.append(
             timestamp=time.time(),
@@ -211,7 +219,14 @@ class SignalRunner:
 
     @staticmethod
     def _rates_to_bars(rates: Any) -> List[Bar]:
-        """Convert MT5 rates (numpy structured array or list of dicts) to Bar."""
+        """Convert MT5 rates (numpy structured array or list of dicts) to Bar.
+
+        MT5 `time` is reported in **server time** (UTC+2 winter / UTC+3
+        summer for ICMarketsSC-Demo). We convert to UTC via
+        `clock.server_to_utc()` to match the canonical backtest timezone
+        and the existing `M1CandleFeed.fetch_m1` path. This is the
+        single source of truth for live M1 ingest.
+        """
         bars: List[Bar] = []
         for i, r in enumerate(rates):
             # numpy structured arrays support both tuple and field access
@@ -232,10 +247,12 @@ class SignalRunner:
                 v = float(r.tick_volume)
             import pandas as pd
 
+            ts_server = pd.Timestamp(ts, unit="s")
+            ts_utc = pd.Timestamp(server_to_utc(ts_server.to_pydatetime()))
             bars.append(
                 Bar(
                     index=i,
-                    timestamp=pd.Timestamp.utcfromtimestamp(ts),
+                    timestamp=ts_utc,
                     open=o,
                     high=h,
                     low=lo,

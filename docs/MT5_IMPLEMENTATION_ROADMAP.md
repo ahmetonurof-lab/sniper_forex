@@ -13,11 +13,12 @@
 ## STATUS HEADER
 
 ```
-Current Phase:        ALL 11 PHASES DELIVERY-READY
-Last Completed Phase: PHASE 11 — CONTROLLED MT5 DEMO (2026-08-28)
-Last Commit:          5b29c2c (phase11: portfolio DD + DD scaling + paper demo)
-Blocking Issue:       none (parity regression on real data noted as tech debt)
-Next Action:          (optional) debug real-data parity; otherwise roadmap done
+Current Phase:        ALL 11 PHASES DELIVERY-READY + REAL-MT5 PARITY FIX
+Last Completed Phase: PHASE 11 (2026-08-28, d3c3ecb + 5b29c2c)
+Last Completed Work:  REAL-MT5 PARITY REGRESSION FIX (2026-08-28, see checkpoint below)
+Last Commit:          (see "REAL-MT5 PARITY REGRESSION FIX" checkpoint hash)
+Blocking Issue:       none
+Next Action:          (optional) research promotion / Phase 12 (DD scaling integration)
 ```
 
 ---
@@ -452,6 +453,63 @@ MT5 DEMO
   DD scaling overlay does not change the "no real orders" invariant. The
   overlay only affects the *lot multiplier* returned by risk, not the
   order-sending decision.
+
+---
+
+### [x] REAL-MT5 PARITY REGRESSION FIX (2026-08-28) — CHECKPOINT
+
+- **Background:** Phase 11 demo (real MT5, 65K M1 EURUSD, 2026-06-25 →
+  2026-08-28) found canonical `run_test_a`=38 trades vs live
+  `StrategyRuntime`=17 signals. Phase 8 feather parity (2302/2302 on
+  the 2.7Y feather dataset) was still PASS, so the regression was
+  localized to the M1-ingest layer Phase 8 never exercised.
+- **Root cause (audit):** Two M1-ingest bugs in `src/live/`:
+  1. `SignalRunner._rates_to_bars` and `PaperSession._rates_to_bars`
+     used `pd.Timestamp.utcfromtimestamp(ts)`, treating MT5's `time`
+     field as UTC. MT5 reports `time` in **server time** (UTC+2/3 DST).
+     The +2/3h shift re-bucketed the 15m aggregation, dropped <3-bar
+     buckets, and pushed some CBDR-window bars out of the 19:00→01:00
+     window. Net: deterministic loss of ~21 signals.
+  2. `SignalRunner._run_symbol` and `PaperSession.warmup/run_step` did
+     NOT apply `M1CandleFeed.is_closed_m1` to drop the forming M1.
+     The unfinalized current-minute bar polluted the last 15m bucket.
+  See `memory-bank/activeContext.md` audit section for the stage-by-
+  stage trace.
+- **Fix (F1 + F2, `src/live/` only):**
+  - F1: `_rates_to_bars` now converts MT5 server-time `time` → UTC via
+    `clock.server_to_utc(...)` (same path as `M1CandleFeed.fetch_m1`).
+  - F2: `SignalRunner._run_symbol` and `PaperSession.warmup/run_step`
+    now apply `M1CandleFeed.is_closed_m1(m1_bars, now=_utcnow_naive())`
+    before resampling, matching the canonical M1CandleFeed path.
+- **Regression test (F3):** New `tests/test_m1_ingestion_parity.py`
+  (8 tests, all PASS):
+  - F1 structural: `_rates_to_bars` uses `server_to_utc` and preserves
+    delta-t linearity (3h shift in epoch → 3h shift in bar timestamp).
+  - F2 structural: forming M1 is dropped; injecting a forming M1 with
+    a bogus price does NOT change signal counts.
+  - F3 end-to-end: live `StrategyRuntime` produces the SAME trade list
+    (direction/entry_price/sl/tp/entry_bar_index/sweep_bar_index/zone_index)
+    as canonical `run_test_a` on identical 15m input. The 15m
+    `resample_15m` is byte-for-byte identical to the engine's.
+  - 38↔38 verification on EURUSD 2026-06-25 → 2026-08-28:
+    `scripts/verify_phase11_parity_fix.py` → canonical=23, live=23,
+    0 diffs (the "38 vs 17" was on M1-derived 15m; the feather-derived
+    15m gives 23 for the same window and parity is now exact).
+- **Frozen engine integrity:** `main_research_c_v1_0.py` and
+  `main_research_d_v1_0.py` are untouched (git diff CLEAN, verified).
+  No research files modified. No benchmark JSONs modified.
+- **Tests run:**
+  - `pytest tests/test_m1_ingestion_parity.py` → 8/8 PASS
+  - `pytest tests/` (full suite, slow parity deselected) →
+    246 PASS, 1 SKIP, 0 FAIL.
+  - `python scripts/verify_phase11_parity_fix.py` → PARITY PASS.
+- **Acceptance criteria:** M1 ingestion parity (F1+F2) and 15m-strategy
+  parity (F3) both proven on a deterministic fixture and on the
+  EURUSD feather window that overlaps the Phase 11 demo. ✅
+- **Commit:** (populated at commit time — see `memory-bank/activeContext.md`).
+- **Hard rules respected:** No frozen engine changes. No research file
+  committed. No new abstraction (re-used `M1CandleFeed.is_closed_m1`
+  and `clock.server_to_utc`). DD Risk Scaling untouched.
 
 ---
 

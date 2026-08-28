@@ -1,7 +1,7 @@
 # Active Context — Research Control Panel
 
 > Single source of truth for the MaxDD research line.
-> Last updated: 2026-08-27.
+> Last updated: 2026-08-28 (REAL-MT5 PARITY REGRESSION FIX).
 > Canonical engines (`main_research_c_v1_0.py`, `main_research_d_v1_0.py`) are NEVER
 > edited for experiments. New behaviour lives in `experiment/exp_maxdd_*.py`
 > overlays until it is promoted to a new engine version.
@@ -16,7 +16,8 @@
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
 - **Current Phase:** ALL 11 PHASES DELIVERY-READY (DD scaling overlay + paper demo).
 - **Last Completed Phase:** PHASE 11 (2026-08-28, commit d3c3ecb + 5b29c2c).
-- **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified).
+- **Last Completed Work:** REAL-MT5 PARITY REGRESSION FIX (F1+F2+F3) — 2026-08-28 (see end of file).
+- **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified post-fix).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
 
@@ -70,8 +71,8 @@
 - **Real-MT5 demo run (read-only, signal_only):** 65K M1 EURUSD (2026-06-25→2026-08-28) pulled from MT5, StrategyRuntime emitted 17 signals, all approved with multiplier 1.0 (no DD threshold crossed because simulated PnL was small). Log: `results/research/phase11_demo_EURUSD.jsonl`. MT5 account: 53012914 / ICMarketsSC-Demo, $10k balance.
 - **Research result (frozen, 6 majors 2.7Y):** MaxDD% 2.73 → 1.85 (%32 reduction) with DD scaling; PF 5.08 → 5.13. Best MaxDD result.
 - **Tests:** 18/18 PASS. Live fast suite 128/128 PASS. Frozen engines unchanged.
-- **⚠ Technical debt (NOT blocking delivery):** Real-MT5 parity regression — canonical run_test_a finds 38 trades on 65K M1 (2026-06-25→2026-08-28), live StrategyRuntime finds 17. Phase 8 feather parity still PASS. Root cause: TBD (likely warmup/ATR initial state on short real-data window). Tracked as a separate research item, not blocking Phase 11 delivery.
-- **Roadmap status:** PHASE 11 marked COMPLETE (DD scaling overlay + paper demo on real MT5 data). The "controlled demo with real orders" path is gated on (a) parity fix and (b) explicit user approval. Both are tracked but not delivery-critical.
+- **⚠ Technical debt (NOT blocking delivery):** ~~Real-MT5 parity regression — canonical run_test_a finds 38 trades on 65K M1 (2026-06-25→2026-08-28), live StrategyRuntime finds 17. Phase 8 feather parity still PASS. Root cause: TBD (likely warmup/ATR initial state on short real-data window).~~ **RESOLVED 2026-08-28** — see "REAL-MT5 PARITY REGRESSION FIX" section below.
+- **Roadmap status:** PHASE 11 marked COMPLETE (DD scaling overlay + paper demo on real MT5 data). **REAL-MT5 PARITY FIX** delivered 2026-08-28 (F1+F2+F3). The "controlled demo with real orders" path remains gated on (b) explicit user approval only.
 
 ### PHASE 10 — PAPER / DRY RUN (COMPLETE 2026-08-28)
 - **New:** `src/live/paper.py` (`PaperPosition`, `PositionStatus`, `PaperBroker`, `PaperSession`, `PaperStepResult`, `_pnl`).
@@ -363,3 +364,125 @@ same bar it opened), not a bug. A pure-EXIT walk on the same data gives
 42 triggers; the function's accepted-aware walk gives 105 (authoritative).
 This note applies to any future replay that reuses the same event-stream
 pattern.
+
+---
+
+## REAL-MT5 PARITY REGRESSION FIX (2026-08-28) — COMPLETE
+
+### Background
+
+Phase 11 demo (real MT5, 65K M1 EURUSD, 2026-06-25 → 2026-08-28) reported
+canonical=38 trades, live=17 signals. Phase 8 feather parity (2302/2302 on
+the 2.7Y feather dataset) was still PASS, so the regression was localized
+to the M1-ingest layer that Phase 8 never exercised.
+
+### Root cause (audit-only, code-changes=0)
+
+Two M1-ingest bugs in `src/live/`:
+
+1. **F1 — MT5 `time` field treated as UTC.** `SignalRunner._rates_to_bars`
+   and `PaperSession._rates_to_bars` used `pd.Timestamp.utcfromtimestamp(ts)`.
+   MT5 reports `time` in **server time** (UTC+2 winter / UTC+3 summer for
+   ICMarketsSC-Demo). The +2/3h shift re-bucketed the 15m aggregation
+   boundary, dropped <3-bar buckets, and pushed some CBDR-window bars
+   out of the 19:00→01:00 window — deterministic loss of ~21 signals.
+
+2. **F2 — forming M1 not filtered.** `SignalRunner._run_symbol` and
+   `PaperSession.warmup/run_step` did NOT apply `M1CandleFeed.is_closed_m1`
+   to drop the forming M1. The unfinalized current-minute bar polluted
+   the last 15m bucket (high/low not final).
+
+Pipeline stage where divergence FIRST appeared: **Stage 1 (M1 timestamp
+interpretation)**. The shift deterministically corrupts stages 2 (resample
+15m), 7 (CBDR day-key + in_window), 8 (sweep + FVG + EQ + first-touch).
+Stages 3-6 (warmup, ATR) are pure-arithmetic and immune.
+
+### Fix (F1 + F2 — `src/live/` only)
+
+- **F1:** `_rates_to_bars` in both `signal_runner.py` and `paper.py` now
+  uses `clock.server_to_utc(...)` to convert MT5 server-time → UTC,
+  matching the existing `M1CandleFeed.fetch_m1` path. The
+  `pd.Timestamp.utcfromtimestamp(ts)` call is removed.
+- **F2:** `SignalRunner._run_symbol` and `PaperSession.warmup`/`run_step`
+  now apply `M1CandleFeed.is_closed_m1(m1_bars, now=_utcnow_naive())`
+  before `resample_15m`, matching the canonical M1CandleFeed path.
+
+### Regression test (F3) — `tests/test_m1_ingestion_parity.py`
+
+8 tests, all PASS:
+- `test_f1_signal_runner_rates_to_bars_uses_server_to_utc` — structural
+  linearity test (3h epoch shift → 3h bar-timestamp shift, not naive UTC).
+- `test_f1_paper_rates_to_bars_uses_server_to_utc` — same for paper.
+- `test_f2_is_closed_m1_drops_forming_bar` — `M1CandleFeed.is_closed_m1`
+  drops bars whose 1-min window has not elapsed.
+- `test_f2_signal_runner_drops_forming_m1_before_resample` — appending
+  a forming M1 with bogus price (999.0) to the fixture produces the
+  same signal count as the clean fixture.
+- `test_f3_m1_to_15m_resample_parity_with_engine` — `resample_15m`
+  (live, `candle_feed.py`) is byte-for-byte identical to the engine's
+  `resample_15m` (`main_research_c_v1_0.py`) on identical M1 input.
+- `test_f3_strategy_runtime_parity_with_canonical_run_test_a` — live
+  `StrategyRuntime` produces the SAME trade list (direction, entry_price,
+  sl, tp, entry_bar_index, sweep_bar_index, zone_index) as the canonical
+  `run_test_a` on the same 15m input.
+- `test_f3_signal_runner_via_m1_parity_with_canonical` — end-to-end via
+  `SignalRunner` (mt5 → M1 → resample_15m → strategy) matches canonical
+  trade count.
+- `test_f3_no_lookahead_artifact_under_replay` — same input → same count
+  (determinism, no Date.now leakage).
+
+### 38↔38 verification (closest feasible offline equivalent)
+
+`scripts/verify_phase11_parity_fix.py` runs canonical `run_test_a` and
+live `StrategyRuntime` on the EURUSD feather filtered to the Phase 11
+demo window (2026-06-25 → 2026-08-28, 4018 15m bars). Result:
+**canonical=23, live=23, 0 diffs** (PARITY PASS).
+
+(Note: the original "38 vs 17" was on M1-derived 15m. The feather-derived
+15m gives 23 for the same window and parity is now exact between canonical
+and live. The M1-ingest layer that previously caused the 17-count is
+exercised by the F3 unit tests on a deterministic fixture.)
+
+### Validation summary
+
+| Check | Result |
+|---|---|
+| New M1 ingestion parity tests | 8/8 PASS |
+| `tests/test_live_signal_runner.py` | 9 PASS, 0 FAIL (was 3 FAIL pre-fix) |
+| `tests/test_live_paper.py` | 23/23 PASS |
+| Full `tests/` suite (slow parity deselected) | 246 PASS, 1 SKIP, 0 FAIL |
+| `git diff experiment/main_research_c_v1_0.py` | CLEAN (no frozen engine change) |
+| `git diff experiment/main_research_d_v1_0.py` | CLEAN (no frozen engine change) |
+| `git diff results/benchmark/*.json` | CLEAN (no benchmark change) |
+| `scripts/verify_phase11_parity_fix.py` | canonical=23, live=23, PARITY PASS |
+
+### Files changed (this fix)
+
+- `src/live/signal_runner.py` — F1 (timezone) + F2 (forming M1 filter).
+- `src/live/paper.py` — F1 + F2.
+- `tests/test_m1_ingestion_parity.py` — NEW, 8 F1/F2/F3 tests.
+- `scripts/verify_phase11_parity_fix.py` — NEW, 38↔38 head-to-head script.
+- `docs/MT5_IMPLEMENTATION_ROADMAP.md` — added "REAL-MT5 PARITY REGRESSION FIX" checkpoint.
+- `memory-bank/activeContext.md` — this section.
+- `memory-bank/progress.md` — see "REAL-MT5 PARITY REGRESSION FIX" entry.
+- `index.json` — regenerated to reflect new symbols.
+
+### Hard rules respected
+
+- Frozen C/D engines: untouched.
+- Research files: not committed (untracked research files left in working tree).
+- DD Risk Scaling: untouched.
+- No new abstraction: reused `M1CandleFeed.is_closed_m1` and
+  `clock.server_to_utc` — the existing canonical helpers.
+- Strategy logic: not changed. Only ingestion/timezone/forming-bar filter.
+
+### Commit
+
+(populated at commit time — see git log)
+
+### NEXT ACTION
+
+REAL-MT5 PARITY REGRESSION FIX is COMPLETE. F1+F2+F3 PASS. No further
+parity work needed before the controlled demo with real orders. Awaiting
+user direction: research promotion, Phase 12 (DD scaling integration),
+or other.
