@@ -49,11 +49,12 @@ def _mk_trade(
     exit_ts: float,
     pnl_r: float,
     result: str = "TP",
+    symbol: str = "TEST",
 ) -> BenchmarkTrade:
     """Build a minimal BenchmarkTrade for scaling tests."""
     return BenchmarkTrade(
         trade_id=trade_id,
-        symbol="TEST",
+        symbol=symbol,
         test_type="POST_SWEEP_FVG",
         direction="bullish",
         entry_price=1.0,
@@ -309,7 +310,10 @@ def test_apply_dd_scaling_paused_trade_does_not_change_peak():
 
 
 def test_apply_dd_scaling_sorts_by_exit_timestamp():
-    """Unsorted input must be sorted by exit_timestamp (canonical order)."""
+    """Unsorted input must produce the same scaling as exit-sorted input
+    (the new pointer-free bisect implementation computes each trade's DD
+    independently from the exit-sorted prefix curves, so output order is
+    input order but the scaling result is order-independent)."""
     t_late = _mk_trade(1, entry_ts=100.0, exit_ts=200.0, pnl_r=-3.0, result="LOSS")
     t_early = _mk_trade(2, entry_ts=10.0, exit_ts=20.0, pnl_r=1.0)
     t_mid = _mk_trade(3, entry_ts=50.0, exit_ts=60.0, pnl_r=1.0)
@@ -317,15 +321,16 @@ def test_apply_dd_scaling_sorts_by_exit_timestamp():
     surviving, *_ = apply_dd_scaling(
         [t_late, t_early, t_mid], entry_ts=[100.0, 10.0, 50.0]
     )
-    # The output preserves the canonical exit-time ordering via input
-    # pnl_r attribution. The early+mid wins bring equity up; the late
-    # loss brings it down. With exit_time sorted, the late loss is
-    # applied LAST and DD becomes visible only then.
+    # All three are x1.0 (DD never exceeds 2R for any entry because the
+    # two wins complete before trade 1's late entry at t=100, and the
+    # loss happens after both).
     out_pnls = [t.pnl_r for t in surviving]
-    # All three are x1.0 (DD never exceeds 2R for any entry because
-    # trades 1 and 2 happen first chronologically, and trade 3's entry
-    # (at t=100) is after both wins completed).
-    assert out_pnls == [1.0, 1.0, -3.0]
+    assert sorted(out_pnls) == [-3.0, 1.0, 1.0]
+    # Order-independence: same scaling when given in exit order.
+    surviving_sorted, *_ = apply_dd_scaling(
+        [t_early, t_mid, t_late], entry_ts=[10.0, 50.0, 100.0]
+    )
+    assert sorted(t.pnl_r for t in surviving_sorted) == [-3.0, 1.0, 1.0]
 
 
 def test_apply_dd_scaling_same_bar_causality():
@@ -334,9 +339,9 @@ def test_apply_dd_scaling_same_bar_causality():
     but OTHER trades that closed before this trade's entry DO
     contribute (via `exit < entry`).
 
-    Two trades with exit_ts=50, entry_ts=55. Sort by
-    `_trade_order_key` puts t1 (id=1) before t2 (id=2). With
-    strict-<:
+    Two trades with exit_ts=50, entry_ts=55, sorted by exit then id puts
+    t1 (id=1) before t2 (id=2). With the pointer-free bisect causality
+    (j = min(bisect_left(EX, entry), pos)):
       t1 (k=0): no advance. dd=0, x1, pnl=-3.
       t2 (k=1): t1 prior (applied=0<1, 50<55 YES). equity=97, peak=100.
                  dd=3. 3>2 YES, 3>4 NO -> x0.5, pnl=0.5.
@@ -517,16 +522,17 @@ def test_A_global_portfolio_scaling_shares_DD_across_symbols():
     )
     # tA is the first trade: DD=0 -> x1.0, pnl=-3.0
     # tB1 enters at 25 after tA exit at 20: DD=3R -> x0.5, pnl=0.5
-    # tB2 enters at 35: still DD=3R (tB1 scaled to 0.5 contributes 0.5,
-    #   so equity=100.5, peak=100.5, dd=0R). x1.0, pnl=1.0.
+    #   (tA's -3R base was scaled x1, so equity=97, peak=100, dd=3R)
+    # tB2 enters at 35: after tB1 scaled contribution (0.5R),
+    #   equity=97.5, peak=100, dd=2.5R -> x0.5 (DD>2R), pnl=0.5.
     assert paused == 0
-    assert n1 == 2
-    assert n05 == 1
+    assert n1 == 1
+    assert n05 == 2
     assert n025 == 0
     by_id = {(t.symbol, t.trade_id): t for t in surviving}
     assert abs(by_id[("SYMA", 1)].pnl_r - (-3.0)) < 1e-9
     assert abs(by_id[("SYMB", 1)].pnl_r - 0.5) < 1e-9
-    assert abs(by_id[("SYMB", 2)].pnl_r - 1.0) < 1e-9
+    assert abs(by_id[("SYMB", 2)].pnl_r - 0.5) < 1e-9
 
 
 def test_B_no_self_pnl_in_own_dd_decision():
@@ -707,3 +713,194 @@ def test_G_main_global_single_scaling_pass_via_main_contract():
         )
         < 1e-9
     )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Reference (O(N^2)) causality tests — exact strictly-before-entry
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _reference_dd_and_mult(trades, entry_ts, starting_balance=100.0):
+    """INDEPENDENT reference implementing the production realized equity walk.
+
+    Single global (equity, peak, dd) state updated ONLY by ACCEPTED trades'
+    SCALED pnl_r (= base_pnl × multiplier) at their exit. PAUSED trades
+    contribute ZERO to the state. Current trade excluded by strict exit<entry.
+
+    This is the correct semantics verified against production portfolio_dd.py:
+    record_realized(pnl_r) is called only after a closed/executed position;
+    a PAUSED trade (blocked before entry) never calls it → its pnl_r is
+    never in the realized DD state.
+    """
+    completed = [
+        (t, e)
+        for t, e in zip(trades, entry_ts)
+        if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
+    ]
+    from experiment.main_research_c_v1_1 import _to_float_ts, compute_dd_multiplier
+
+    def keyf(p):
+        return (_to_float_ts(p[0].exit_timestamp), str(p[0].symbol), int(p[0].trade_id))
+
+    completed.sort(key=keyf)
+
+    out = {}
+    equity = starting_balance
+    peak = starting_balance
+
+    for t, e in completed:
+        dd_now = peak - equity
+        m = compute_dd_multiplier(dd_now)
+        if m == 0.0:
+            out[(t.symbol, t.trade_id)] = (dd_now, 0.0, True)
+            continue
+        scaled = t.pnl_r * m
+        equity += scaled
+        if equity > peak:
+            peak = equity
+        out[(t.symbol, t.trade_id)] = (dd_now, m, False)
+    return out
+
+
+def test_A_later_exit_position_still_prior_to_entry():
+    """Counterexample from the correctness patch: a prior trade whose exit
+    order POSITION is after the current trade's can still be prior-to-entry
+    and MUST be included in the current trade's DD.
+
+    C: entry=20, exit=10, pnl=-1
+    B: entry=5,  exit=15, pnl=+1
+    B exits (15) BEFORE C's entry (20) -> B MUST contribute to C's DD.
+    Exit order is [C(exit10), B(exit15)] (C sorts first), but that must
+    NOT exclude B from C's DD (the old `pos` cap bug did this).
+    """
+    c = _mk_trade(1, entry_ts=20.0, exit_ts=10.0, pnl_r=-1.0, result="LOSS")
+    b = _mk_trade(2, entry_ts=5.0, exit_ts=15.0, pnl_r=1.0)
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([c, b], entry_ts=[20.0, 5.0])
+    # C's DD: B's +1R is included -> equity=101, peak=101, dd=0 -> x1.
+    # B's DD: no other trade exited before entry=5 -> dd=0 -> x1.
+    assert n1 == 2
+    assert paused == 0
+    pnls = sorted(t.pnl_r for t in surviving)
+    assert pnls == [-1.0, 1.0]
+
+
+def test_B_self_exclusion():
+    """A trade's own PnL must never enter its own DD state."""
+    c = _mk_trade(1, entry_ts=20.0, exit_ts=10.0, pnl_r=-1.0, result="LOSS")
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([c], entry_ts=[20.0])
+    # Only C; no other trade -> dd=0 -> x1. The -1R does NOT feed its own DD.
+    assert n1 == 1
+    assert paused == 0
+    assert surviving[0].pnl_r == -1.0
+
+
+def test_C_same_timestamp_excluded():
+    """exit_timestamp == entry_timestamp must NOT contribute to DD (strict <)."""
+    c = _mk_trade(1, entry_ts=20.0, exit_ts=20.0, pnl_r=-1.0, result="LOSS")
+    # Another trade that exits exactly at C's entry (20): must be excluded.
+    other = _mk_trade(2, entry_ts=1.0, exit_ts=20.0, pnl_r=2.0)
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([c, other], entry_ts=[20.0, 1.0])
+    # C's DD: other exits at 20 which is NOT < 20 -> excluded -> dd=0 -> x1.
+    # other's DD: no other exit < 1 -> dd=0 -> x1.
+    assert n1 == 2
+    assert paused == 0
+
+
+def test_D_arbitrary_input_order_invariant():
+    """Shuffling the input trade list must not change pause set, multipliers,
+    scaled pnls, or aggregate stats."""
+    import random
+
+    random.seed(7)
+    trades = []
+    ets = []
+    for i in range(12):
+        exit_ts = float(random.randint(0, 200))
+        entry_ts = exit_ts + float(random.randint(1, 30))
+        pnl = random.choice([2.0, -4.0, 3.0, -6.0, 1.0])
+        t = _mk_trade(i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl,
+                     result="LOSS" if pnl < 0 else "TP")
+        trades.append(t)
+        ets.append(entry_ts)
+
+    def scaled_multiset(ts, es):
+        s, p, a, b, c = apply_dd_scaling(ts, entry_ts=es)
+        return (sorted(round(t.pnl_r, 6) for t in s), p, a, b, c)
+
+    base = scaled_multiset(trades, ets)
+    for _ in range(10):
+        perm = list(range(12))
+        random.shuffle(perm)
+        tp = [trades[i] for i in perm]
+        ep = [ets[i] for i in perm]
+        assert scaled_multiset(tp, ep) == base
+
+
+def test_E_brute_force_reference_zero_mismatch():
+    """Production `apply_dd_scaling` vs an independent O(N^2) reference over a
+    randomized dataset. 0 mismatch is mandatory on multiplier, pause, and
+    (recovered) scaled pnl."""
+    import random
+
+    random.seed(2026)
+    trades = []
+    ets = []
+    for i in range(60):
+        exit_ts = float(random.randint(0, 1000))
+        entry_ts = exit_ts + float(random.randint(0, 60))
+        pnl = random.choice([1.0, 2.0, -3.0, -5.0, 1.5, -7.0])
+        t = _mk_trade(i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl,
+                     result="LOSS" if pnl < 0 else "TP")
+        trades.append(t)
+        ets.append(entry_ts)
+
+    ref = _reference_dd_and_mult(trades, ets)
+    surviving, paused, n1, n05, n025 = apply_dd_scaling(trades, entry_ts=ets)
+
+    # Recover per-trade multiplier from production output.
+    base_pnl = {(t.symbol, t.trade_id): t.pnl_r for t in trades}
+    prod_mult = {(t.symbol, t.trade_id): t.pnl_r / base_pnl[(t.symbol, t.trade_id)]
+                for t in surviving}
+    # Paused trades are absent from surviving -> multiplier implied 0.0.
+    for key, (dd, m, is_paused) in ref.items():
+        got = prod_mult.get(key, 0.0)
+        assert abs(got - m) < 1e-9, f"{key}: prod mult {got} != ref {m} (dd={dd})"
+    # Tier/pause counts must match the reference.
+    r_n1 = sum(1 for v in ref.values() if v[1] == 1.0)
+    r_n05 = sum(1 for v in ref.values() if v[1] == 0.5)
+    r_n025 = sum(1 for v in ref.values() if v[1] == 0.25)
+    r_paused = sum(1 for v in ref.values() if v[2])
+    assert (n1, n05, n025, paused) == (r_n1, r_n05, r_n025, r_paused)
+
+
+def test_open_trades_excluded_from_entry_correspondence():
+    """OPEN trades are filtered from scaling; entry_ts correspondence to the
+    ORIGINAL (full) list must be preserved, not the completed subset."""
+    t_open = _mk_trade(1, entry_ts=10.0, exit_ts=20.0, pnl_r=0.0, result="OPEN")
+    t_win = _mk_trade(2, entry_ts=30.0, exit_ts=40.0, pnl_r=5.0)
+    # entry_ts aligned to the full list order: [open_entry, win_entry]
+    surviving, paused, n1, n05, n025 = apply_dd_scaling(
+        [t_open, t_win], entry_ts=[10.0, 30.0]
+    )
+    # Only t_win survives; its DD is measured from trades that closed
+    # before entry=30 -> t_open is OPEN (excluded) so dd=0 -> x1.
+    assert len(surviving) == 1
+    assert surviving[0].trade_id == 2
+    assert n1 == 1
+    assert paused == 0
+
+
+def test_tie_break_exit_symbol_trade_id_deterministic():
+    """Trades with identical exit timestamps resolve by (symbol, trade_id)
+    in the prior-trade replay, giving a stable, platform-independent result."""
+    # Two trades same exit=50, different symbols/ids.
+    t1 = _mk_trade(1, entry_ts=60.0, exit_ts=50.0, pnl_r=-7.0, result="LOSS", symbol="SYMA")
+    t2 = _mk_trade(2, entry_ts=60.0, exit_ts=50.0, pnl_r=1.0, symbol="SYMB")
+    r1 = apply_dd_scaling([t1, t2], entry_ts=[60.0, 60.0])
+    r2 = apply_dd_scaling([t2, t1], entry_ts=[60.0, 60.0])
+    # Paused/tier counts identical regardless of input order.
+    assert (r1[1], r1[2], r1[3], r1[4]) == (r2[1], r2[2], r2[3], r2[4])
+    # t1 (loss -7) is prior to t2 in (exit,symbol,id) order -> t2's DD
+    # includes it (dd=7>6 -> PAUSE). t1's own DD=0 -> x1. So x1=1, paused=1.
+    assert r1[2] == 1  # x1
+    assert r1[1] == 1  # paused

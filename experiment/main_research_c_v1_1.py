@@ -19,15 +19,18 @@ PROMOTION HEADER (PROMOTED 2026-08-28)
                       AvgR +1.2489, PF 5.08, MaxDD 8.00R, MaxDD% 2.73%
 - Authoritative
   benchmark (C v1.1
-  with DD scaling,    Trades 2300, paused 2, WR 69.39%, TotalR +2766.91R,
-  corrected Exp C,   AvgR +1.2026, PF 5.13, MaxDD 4.71R, MaxDD% 2.19%
-  2.7Y / 6 majors /
-  15m / full):
+  with DD scaling,   6 majors / 2.7Y / 15m / full -- see the live run output
+  pointer-free       below for exact Trades / WR / TotalR / PF / MaxDD. The
+  bisect refactor:   canonical figures are produced by
+                     `python experiment/main_research_c_v1_1.py` and saved to
+                     results/research/c_v1_1_summary.json.
 - Scaling event
   distribution
-  (C v1.1):          x1.0 = 2186, x0.5 = 99, x0.25 = 15, paused = 2.
-- Paused set
-  (C v1.1):          {('GBPJPY', 96), ('USDJPY', 82)}.
+  (C v1.1):          reported by the benchmark run (x1.0 / x0.5 / x0.25 /
+                     paused counts printed on the [C v1.1] summary line).
+- Paused set / trade
+  identity:          NOT a fixed set -- determined by the strictly-before-entry
+                     DD query at each trade's entry (see CAUSALITY section).
 
 This is NOT a re-implementation. The C v1.0 trade-generation core
 (sweep → FVG → C2 EQ → first touch → next-bar-open entry → SL/TP →
@@ -52,12 +55,15 @@ were an ARTIFACT of a cross-symbol `entry_ts_map` bug in
     MaxDD% 1.85% — those numbers are an artifact, NOT the real
     behavior.
   - Phase 1 fixed the bug (per-symbol lookup) and re-ran the full
-    benchmark. The CORRECTED Exp C result IS the C v1.1 result
-    (2300/2300 surviving trade identity match, 0 `pnl_r` mismatch,
-    identical pause set, identical multiplier distribution).
+    benchmark. The corrected Exp C result (Trades 2300, paused 2,
+    MaxDD 4.71R, MaxDD% 2.19%) was itself later SUPERSEDED by the
+    pointer-free bisect refactor (see CAUSALITY section): the deterministic
+    ordering and strictly-before-entry causality now produce the canonical
+    C v1.1 figures printed by `python experiment/main_research_c_v1_1.py`.
 
-The 1.85% MaxDD% number is INVALIDATED. The corrected authoritative
-reference is 2.19% (C v1.1 = corrected Exp C, both ways).
+The 1.85% MaxDD% number is INVALIDATED. The 2.19%/4.71R "corrected Exp C"
+figures are ALSO superseded by the pointer-free bisect refactor (exact
+current figures come from the live benchmark run).
 
 =============================================================================
 WHAT CHANGED VS C v1.0
@@ -86,17 +92,26 @@ GLOBALLY across the 6-major merged trade stream.
     - the underlying entry/SL/TP/trailing/exit logic.
 
 =============================================================================
-NO-LOOKAHEAD / SAME-BAR CAUSALITY
+ NO-LOOKAHEAD / SAME-BAR CAUSALITY
 =============================================================================
 The portfolio DD used for a trade's risk decision is measured from
-trades that have ALREADY CLOSED (exit_timestamp <= this trade's
-entry_timestamp). This is the same no-lookahead rule as
-`exp_maxdd_C_dd_risk_scaling.py::apply_dd_risk_scaling`.
+trades that closed STRICTLY BEFORE this trade's entry
+(`exit_timestamp < entry_timestamp` -- strict `<`; see `apply_dd_scaling`
+and `_strictly_before_entry_dd`). The same no-lookahead rule as the
+canonical engine, but with explicit strict causality.
 
-When two trades share the same `entry_bar` AND the same
-`exit_bar` (hold_bars=0), their relative order is by trade_id (the
-canonical engine assigns trade_id in entry order), which preserves
-causality: a trade's own PnL is never used to scale itself.
+For each trade, ONLY OTHER completed trades with
+`exit_timestamp < current_entry_timestamp` contribute to its DD. The
+current trade is excluded by identity, and even without that guard its
+own exit (<= its entry) fails the strict `<`, so it can never leak into
+its own DD. This is NOT enforced by a position cap or prefix trick --
+it is the literal selection rule in `_strictly_before_entry_dd`.
+
+Deterministic ordering for EVERY chronological walk (the stats equity
+curve AND the DD-scaling prior-trade replay) is the shared key
+`(exit_timestamp, symbol, trade_id)` (`_exit_order_key`). Two trades
+with an identical exit timestamp resolve by (symbol, trade_id); this is
+stable across sessions/threads/platforms.
 
 =============================================================================
 GLOBAL PORTFOLIO DD (per-symbol entry_ts is preserved)
@@ -222,24 +237,26 @@ def _to_float_ts(t) -> float:
     return float(t)
 
 
-def _trade_order_key(pair: Tuple[BenchmarkTrade, Any]) -> Tuple[float, float, str, int]:
-    """Deterministic sort key for the trade stream.
+def _exit_order_key(t: BenchmarkTrade) -> Tuple[float, str, int]:
+    """Deterministic global ordering key shared by EVERY chronological walk
+    in C v1.1 (stats equity curve AND the DD-scaling prefix curves).
 
-    Order: (exit_ts, entry_ts, symbol, trade_id). This guarantees
-    that for any two trades with identical exit and entry timestamps,
-    the ordering is fixed across Python sessions, threads, and
-    platforms (no reliance on `zip` insertion order or `set` iteration
-    order). Canonical for the global 6-major C v1.1 walk.
+    KEY CONTRACT: (exit_timestamp, symbol, trade_id)
+      * exit_timestamp first  -> chronological by exit (the only causally
+                                 valid ordering for a realized equity curve
+                                 or a strictly-before-entry DD query).
+      * symbol then trade_id -> the deterministic tie-break. Two trades
+                                 with an identical exit timestamp resolve
+                                 by (symbol, trade_id); this is stable
+                                 across Python sessions, threads, and
+                                 platforms (no reliance on insertion order
+                                 or set iteration).
+
+    Strictly-before-entry causality (exit_ts < current_entry_ts) is enforced
+    SEPARATELY by the prior-trade SELECTION in `_strictly_before_entry_dd`
+    (see apply_dd_scaling) -- NOT by adding entry_ts into this key.
     """
-    trade, entry_time = pair
-    exit_time = _to_float_ts(trade.exit_timestamp)
-    entry_time_f = _to_float_ts(entry_time)
-    return (
-        exit_time,
-        entry_time_f,
-        str(trade.symbol),
-        int(trade.trade_id),
-    )
+    return (_to_float_ts(t.exit_timestamp), str(t.symbol), int(t.trade_id))
 
 
 def apply_dd_scaling(
@@ -249,26 +266,34 @@ def apply_dd_scaling(
 ) -> Tuple[List[BenchmarkTrade], int, int, int, int]:
     """Apply DD-based risk scaling to the merged base trade stream.
 
-    GLOBAL portfolio semantics: the caller passes the merged 6-major
-    base trade list (and a parallel `entry_ts` list). One equity
-    curve, one chronological walk, one DD state.
+    PRODUCTION SEMANTICS (realized equity walk):
+        - Single global state: (equity, peak, dd)
+        - State is updated ONLY by ACCEPTED (non-paused) trades at their EXIT,
+          using their SCALED pnl_r (= base_pnl_r × multiplier)
+        - PAUSED trades: blocked before entry, no realized pnl ever recorded,
+          contribute ZERO to the equity/peak/dd state
+        - Current trade excluded from its own DD by the strict exit<entry guard
 
-    For each trade, the realized portfolio DD measured from trades
-    that closed STRICTLY BEFORE this trade's entry_timestamp
-    (`exit_ts < entry_ts` — strict `<` to guarantee no self-PnL and
-    no same-bar double-counting) determines the multiplier applied
-    to this trade's `pnl_r`.
+    This is the exact behavior of production `portfolio_dd.py`:
+        `record_realized(pnl_r)` is called only after a closed position;
+        a PAUSED trade (blocked before entry) never calls it → its pnl_r
+        is never in the realized DD state.
 
-    Determinism: the walk order is `(_trade_order_key)`
-    `(exit_ts, entry_ts, symbol, trade_id)`. Two trades with the
-    exact same exit AND entry timestamps resolve by `(symbol,
-    trade_id)` lexicographic order. This is canonical across
-    sessions, threads, and platforms.
+    Algorithm (O(N log N) due to sort, N≈2300):
+        1. Sort ALL completed trades by (exit_ts, symbol, trade_id)
+        2. Walk the sorted list once:
+           - Read current DD = peak - equity
+           - Compute multiplier for current trade
+           - If PAUSE: skip (no state update)
+           - If ACCEPT: equity += base_pnl * multiplier; peak = max(peak, equity)
+        3. The state after processing trade T contains contributions from
+           ALL prior ACCEPTED trades (scaled) + ZERO from prior PAUSED trades
+
+    Determinism: same (exit_ts, symbol, trade_id) key as compute_stats_v11.
 
     Args:
         trades:           base (UNSCALED) BenchmarkTrade list. May
-                          include OPEN trades (they are skipped, no
-                          equity contribution).
+                          include OPEN trades (skipped, no equity contribution).
         entry_ts:         parallel list of entry timestamps, one per
                           trade, in the SAME order as `trades`. Must
                           be the same length as `trades`. Required.
@@ -281,15 +306,6 @@ def apply_dd_scaling(
         paused_count:     number of trades that were paused
                           (multiplier == 0.0, dropped).
         x1_count, x05_count, x025_count: tier counts.
-
-    NO-LOOKAHEAD / strictly-before-entry causality: the advance loop
-    uses `applied < k and exit_times[applied] < entry_times_ordered[k]`,
-    so:
-      * only trades whose exit is STRICTLY less than the current
-        trade's entry are included;
-      * current trade itself is never advanced past itself;
-      * same-exit-time / same-entry-time ambiguity resolves by
-        `_trade_order_key` (deterministic).
     """
     if entry_ts is None:
         raise ValueError(
@@ -303,76 +319,85 @@ def apply_dd_scaling(
             f"length ({len(trades)}). entry_ts is a parallel list."
         )
 
-    completed = [t for t in trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")]
-    # Build a (trade, entry_ts) pair list, then sort deterministically
-    # by (_trade_order_key). This ensures the global walk is stable
-    # across sessions and across symbol order.
-    paired = sorted(
-        zip(completed, entry_ts),
-        key=_trade_order_key,
-    )
-    ordered = [p[0] for p in paired]
-    # Normalize entry_ts to float.
-    entry_times_ordered = [_to_float_ts(p[1]) for p in paired]
-    # Normalize exit_timestamp to float.
-    exit_times = [_to_float_ts(t.exit_timestamp) for t in ordered]
+    # Pair each completed trade with its entry_ts (parallel lists)
+    completed_pairs = [
+        (t, _to_float_ts(e))
+        for t, e in zip(trades, entry_ts)
+        if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
+    ]
 
-    # TWO equity curves (mirrors exp_maxdd_C_dd_risk_scaling.py):
-    #   pre_scale: built from base pnl_r of every trade (including paused
-    #     ones — they still contributed to the realized state at the
-    #     time their DD was measured). Used to compute the DD that
-    #     informs each trade's risk decision.
-    #   post_scale: built from scaled pnl_r of surviving trades only.
-    #     Paused trades contribute 0 here. Used for post-scale MaxDD.
-    pre_equity = starting_balance
-    pre_peak = starting_balance
-    post_equity = starting_balance
-    post_peak = starting_balance
-    applied = 0
+    # Build event stream for each completed trade.
+    # Each trade produces 2 events:
+    #   ENTRY at entry_float  (priority 0)
+    #   EXIT  at exit_float   (priority 1)
+    # Same timestamp: ENTRY before EXIT (strict < for prior exit < current entry)
+    # Trade identity: (symbol, trade_id) — unique per symbol+id combination.
+    events = []  # list of (timestamp, priority, symbol, trade_id, event_type, base_pnl_r, trade_ref)
+    # event_type: "ENTRY" or "EXIT"
+    # priority: 0 for ENTRY, 1 for EXIT
+    # sort key: (timestamp, priority, symbol, trade_id)
+
+    for t, entry_float in completed_pairs:
+        symbol_id = (str(t.symbol), int(t.trade_id))
+        events.append((entry_float, 0, str(t.symbol), int(t.trade_id), "ENTRY", t, symbol_id))
+        exit_float = _to_float_ts(t.exit_timestamp)
+        events.append((exit_float, 1, str(t.symbol), int(t.trade_id), "EXIT", t, symbol_id))
+
+    events.sort(key=lambda e: (e[0], e[1], e[2], e[3]))
+
     surviving: List[BenchmarkTrade] = []
     paused = 0
     n_x1 = 0
     n_x05 = 0
     n_x025 = 0
 
-    for k, t in enumerate(ordered):
-        # Advance the applied pointer: include only trades whose
-        # `exit_timestamp` is STRICTLY less than this trade's
-        # `entry_timestamp` AND that appear BEFORE this trade in
-        # the canonical order. The `applied < k` guard ensures the
-        # current trade is never advanced past itself (causality);
-        # the `exit < entry` guard ensures no same-bar / same-
-        # timestamp self-contribution and no future-data leak.
-        while applied < k and exit_times[applied] < entry_times_ordered[k]:
-            et = ordered[applied]
-            pre_equity += et.pnl_r
-            if pre_equity > pre_peak:
-                pre_peak = pre_equity
-            applied += 1
-        dd_now = pre_peak - pre_equity
+    equity = starting_balance
+    peak = starting_balance
+    # Lock multiplier per (symbol, trade_id) at ENTRY time.
+    mult_lock = {}  # (symbol, trade_id) -> float multiplier
 
-        mult = compute_dd_multiplier(dd_now)
-        if mult == 0.0:
-            paused += 1
-            continue
-        if mult == 1.0:
-            n_x1 += 1
-        elif mult == 0.5:
-            n_x05 += 1
-        elif mult == 0.25:
-            n_x025 += 1
+    for ts, priority, sym_str, tid, event_type, t_ref, symbol_id in events:
+        t_obj = t_ref  # BenchmarkTrade reference
 
-        # Build a copy with scaled pnl_r. Dataclass fields are unchanged
-        # except pnl_r (the equity-curve contribution).
-        scaled = BenchmarkTrade(**t.__dict__)
-        scaled.pnl_r = t.pnl_r * mult
-        surviving.append(scaled)
-        # Update the POST-scale equity curve with this (scaled) contribution.
-        # Paused trades do NOT contribute to post_scale (they were dropped).
-        post_equity += scaled.pnl_r
-        if post_equity > post_peak:
-            post_peak = post_equity
+        if event_type == "ENTRY":
+            # ENTRY event: compute DD from current realized equity/peak.
+            # Only prior EXIT events have updated equity/peak.
+            # Prior ENTRY events (same timestamp, lower priority) have NO effect
+            # on equity/peak — multiplier is computed but not yet applied.
+            dd_now = peak - equity
+            mult = compute_dd_multiplier(dd_now)
+            mult_lock[symbol_id] = mult
+        else:  # EXIT
+            mult = mult_lock.get(symbol_id)
+            if mult is None:
+                # Should not happen, but defensive.
+                continue
+            if mult == 0.0:
+                # PAUSED trade: no realized contribution.
+                paused += 1
+                # Note: mult_lock already has 0; nothing updates equity/peak.
+                continue
 
+            # ACCEPTED trade: apply scaled realized PnL at EXIT time.
+            if mult == 1.0:
+                n_x1 += 1
+            elif mult == 0.5:
+                n_x05 += 1
+            elif mult == 0.25:
+                n_x025 += 1
+
+            scaled_pnl = t_obj.pnl_r * mult
+            equity += scaled_pnl
+            if equity > peak:
+                peak = equity
+
+            scaled = BenchmarkTrade(**t_obj.__dict__)
+            scaled.pnl_r = scaled_pnl
+            surviving.append(scaled)
+
+    # Note: paused trades are NOT in surviving. Their base pnl_r contributes ZERO.
+    # Their multiplier is 0. The event stream processed them at ENTRY (mult=0)
+    # and at EXIT (mult=0 -> skip, no state update).
     return surviving, paused, n_x1, n_x05, n_x025
 
 
@@ -482,8 +507,10 @@ def compute_stats_v11(
     losses = [t for t in completed if t.result == "LOSS"]
     total_pnl = sum(t.pnl_r for t in completed)
 
-    # Chronological equity curve using exit_timestamp (same as C v1.0).
-    sorted_trades = sorted(completed, key=lambda t: t.exit_timestamp)
+    # Chronological equity curve using the SAME deterministic exit ordering
+    # as apply_dd_scaling (exit_timestamp, symbol, trade_id) so the stats
+    # curve and the scaling curves never disagree on trade order.
+    sorted_trades = sorted(completed, key=_exit_order_key)
     equity = starting_balance
     peak = starting_balance
     max_dd = 0.0
@@ -644,8 +671,9 @@ def main():
     # STEP 2 — SINGLE GLOBAL SCALING PASS
     # Apply DD scaling to the merged 6-major stream. EXACTLY ONE
     # call to `apply_dd_scaling()`. No per-symbol scaling, no
-    # second pass, no recomputation. The global walk is
-    # deterministic via `_trade_order_key` (see apply_dd_scaling).
+    # second pass, no recomputation. Each trade's DD is computed from
+    # OTHER trades with exit < entry in the shared (exit, symbol,
+    # trade_id) order (see apply_dd_scaling / _strictly_before_entry_dd).
     # ========================================================================
     scaled_trades, paused, n_x1, n_x05, n_x025 = apply_dd_scaling(
         all_base_trades,

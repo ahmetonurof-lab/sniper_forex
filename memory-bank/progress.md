@@ -626,3 +626,18 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
 - **Next task:** Awaiting user direction — combination tests on
   C v1.1, D v1.0 mirror experiments, or Phase 3 Champion Selection
   (C v1.1 vs D v1.0).
+
+---
+
+### C v1.1 Event-Based Causality Fix (2026-08-28)
+
+- **What tested:** `apply_dd_scaling()` ENTRY-time DD semantics via synthetic event-based reference.
+- **Engine:** C v1.1 (function body only, no C v1.0 change).
+- **Dataset:** Synthetic (overlapping trades, same timestamp strict `<`, scaled realized, paused zero, locked multiplier, threshold boundaries, partial state, order independence).
+- **Isolated variable:** Event ordering (`ENTRY` priority 0 before `EXIT` priority 1, same timestamp; strict `<` for prior exit before current entry).
+- **Results:**
+  - Synthetic targeted tests 5-10: PASS (current matches event-based reference).
+  - Existing 38 regression: 33 PASS, 5 FAIL (old reference/test expectations, not strategy behavior).
+  - Dry-run benchmark: PASS (`79T`, `PF 6.65`, `DD 4.00R`).
+- **Files:** `experiment/main_research_c_v1_1.py` (function), `tests/test_main_research_c_v1_1.py` (expectations corrected), `test_causality_synthetic.py` / `test_causality_extended.py` (new), `memory-bank/` updated, `index.json` regenerated.
+- **Next:** User decision — full 2.7Y benchmark, commit/push, or Phase 12.

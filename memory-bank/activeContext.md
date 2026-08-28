@@ -662,3 +662,14 @@ that were invisible to the earlier fix because tests were not isolating them:
 
 Awaiting user direction: commit/push, combination tests on C v1.1, or
 Phase 12 (DD scaling production integration).
+
+---
+
+## EVENT-BASED CAUSALITY FIX (2026-08-28) — apply_dd_scaling()
+
+- **What:** Replaced exit-ordered replay with event-based `ENTRY` (priority 0) / `EXIT` (priority 1) stream sorted by `(timestamp, priority, symbol, trade_id)`.
+- **Why:** Synthetic tests (overlapping trades, same-timestamp strict `<`, scaled realized, paused zero, locked multiplier, order independence) showed exit-order replay violates entry-time DD semantics.
+- **Mult lock:** `mult_lock[symbol_id]` computed at ENTRY; scaled PnL applied at EXIT; paused (`mult=0`) updates nothing.
+- **Files:** `experiment/main_research_c_v1_1.py` (function body only); `tests/test_main_research_c_v1_1.py` (expectations fixed); `test_causality_synthetic.py`, `test_causality_extended.py` (new).
+- **Benchmark:** dry-run passes; full 2.7Y/6-major pending user direction.
+- **No production / C v1.0 / memory-bank / git changes outside this entry.
