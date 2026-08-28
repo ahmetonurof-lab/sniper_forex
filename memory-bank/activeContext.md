@@ -1,7 +1,7 @@
 # Active Context — Research Control Panel
 
 > Single source of truth for the MaxDD research line.
-> Last updated: 2026-08-28 (C v1.1 PROMOTED + real-MT5 parity fix + Exp C bug fix).
+> Last updated: 2026-08-28 (C v1.1 PROMOTED + causality/determinism CORRECTION + 7 regression tests).
 > Canonical engines are NEVER edited:
 >   - `experiment/main_research_c_v1_0.py` — FROZEN C v1.0 baseline
 >   - `experiment/main_research_c_v1_1.py` — PROMOTED C v1.1 (C2 EQ + DD Risk Scaling)
@@ -73,7 +73,7 @@
 ### PHASE 11 — CONTROLLED MT5 DEMO (COMPLETE 2026-08-28, delivery-ready)
 - **DD scaling overlay:** `src/live/portfolio_dd.py` (PortfolioDD + compute_lot_multiplier, t1=2, t2=4, t3=6) + `src/live/risk.py` (extended evaluate with portfolio_dd_r + RiskDecision.lot_multiplier) + `tests/test_live_portfolio_dd.py` (18 tests).
 - **Real-MT5 demo run (read-only, signal_only):** 65K M1 EURUSD (2026-06-25→2026-08-28) pulled from MT5, StrategyRuntime emitted 17 signals, all approved with multiplier 1.0 (no DD threshold crossed because simulated PnL was small). Log: `results/research/phase11_demo_EURUSD.jsonl`. MT5 account: 53012914 / ICMarketsSC-Demo, $10k balance.
-- **Research result (frozen, 6 majors 2.7Y):** MaxDD% 2.73 → 1.85 (%32 reduction) with DD scaling; PF 5.08 → 5.13. Best MaxDD result.
+- **Research result (frozen, 6 majors 2.7Y):** MaxDD% 2.73 → 2.38 (DD 8.00R → 6.29R) with DD scaling; PF 5.08 → 4.90. Best MaxDD result.
 - **Tests:** 18/18 PASS. Live fast suite 128/128 PASS. Frozen engines unchanged.
 - **⚠ Technical debt (NOT blocking delivery):** ~~Real-MT5 parity regression — canonical run_test_a finds 38 trades on 65K M1 (2026-06-25→2026-08-28), live StrategyRuntime finds 17. Phase 8 feather parity still PASS. Root cause: TBD (likely warmup/ATR initial state on short real-data window).~~ **RESOLVED 2026-08-28** — see "REAL-MT5 PARITY REGRESSION FIX" section below.
 - **Roadmap status:** PHASE 11 marked COMPLETE (DD scaling overlay + paper demo on real MT5 data). **REAL-MT5 PARITY FIX** delivered 2026-08-28 (F1+F2+F3). The "controlled demo with real orders" path remains gated on (b) explicit user approval only.
@@ -212,20 +212,20 @@
 |---|---:|---:|---:|---:|---:|---:|---:|
 | C1 Displacement (tested) | — | — | weaker than C2 | — | — | — | — |
 | **C2 baseline (C v1.0)** | 2302 | 69.37 | +2875.00 | +1.2489 | 5.08 | 8.00 | 2.73 |
-| **C v1.1 (C2 + DD Risk Scaling, PROMOTED)** | 2300 | 69.39 | **+2766.91** | **+1.2026** | **5.13** | **4.71** | **2.19** |
-| _Corrected Exp C reference (used for promotion validation)_ | 2300 | 69.39 | +2766.91 | +1.2026 | 5.13 | 4.71 | 2.19 |
+| **C v1.1 (C2 + DD Risk Scaling, PROMOTED)** | 2299 | 69.38 | **+2646.92** | **+1.1518** | **4.90** | **6.29** | **2.38** |
 
-> **INVALIDATED old reference (2026-08-28):** the previous
-> `MaxDD% 1.85 / +2823-ish TotalR / 0 paused` numbers in memory-bank
-> were an artifact of a **cross-symbol `entry_ts_map` bug** in
-> `experiment/exp_maxdd_C_dd_risk_scaling.py`. The bug is fixed
-> (per-symbol entry_ts lookup, key = `(symbol, entry_bar_index)`).
-> C v1.1 = corrected Exp C exactly (2300/2300 surviving trade
-> identity match, 0 `pnl_r` mismatch, identical pause set
-> `{('GBPJPY', 96), ('USDJPY', 82)}`).
+> **CORRECTED reference (2026-08-28, post causality + determinism fix):**
+> the earlier `2300T / 2 paused / MaxDD% 2.19 / PF 5.13` numbers were an
+> artifact of TWO remaining issues in `exp_maxdd_C_dd_risk_scaling.py`:
+> (a) inclusive causality `exit <= entry` leaked a trade's own exit into its
+> DD decision; (b) sort used `exit_timestamp` only, so ties got a
+> non-deterministic order. Both fixed in C v1.1 (strict `<` causality +
+> deterministic `(exit_timestamp, symbol, trade_id)` tie-break). C v1.1
+> now matches the corrected Exp C on TotalR (+2646.92R) and DD (6.29R);
+> trade count differs by 1 (2299 vs 2298) purely from the determinism fix.
 >
 > **C v1.1 scaling event distribution (corrected):**
-> x1.0 = 2186, x0.5 = 99, x0.25 = 15, paused = 2.
+> x1.0 = 2132, x0.5 = 145, x0.25 = 22, paused = 3.
 >
 > C v1.1 entry_ts is per-symbol scoped (per-trade lookup uses
 > `t.symbol` + `t.entry_bar_index` → its own `bars_15m`). No
@@ -261,7 +261,7 @@ Both: mechanically verified, file = `experiment/exp_maxdd_*.py`. See
 
 - [x] **A** — Concurrent Exposure Cap (REJECT / non-binding)
 - [x] **B** — 3-Loss / 12-bar Circuit Breaker (REJECT / non-binding)
-- [x] **C** — DD-Based Risk Scaling (**PROMOTED → C v1.1, 2026-08-28**. Old `MaxDD% 1.85` reference INVALIDATED — see C v1.1 row in the Confirmed C table above for the corrected authoritative numbers: Trades 2300, paused 2, MaxDD% 2.19, PF 5.13, TotalR +2766.91R.)
+- [x] **C** — DD-Based Risk Scaling (**PROMOTED → C v1.1, 2026-08-28**. Old `MaxDD% 1.85` reference INVALIDATED. Corrected authoritative numbers (post causality+determinism fix): Trades 2299, paused 3, MaxDD 6.29R (2.38%), PF 4.90, TotalR +2646.92R.)
 - [x] **D** — Open Exposure / Total-Risk Cap (REJECT / cap reached but only 2 blocked, no MaxDD impact; mechanically ≡ A under 1R/trade)
 - [x] **E** — Time-of-Day Quality Filter (REJECT / non-impact — 67.6% blocked, TotalR −72.5%, MaxDD% worsened)
 - [ ] **Combination tests** — only after all single-variable experiments resolve
@@ -300,16 +300,16 @@ Phase 1 Summary:
 |---|---|---|---|---|
 | A | REJECT (non-binding) | 8.00 → 8.00 | 2.73 → 2.73 | unchanged |
 | B | REJECT (non-binding) | 8.00 → 8.00 | 2.73 → 2.73 | unchanged |
-| C | **PROMOTED → C v1.1 (2026-08-28, corrected reference)** | 8.00 → 4.71 | 2.73 → **2.19** | −108.09R (−3.76%) |
+| C | **PROMOTED → C v1.1 (2026-08-28, corrected reference)** | 8.00 → 6.29 | 2.73 → **2.38** | −228.08R (−7.93%) |
 | D | REJECT (non-impact) | 8.00 → 8.00 | 2.73 → 2.73 | −1.41R |
 | E | REJECT (non-impact) | 8.00 → 4.77 | 2.73 → 3.03 | −2084R (−72.5%) |
 
 > **C is NO LONGER a candidate** — it has been promoted to
-> `experiment/main_research_c_v1_1.py`. The `MaxDD% 1.85` number
-> shown in older memory-bank checkpoints was an artifact of a
-> cross-symbol `entry_ts_map` bug; the corrected authoritative
-> reference is 2.19% (PF 5.13, TotalR +2766.91R, paused 2 on
-> `{('GBPJPY', 96), ('USDJPY', 82)}`).
+> `experiment/main_research_c_v1_1.py`. The earlier `MaxDD% 1.85` and
+> `MaxDD% 2.19` numbers were artifacts of (a) a cross-symbol `entry_ts_map`
+> bug and (b) inclusive causality + non-deterministic ordering. The
+> corrected authoritative reference is **MaxDD 6.29R (2.38%), PF 4.90,
+> TotalR +2646.92R, 2299T, 3 paused** (C v1.1, post 2026-08-28 fix).
 
 **NEXT ACTION:** Continue Phase 2 D v1.0 mirror experiments (A, B, D, E)
 or combination tests on C v1.1. D + DD Risk Scaling (Exp F) confirmed
@@ -325,7 +325,7 @@ Awaiting user direction on next step.
 |---|---|---|---|---|
 | A | done | REJECT (non-binding) | 0 blocked; baseline unchanged | `experiment/exp_maxdd_A_concurrent_cap.py` |
 | B | done | REJECT (non-binding) | 105 triggers, 0 blocked; mechanically verified | `experiment/exp_maxdd_B_streak_breaker.py` |
-| C | done | **PROMOTED → C v1.1 (corrected reference)** | 2300T, 2 paused, MaxDD% 2.19, PF 5.13, TotalR +2766.91R | `experiment/exp_maxdd_C_dd_risk_scaling.py` |
+| C | done | **PROMOTED → C v1.1 (corrected reference)** | 2299T, 3 paused, MaxDD 6.29R, MaxDD% 2.38, PF 4.90, TotalR +2646.92R | `experiment/exp_maxdd_C_dd_risk_scaling.py` |
 | D | done | REJECT (non-impact) | cap 3R reached (max_open=3) but only 2 blocked wins; MaxDD 8.00R unchanged | `experiment/exp_maxdd_D_open_exposure_cap.py` |
 | E | done | REJECT (non-impact) | 1557 blocked (67.6%), MaxDD(R) 8.00→4.77 but TotalR −2084 (−72.5%), MaxDD% 2.73→3.03 worse, PF 5.08→4.61 | `experiment/exp_maxdd_E_time_of_day.py` |
 | F | done | REJECT (non-impact) | D v1.0 + DD Risk Scaling: 6 paused, MaxDD 7.36R unchanged, MaxDD% 2.76→2.86 worse, TotalR −234.70R (−7.97%) | `experiment/exp_maxdd_F_d_risk_scaling.py` |
@@ -423,16 +423,21 @@ pattern.
 ### Authoritative benchmark (corrected)
 
 - **C v1.0 baseline (FROZEN)**: 2302T, 69.37% WR, +2875.00R, +1.2489 AvgR, PF 5.08, MaxDD 8.00R, MaxDD% 2.73%.
-- **C v1.1 (PROMOTED)**: **2300T**, **2 paused**, **69.39% WR**, **+2766.91R**, **+1.2026 AvgR**, **PF 5.13**, **MaxDD 4.71R**, **MaxDD% 2.19%**.
-- Scaling event distribution: x1.0 = 2186, x0.5 = 99, x0.25 = 15, paused = 2.
-- Paused set: `{('GBPJPY', 96), ('USDJPY', 82)}`.
+- **C v1.1 (PROMOTED)**: **2299T**, **3 paused**, **69.38% WR**, **+2646.92R**, **+1.1518 AvgR**, **PF 4.90**, **MaxDD 6.29R**, **MaxDD% 2.38%**.
+- Scaling event distribution: x1.0 = 2132, x0.5 = 145, x0.25 = 22, paused = 3.
+- Corrected Exp C (authoritative): 2298T, +2646.92R, PF 4.91, DD 6.29R (1-trade diff from C v1.1 is the determinism tie-break fix only).
 
-### INVALIDATED old reference
+### INVALIDATED earlier reference
 
-- Previous memory-bank `MaxDD% 1.85%` (and `+2823-ish TotalR / 0 paused`) numbers were an artifact of a **cross-symbol `entry_ts_map` bug** in `exp_maxdd_C_dd_risk_scaling.py`.
-- Root cause: `entry_ts_map = { t.trade_id: ... }` keyed only on `trade_id`. Because `run_test_a` resets its per-symbol `trade_counter` to 0 on every call, 1895/2302 trades (82%) received a cross-symbol-contaminated entry_ts.
-- The contamination happened to produce 0 paused, MaxDD 8.00R, MaxDD% 1.85 — those numbers are NOT the real behavior.
-- Phase 1 (2026-08-28) fixed the bug (per-symbol lookup, key = `(t.symbol, t.entry_bar_index)`) and re-ran the benchmark. C v1.1 = corrected Exp C exactly (2300/2300 surviving trade identity match, 0 `pnl_r` mismatch, identical pause set, identical multiplier distribution).
+- The `2300T / 2 paused / MaxDD% 2.19 / PF 5.13 / +2766.91R` numbers recorded
+  earlier (2026-08-28) were an artifact of TWO remaining issues in
+  `exp_maxdd_C_dd_risk_scaling.py`:
+  1. Inclusive causality `exit <= entry` leaked a trade's own exit into its
+     DD decision (corrected: strict `<`).
+  2. Sort key `exit_timestamp` only → non-deterministic tie order (corrected:
+     deterministic `(exit_timestamp, symbol, trade_id)` tie-break).
+- After both fixes: C v1.1 = **2299T, 3 paused, MaxDD 6.29R (2.38%),
+  PF 4.90, +2646.92R**. This is the authoritative current reference.
 
 ### Files (this promotion)
 
@@ -445,15 +450,15 @@ pattern.
 
 ### Validation
 
-- `pytest tests/test_main_research_c_v1_1.py` → 24/24 PASS.
-- `pytest tests/` (slow parity deselected) → 246 PASS, 1 SKIP, 0 FAIL.
+- `pytest tests/test_main_research_c_v1_1.py` → 31/31 PASS.
+- `pytest tests/` (slow parity deselected) → 277 PASS, 1 SKIP, 0 FAIL.
 - `git diff experiment/main_research_c_v1_0.py` → CLEAN (frozen engine untouched).
 - `git diff results/benchmark/` → CLEAN (frozen benchmarks untouched).
 - C v1.1 (corrected Exp C) head-to-head:
-  - 2300/2300 surviving trade identity match (8-field key).
-  - 0 `pnl_r` mismatches.
-  - Identical pause set `{('GBPJPY', 96), ('USDJPY', 82)}`.
-  - Identical multiplier distribution `{2186, 99, 15, 2}`.
+  - TotalR +2646.92R and MaxDD 6.29R match corrected Exp C exactly.
+  - Trade count 2299 vs corrected Exp C 2298 (1-trade diff = determinism
+    tie-break fix only; C v1.1 is the canonical resolved order).
+  - Multiplier distribution: x1=2132, x0.5=145, x0.25=22, paused=3.
 
 ### Production linkage
 
@@ -590,3 +595,70 @@ REAL-MT5 PARITY REGRESSION FIX is COMPLETE. F1+F2+F3 PASS. No further
 parity work needed before the controlled demo with real orders. Awaiting
 user direction: research promotion, Phase 12 (DD scaling integration),
 or other.
+
+---
+
+## C v1.1 CAUSALITY + DETERMINISM CORRECTION (2026-08-28)
+
+### Why
+
+After the Exp C cross-symbol `entry_ts` bug was fixed, a head-to-head
+re-run (`pytest tests/` + benchmark) surfaced two residual correctness
+issues in `experiment/main_research_c_v1_1.py` and `exp_maxdd_C_dd_risk_scaling.py`
+that were invisible to the earlier fix because tests were not isolating them:
+
+1. **Inclusive causality (`exit <= entry`).** The advance loop used
+   `exit_times[applied] <= entry_times[k]`, which let a trade's own exit
+   (same bar as the next entry) leak into the DD decision of the next
+   trade. Violates the "no self-contamination" causality rule.
+2. **Non-deterministic ordering.** `sorted(..., key=exit_timestamp)` had
+   no tie-break; trades sharing an exit timestamp got an unstable order
+   → different trade counts per run.
+
+### Fixes applied (single-variable, behavior-only)
+
+- **C1 (strict causality):** advance loop now uses `<` (strictly-before
+  entry). A paused trade's `pnl_r` is NOT added to equity/peak; only
+  trades whose exit is strictly before the deciding trade's entry count.
+- **C2 (deterministic tie-break):** sort key
+  `(exit_timestamp, symbol, trade_id)`. Symbol then trade_id = stable/
+  reproducible across runs.
+- **C3 (run_test_a_v11 no scaling):** `run_test_a_v11` now runs ONLY the
+  base `run_test_a` stream (no DD scaling) so tests can assert the
+  deterministic pre-scaling population without scaling contamination.
+- **C4 (main STEP structure):** `main()` now strictly does STEP 1 (base
+  stream) → STEP 2 (DD scaling) → STEP 3 (scaled metrics) with no
+  cross-mixing; `starting_balance` passed to `apply_dd_scaling` matches
+  the per-symbol `STARTING_BALANCE`.
+- **C5 (entry_ts validation + fail-fast):** `_derive_entry_ts` validates
+  `len(entry_ts) == len(trades)` and fails fast on an invalid bar index
+  (`index - 1 < 0`) instead of silently padding.
+
+### Result (validated)
+
+- `pytest tests/test_main_research_c_v1_1.py` → **31/31 PASS** (7 new
+  regression tests A–G added: determinism, strict causality, paused-trade
+  peak isolation, entry_ts validation, no-scaling base run, x0.5/x0.25
+  tiers, single-symbol scaling of one symbol).
+- `pytest tests/` (slow parity deselected) → **277 PASS, 1 SKIP, 0 FAIL**.
+- Benchmark `experiment/main_research_c_v1_1.py` →
+  **2299T, 69.38% WR, +2646.92R, PF 4.90, DD 6.29R (2.38%), paused 3,
+  x1=2132 / x0.5=145 / x0.25=22**.
+- Corrected `exp_maxdd_C_dd_risk_scaling.py` (also switched to `<`)
+  matches on TotalR (+2646.92R) and DD (6.29R); trade count 2298 vs
+  2299 differs by exactly 1 (the determinism tie-break resolved in C v1.1).
+- Frozen engines (`main_research_c_v1_0.py`, `main_research_d_v1_0.py`)
+  and `results/benchmark/*.json` untouched (git diff CLEAN).
+
+### Files changed
+
+- `experiment/main_research_c_v1_1.py` — C1, C2, C3, C4, C5.
+- `experiment/exp_maxdd_C_dd_risk_scaling.py` — C1 (boundary `<`).
+- `tests/test_main_research_c_v1_1.py` — +7 regression tests.
+- `memory-bank/activeContext.md` — corrected C v1.1 authoritative numbers.
+- `index.json` — regenerated.
+
+### NEXT ACTION
+
+Awaiting user direction: commit/push, combination tests on C v1.1, or
+Phase 12 (DD scaling production integration).

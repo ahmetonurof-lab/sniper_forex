@@ -135,9 +135,18 @@ BEHAVIORAL INVARIANTS (unchanged from C v1.0)
 =============================================================================
 USAGE
 =============================================================================
-  from experiment.main_research_c_v1_1 import run_test_a_v11, compute_stats_v11
-  trades = run_test_a_v11("EURUSD", bars_15m)
-  stats  = compute_stats_v11(trades)
+The canonical C v1.1 (with DD Risk Scaling) is produced by `main()`,
+which:
+  1. runs C v1.0 base for all 6 majors (or symbols passed via argv),
+  2. merges the base trade streams with per-symbol `entry_ts`,
+  3. calls `apply_dd_scaling()` exactly once on the merged stream,
+  4. computes stats on the same scaled stream.
+
+Single-symbol helpers (base only, no scaling — for per-symbol
+debugging or local inspection):
+
+  from experiment.main_research_c_v1_1 import run_test_a_v11
+  base_trades = run_test_a_v11("EURUSD", bars_15m)  # unscaled base
 
 Or via the 6-major worker:
 
@@ -201,74 +210,106 @@ def compute_dd_multiplier(dd_now: float) -> float:
     return 1.0
 
 
+def _to_float_ts(t) -> float:
+    """Normalize Timestamp/float/number to float seconds since epoch."""
+    import pandas as _pd
+
+    if hasattr(t, "timestamp") and callable(t.timestamp):
+        return float(t.timestamp())
+    if hasattr(t, "timestamp") and not callable(t.timestamp):
+        # numpy datetime64-like
+        return float(_pd.Timestamp(t).timestamp())
+    return float(t)
+
+
+def _trade_order_key(pair: Tuple[BenchmarkTrade, Any]) -> Tuple[float, float, str, int]:
+    """Deterministic sort key for the trade stream.
+
+    Order: (exit_ts, entry_ts, symbol, trade_id). This guarantees
+    that for any two trades with identical exit and entry timestamps,
+    the ordering is fixed across Python sessions, threads, and
+    platforms (no reliance on `zip` insertion order or `set` iteration
+    order). Canonical for the global 6-major C v1.1 walk.
+    """
+    trade, entry_time = pair
+    exit_time = _to_float_ts(trade.exit_timestamp)
+    entry_time_f = _to_float_ts(entry_time)
+    return (
+        exit_time,
+        entry_time_f,
+        str(trade.symbol),
+        int(trade.trade_id),
+    )
+
+
 def apply_dd_scaling(
     trades: List[BenchmarkTrade],
     entry_ts: Optional[List[float]] = None,
     starting_balance: float = STARTING_BALANCE_R,
 ) -> Tuple[List[BenchmarkTrade], int, int, int, int]:
-    """Apply DD-based risk scaling to a list of COMPLETED trades.
+    """Apply DD-based risk scaling to the merged base trade stream.
 
-    The trade stream is sorted by `exit_timestamp` (chronological, same
-    as canonical `compute_stats`). For each trade, the portfolio DD
-    measured from already-realized trades (exit_timestamp <= this
-    trade's entry_timestamp) determines the multiplier applied to the
-    trade's `pnl_r`.
+    GLOBAL portfolio semantics: the caller passes the merged 6-major
+    base trade list (and a parallel `entry_ts` list). One equity
+    curve, one chronological walk, one DD state.
+
+    For each trade, the realized portfolio DD measured from trades
+    that closed STRICTLY BEFORE this trade's entry_timestamp
+    (`exit_ts < entry_ts` — strict `<` to guarantee no self-PnL and
+    no same-bar double-counting) determines the multiplier applied
+    to this trade's `pnl_r`.
+
+    Determinism: the walk order is `(_trade_order_key)`
+    `(exit_ts, entry_ts, symbol, trade_id)`. Two trades with the
+    exact same exit AND entry timestamps resolve by `(symbol,
+    trade_id)` lexicographic order. This is canonical across
+    sessions, threads, and platforms.
 
     Args:
-        trades:            trade list. May include OPEN trades; they
-                           are skipped (no scaling applied, no equity
-                           contribution).
-        entry_ts:          parallel list of entry timestamps (one per
-                           trade, in the same order as `trades`). If
-                           None, we use the feather timestamps derived
-                           from `entry_bar_index` (mirrors
-                           `exp_maxdd_C_dd_risk_scaling.py` main()
-                           which builds this list from the bars).
-        starting_balance:  starting equity in R (default 100R).
+        trades:           base (UNSCALED) BenchmarkTrade list. May
+                          include OPEN trades (they are skipped, no
+                          equity contribution).
+        entry_ts:         parallel list of entry timestamps, one per
+                          trade, in the SAME order as `trades`. Must
+                          be the same length as `trades`. Required.
+        starting_balance: starting equity in R (default 100R).
 
     Returns:
-        surviving_trades:  list of accepted, scaled BenchmarkTrade
-                           (pnl_r is the SCALED pnl_r; SL/TP/entry/exit
-                           fields are UNCHANGED).
-        paused_count:      number of trades that were paused
-                           (multiplier == 0.0, trade dropped).
-        x1_count:          number of trades scaled at x1.00.
-        x05_count:         number of trades scaled at x0.50.
-        x025_count:        number of trades scaled at x0.25.
+        surviving_trades: list of scaled BenchmarkTrade (only `pnl_r`
+                           mutated; SL/TP/entry/exit/result/symbol/
+                           trade_id/zone/sweep are UNCHANGED).
+        paused_count:     number of trades that were paused
+                          (multiplier == 0.0, dropped).
+        x1_count, x05_count, x025_count: tier counts.
 
-    NO-LOOKAHEAD rule: the DD used for a trade's scaling is measured
-    from trades that have ALREADY closed BEFORE this trade's entry.
-    When `entry_ts` is provided, it MUST be in exit-timestamp-sortable
-    order relative to the trade stream — i.e. `sorted(trades, key=exit)`
-    and the parallel `entry_ts` list give the correct chronological
-    causality.
+    NO-LOOKAHEAD / strictly-before-entry causality: the advance loop
+    uses `applied < k and exit_times[applied] < entry_times_ordered[k]`,
+    so:
+      * only trades whose exit is STRICTLY less than the current
+        trade's entry are included;
+      * current trade itself is never advanced past itself;
+      * same-exit-time / same-entry-time ambiguity resolves by
+        `_trade_order_key` (deterministic).
     """
-    completed = [t for t in trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")]
-    # Sort by exit_timestamp (canonical equity-curve order).
     if entry_ts is None:
-        # Caller didn't supply entry timestamps: derive from each
-        # trade's entry_bar_index via the feather (only used by
-        # run_test_a_v11 which has access to the bars).
         raise ValueError(
             "entry_ts is required for apply_dd_scaling (the canonical "
-            "BenchmarkTrade has no entry_timestamp field — this is the "
-            "same convention as exp_maxdd_C_dd_risk_scaling.py)."
+            "BenchmarkTrade has no entry_timestamp field — the caller "
+            "must pass it explicitly)."
+        )
+    if len(entry_ts) != len(trades):
+        raise ValueError(
+            f"entry_ts length ({len(entry_ts)}) must equal trades "
+            f"length ({len(trades)}). entry_ts is a parallel list."
         )
 
-    def _to_float_ts(t) -> float:
-        """Normalize Timestamp/float/number to float seconds since epoch."""
-        import pandas as _pd
-
-        if hasattr(t, "timestamp") and callable(t.timestamp):
-            return float(t.timestamp())
-        if hasattr(t, "timestamp") and not callable(t.timestamp):
-            # numpy datetime64-like
-            return float(_pd.Timestamp(t).timestamp())
-        return float(t)
-
+    completed = [t for t in trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")]
+    # Build a (trade, entry_ts) pair list, then sort deterministically
+    # by (_trade_order_key). This ensures the global walk is stable
+    # across sessions and across symbol order.
     paired = sorted(
         zip(completed, entry_ts),
-        key=lambda p: _to_float_ts(p[0].exit_timestamp),
+        key=_trade_order_key,
     )
     ordered = [p[0] for p in paired]
     # Normalize entry_ts to float.
@@ -295,11 +336,14 @@ def apply_dd_scaling(
     n_x025 = 0
 
     for k, t in enumerate(ordered):
-        # Advance the applied pointer: include all closed trades whose
-        # exit <= this trade's entry (NO lookahead). Both pre_equity and
-        # pre_peak are updated so the DD computed below uses the full
-        # realized base state up to (and not including) this trade.
-        while applied < len(ordered) and exit_times[applied] <= entry_times_ordered[k]:
+        # Advance the applied pointer: include only trades whose
+        # `exit_timestamp` is STRICTLY less than this trade's
+        # `entry_timestamp` AND that appear BEFORE this trade in
+        # the canonical order. The `applied < k` guard ensures the
+        # current trade is never advanced past itself (causality);
+        # the `exit < entry` guard ensures no same-bar / same-
+        # timestamp self-contribution and no future-data leak.
+        while applied < k and exit_times[applied] < entry_times_ordered[k]:
             et = ordered[applied]
             pre_equity += et.pnl_r
             if pre_equity > pre_peak:
@@ -334,19 +378,38 @@ def apply_dd_scaling(
 
 def _derive_entry_ts(trades: List[BenchmarkTrade], bars_15m: List) -> List[float]:
     """Build a parallel `entry_ts` list from each trade's
-    `entry_bar_index` and the bars' timestamps. Mirrors
-    `exp_maxdd_C_dd_risk_scaling.py::main` (the entry_ts_map step).
+    `entry_bar_index` and the OWN symbol's `bars_15m` timestamps.
+
+    Per-symbol scoped by construction: the `bars_15m` list belongs
+    to one symbol. Each trade's entry_ts is derived from
+    `bars_15m[entry_bar_index].timestamp` — never from a global
+    map keyed by `trade_id` (which collides across symbols
+    because `run_test_a` resets per-symbol `trade_counter` to 0
+    on every call).
+
+    Fail-fast: if `entry_bar_index` is out of range for the
+    given `bars_15m`, raise ValueError. Research benchmarks must
+    not silently fall back to `epoch=0` (which would corrupt the
+    chronological ordering in the global C v1.1 walk).
+
+    Returns:
+        List[float] parallel to `trades`, each element =
+        `pd.Timestamp(bars_15m[entry_bar_index].timestamp).timestamp()`
+        as float seconds since epoch.
     """
     import pandas as pd
 
     ts_array = [b.timestamp for b in bars_15m]
+    n = len(ts_array)
     out: List[float] = []
     for t in trades:
         ei = getattr(t, "entry_bar_index", 0)
-        if 0 <= ei < len(ts_array):
-            out.append(float(pd.Timestamp(ts_array[ei]).timestamp()))
-        else:
-            out.append(0.0)
+        if not (0 <= ei < n):
+            raise ValueError(
+                f"Invalid entry_bar_index for {t.symbol} "
+                f"trade_id={t.trade_id}: {ei} (bars_15m len={n})"
+            )
+        out.append(float(pd.Timestamp(ts_array[ei]).timestamp()))
     return out
 
 
@@ -359,19 +422,23 @@ def run_test_a_v11(
     symbol: str,
     bars_15m: List,
 ) -> List[BenchmarkTrade]:
-    """C v1.1 trade list.
+    """C v1.1 base trades for ONE symbol (no DD scaling).
 
-    Generates trades using the FROZEN C v1.0 engine (imported as
-    `_run_test_a_v10`) and then applies the DD risk scaling overlay.
+    Runs the FROZEN C v1.0 engine for `symbol` on `bars_15m` and
+    returns the unscaled base trade list. The DD Risk Scaling
+    overlay is GLOBAL across the 6-major merged stream; it is
+    NOT applied here. The canonical C v1.1 (with scaling) is
+    produced by `main()`, which merges 6 majors and calls
+    `apply_dd_scaling()` exactly once.
 
-    Returns the SCALED trade list (paused trades excluded).
-    Trade identity (entry/exit/SL/TP/zone/sweep) is identical to C v1.0.
+    This function is a thin wrapper for symmetry / future
+    per-symbol debugging; it must NOT do per-symbol scaling
+    (that would contradict the global C v1.1 semantics).
+
+    Trade identity (entry/exit/SL/TP/zone/sweep) is identical to
+    C v1.0 — no mutation, no scaling.
     """
-
-    base_trades = _run_test_a_v10(symbol, bars_15m)
-    entry_ts = _derive_entry_ts(base_trades, bars_15m)
-    scaled, _paused, _n1, _n05, _n025 = apply_dd_scaling(base_trades, entry_ts=entry_ts)
-    return scaled
+    return _run_test_a_v10(symbol, bars_15m)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -549,40 +616,75 @@ def main():
     print(f"Symbols: {symbols} | {'DRY RUN' if args.dry_run else 'FULL 2.7Y'}")
     print()
 
-    # STEP 1: Run C v1.0 base engine for all 6 majors in parallel and
-    # collect BASE trades + per-symbol entry_ts. No scaling here.
+    # ========================================================================
+    # STEP 1 — BASE TRADES
+    # For each symbol, run the FROZEN C v1.0 engine and derive
+    # per-symbol `entry_ts` (one timestamp per base trade). No
+    # DD scaling here. `all_base_trades[i]` and `all_entry_ts[i]`
+    # always represent the SAME trade; the order is the symbol
+    # iteration order (deterministic).
+    # ========================================================================
     t0 = time.time()
     all_base_trades: List[BenchmarkTrade] = []
     all_entry_ts: List[float] = []
-    # We need each symbol's base_trades + entry_ts in a deterministic
-    # order so that the global apply_dd_scaling() sees a stable
-    # chronological stream. We use a serial loop (one symbol at a
-    # time) — C v1.0's per-symbol work is fast enough at 6-symbol
-    # scale (~6 minutes) and the determinism matters for a valid
-    # global portfolio equity curve. (Pure-parallel mode would
-    # require a global sort by entry/exit timestamp; serial is
-    # simpler and still within budget.)
     for s in symbols:
         base_sym, et_sym = _run_symbol_base(s, args.dry_run)
         all_base_trades.extend(base_sym)
         all_entry_ts.extend(et_sym)
     elapsed = time.time() - t0
+    # Defensive: every base trade must have a matching entry_ts.
+    if len(all_base_trades) != len(all_entry_ts):
+        raise RuntimeError(
+            f"main STEP 1 contract violated: "
+            f"len(all_base_trades)={len(all_base_trades)} "
+            f"!= len(all_entry_ts)={len(all_entry_ts)}"
+        )
 
-    # STEP 2: Apply DD scaling GLOBALLY across the 6 majors. One
-    # call, one equity curve, one chronological walk. The base
-    # trade stream is the merged 6-major stream; the per-symbol
-    # entry_ts is preserved (each trade knows when IT entered, the
-    # scaling logic only needs the entry timestamp relative to the
-    # global exit-timestamp order).
+    # ========================================================================
+    # STEP 2 — SINGLE GLOBAL SCALING PASS
+    # Apply DD scaling to the merged 6-major stream. EXACTLY ONE
+    # call to `apply_dd_scaling()`. No per-symbol scaling, no
+    # second pass, no recomputation. The global walk is
+    # deterministic via `_trade_order_key` (see apply_dd_scaling).
+    # ========================================================================
     scaled_trades, paused, n_x1, n_x05, n_x025 = apply_dd_scaling(
         all_base_trades,
         entry_ts=all_entry_ts,
         starting_balance=args.starting_balance,
     )
 
-    # STEP 3: Stats come from the SAME scaled stream. No
-    # recomputation, no second pass.
+    # ========================================================================
+    # STEP 3 — STATS FROM THE SAME SCALED STREAM
+    # Stats and scaling counts come from the SAME returned stream.
+    # No second pass; no recomputation. `starting_balance` is
+    # passed identically to `apply_dd_scaling` and
+    # `compute_stats_v11` so the equity curve is internally
+    # consistent.
+    # ========================================================================
     stats = compute_stats_v11(scaled_trades, starting_balance=args.starting_balance)
+    # POST-CONDITION: stats counts (wins + losses) + (open_n) must
+    # equal the scaled stream length. Equivalently: tier counts
+    # (x1 + x0.5 + x0.25 + paused) must equal the COMPLETED base
+    # trade count (the same number used for total_pnl denominator).
+    completed_base = sum(
+        1 for t in all_base_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
+    )
+    completed_scaled = sum(
+        1 for t in scaled_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
+    )
+    if n_x1 + n_x05 + n_x025 + paused != completed_base:
+        raise RuntimeError(
+            f"main STEP 3 consistency violated: tier counts "
+            f"(x1={n_x1} + x0.5={n_x05} + x0.25={n_x025} + paused={paused} "
+            f"= {n_x1 + n_x05 + n_x025 + paused}) != completed base "
+            f"trades ({completed_base})"
+        )
+    if completed_scaled + paused != completed_base:
+        raise RuntimeError(
+            f"main STEP 3 consistency violated: surviving scaled "
+            f"({completed_scaled}) + paused ({paused}) != completed "
+            f"base ({completed_base})"
+        )
     completed = [t for t in scaled_trades if t.result != "OPEN"]
     open_n = len(scaled_trades) - len(completed)
 

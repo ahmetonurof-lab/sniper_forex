@@ -116,8 +116,9 @@ def apply_dd_risk_scaling(
     post_scale_maxdd = 0.0
 
     for k, t in enumerate(ordered):
-        # Advance applied pointer: apply all trades whose exit <= this entry.
-        while applied < len(ordered) and exit_times[applied] <= entry_times[k]:
+        # Advance applied pointer: apply all trades whose exit < this entry
+        # (strictly-before causality per 2026-08-28 decision).
+        while applied < len(ordered) and exit_times[applied] < entry_times[k]:
             et = ordered[applied]
             equity += et.pnl_r
             peak = max(peak, equity)
