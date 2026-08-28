@@ -4,7 +4,7 @@
 > This file is the chronological per-experiment log for the MaxDD research
 > line. Every experiment entry MUST contain: what was tested, which engine,
 > which dataset, isolated variable, result, decision, next test.
-> Last updated: 2026-08-27.
+> Last updated: 2026-08-28 (C v1.1 PROMOTED + Exp C cross-symbol bug fix).
 
 ---
 
@@ -185,7 +185,7 @@
   rule, not a bug. Function's accepted-aware walk gives 105 triggers
   (authoritative); pure-EXIT walk gives 42.
 
-### Exp C — DD-Based Risk Scaling (C v1.0)
+### Exp C — DD-Based Risk Scaling (C v1.0) — PROMOTED (2026-08-28, corrected)
 
 - **What tested:** scale per-trade risk by current realized portfolio DD
   (post-hoc overlay). Thresholds: DD>2R x0.50, DD>4R x0.25, DD>6R pause.
@@ -194,20 +194,32 @@
 - **Isolated variable:** post-hoc per-trade pnl_r multiplier based on
   realized portfolio drawdown at trade entry. NO lookahead (DD from
   realized exits only). Single lever.
-- **Result:** 0 paused. 2302T / +2827.55R / AvgR +1.2283 / PF 5.13 /
-  MaxDD(R) 8.00 / **MaxDD(%) 1.85**. MaxDD(R) unchanged because the 8.00R
-  drawdown is a single-trade loss step intrinsic to the engine; scaling
-  the next trade's risk cannot shrink a pre-existing peak-to-trough.
-  MaxDD% improved 2.73 → 1.85 (−32%) because the same 8.00R step is a
-  smaller fraction of a higher equity peak after scaling. TotalR −1.65%
-  (cost of the DD-scale leg). PF ticks up 5.08 → 5.13.
-- **Decision:** **MaxDD% lever — PENDING PROMOTION to C v1.1.**
-  Not auto-accepted: promotion requires a separate decision after
-  standalone validation. MaxDD(R) is NOT reduced; only MaxDD(%) moves.
-- **Next test:** Exp D (Open Exposure / Total-Risk Cap).
-- **File:** `experiment/exp_maxdd_C_dd_risk_scaling.py`.
+- **Result (corrected 2026-08-28, after cross-symbol `entry_ts` bug
+  fix):** **2 paused** (GBPJPY id=96, USDJPY id=82). 2300T /
+  **+2766.91R** / AvgR **+1.2026** / **PF 5.13** / MaxDD(R) **4.71** /
+  **MaxDD% 2.19**. Scaling event distribution: x1.0 = 2186, x0.5 = 99,
+  x0.25 = 15, paused = 2. MaxDD(R) reduced (4.71 < 8.00) because
+  per-symbol risk reduction shrinks both the equity peak-to-trough
+  step and its pre-existing single-trade step.
+- **INVALIDATED old result (pre-fix):** the previous
+  `2302T / 0 paused / +2823-ish TotalR / MaxDD(R) 8.00 / MaxDD% 1.85`
+  numbers were an artifact of a **cross-symbol `entry_ts_map` bug**
+  in this file (the map was keyed only on `trade_id`; 1895/2302 trades
+  received cross-symbol-contaminated entry_ts because `run_test_a`
+  resets per-symbol `trade_counter` to 0 on every call). See
+  `## C v1.1 PROMOTION (2026-08-28)` below for the fix details.
+- **Decision:** **PROMOTED → C v1.1** (2026-08-28). The MaxDD% lever
+  is now the canonical behaviour of `experiment/main_research_c_v1_1.py`.
+  The corrected `exp_maxdd_C_dd_risk_scaling.py` is kept for historical
+  / provenance role only; C v1.1 does NOT import it.
+- **Next test:** combination tests on C v1.1 / D v1.0, or Phase 3
+  Champion Selection.
+- **Files:** `experiment/exp_maxdd_C_dd_risk_scaling.py` (corrected);
+  `experiment/main_research_c_v1_1.py` (NEW canonical engine);
+  `tests/test_main_research_c_v1_1.py` (24 unit tests, all PASS).
 - **Outputs:** `results/research/expC_dd_risk_scaling_summary.json`,
-  `results/research/expC_dd_risk_scaling_trades.json`.
+  `results/research/expC_dd_risk_scaling_trades.json`,
+  `results/research/c_v1_1_summary.json`.
 
 ### Exp D — Open Exposure / Total-Risk Cap (C v1.0) (REJECT — non-impact)
 - **What tested:** cap the total open R exposure of accepted trades at
@@ -544,3 +556,73 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
   the blocker).
 - **Next task:** Awaiting user direction — research promotion (C v1.1
   with DD scaling), Phase 12 (DD scaling integration), or other.
+
+---
+
+### C v1.1 PROMOTION (2026-08-28) — COMPLETE
+
+- **What was done:** Promoted the (corrected) Exp C DD Risk Scaling
+  algorithm to a new canonical research engine
+  `experiment/main_research_c_v1_1.py`. C v1.0 is FROZEN. The old
+  `MaxDD% 1.85%` reference was invalidated (cross-symbol bug
+  artifact); the corrected authoritative reference is `MaxDD% 2.19%`.
+- **Engine:** C v1.1 imports C v1.0 by reference
+  (`from experiment.main_research_c_v1_0 import run_test_a`) and
+  applies the verified DD scaling algorithm inline. No re-design.
+- **Isolated variable vs C v1.0:** ONE change — a global
+  portfolio-DD-based pnl_r scaling layer applied to the merged
+  6-major trade stream with per-symbol entry_ts scoping.
+- **Dataset:** 6 majors (EURUSD, GBPUSD, GBPJPY, USDJPY, AUDUSD, USDCAD),
+  2.7Y, 15m bars, full. Authoritative reference.
+- **Result (corrected Exp C ≡ C v1.1, verified Phase 1):**
+  | Metric | C v1.0 baseline | **C v1.1 (PROMOTED)** |
+  |---|---:|---:|
+  | Trades | 2302 | **2300** |
+  | Paused | 0 | **2** |
+  | WR% | 69.37 | **69.39** |
+  | TotalR | +2875.00 | **+2766.91** |
+  | AvgR | +1.2489 | **+1.2026** |
+  | PF | 5.08 | **5.13** |
+  | MaxDD(R) | 8.00 | **4.71** |
+  | MaxDD% | 2.73 | **2.19** |
+  | x1.0 | — | 2186 |
+  | x0.5 | — | 99 |
+  | x0.25 | — | 15 |
+  | paused | — | 2 |
+  | Paused set | — | `{('GBPJPY', 96), ('USDJPY', 82)}` |
+- **Cross-symbol bug fix (provenance):**
+  - Pre-fix: `entry_ts_map = { t.trade_id: ... }` — `trade_id` is NOT
+    globally unique (C v1.0's `run_test_a` resets per-symbol
+    `trade_counter` to 0 on every call). 1895/2302 trades (82%)
+    received cross-symbol-contaminated entry_ts.
+  - Post-fix: per-symbol lookup, key = `(t.symbol, t.entry_bar_index)`.
+    Each trade's entry_ts is derived only from its own symbol's
+    `bars_15m[entry_bar_index].timestamp`.
+  - Effect on numbers: pre-fix showed 0 paused, MaxDD 8.00R, MaxDD%
+    1.85% (artifact). Post-fix shows 2 paused, MaxDD 4.71R, MaxDD%
+    2.19% (real behavior).
+- **Validation:**
+  - `pytest tests/test_main_research_c_v1_1.py` → 24/24 PASS.
+  - `pytest tests/` (full suite, slow parity deselected) →
+    246 PASS, 1 SKIP, 0 FAIL.
+  - `git diff experiment/main_research_c_v1_0.py` → CLEAN (frozen).
+  - `git diff experiment/main_research_d_v1_0.py` → CLEAN (frozen).
+  - `git diff results/benchmark/` → CLEAN (frozen benchmarks).
+  - C v1.1 ≡ corrected Exp C at the trade level (Phase 1 verified):
+    2300/2300 surviving identity, 0 `pnl_r` mismatch, identical pause
+    set, identical multiplier distribution, identical aggregate stats.
+- **Decision:** **PROMOTED.** C v1.1 is the canonical engine for
+  C2 + DD Risk Scaling. Future C-family experiments target C v1.1.
+- **Files (this promotion):**
+  - **Created:** `experiment/main_research_c_v1_1.py` (NEW canonical).
+  - **Created:** `tests/test_main_research_c_v1_1.py` (24 unit tests).
+  - **Modified:** `experiment/exp_maxdd_C_dd_risk_scaling.py` (cross-
+    symbol bug fix; kept for provenance).
+  - **Modified:** `memory-bank/activeContext.md` + `memory-bank/progress.md`
+    (this section + the tables in `## CURRENT STATE`).
+  - **Modified:** `index.json` (regenerated).
+  - **Untouched:** C v1.0 (FROZEN), D v1.0 (FROZEN), benchmark JSONs,
+    `src/live/*` (production architecture unchanged).
+- **Next task:** Awaiting user direction — combination tests on
+  C v1.1, D v1.0 mirror experiments, or Phase 3 Champion Selection
+  (C v1.1 vs D v1.0).

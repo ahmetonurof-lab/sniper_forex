@@ -1,10 +1,13 @@
 # Active Context — Research Control Panel
 
 > Single source of truth for the MaxDD research line.
-> Last updated: 2026-08-28 (REAL-MT5 PARITY REGRESSION FIX).
-> Canonical engines (`main_research_c_v1_0.py`, `main_research_d_v1_0.py`) are NEVER
-> edited for experiments. New behaviour lives in `experiment/exp_maxdd_*.py`
-> overlays until it is promoted to a new engine version.
+> Last updated: 2026-08-28 (C v1.1 PROMOTED + real-MT5 parity fix + Exp C bug fix).
+> Canonical engines are NEVER edited:
+>   - `experiment/main_research_c_v1_0.py` — FROZEN C v1.0 baseline
+>   - `experiment/main_research_c_v1_1.py` — PROMOTED C v1.1 (C2 EQ + DD Risk Scaling)
+>   - `experiment/main_research_d_v1_0.py` — FROZEN D v1.0 baseline
+> New behaviour lives in `experiment/exp_maxdd_*.py` overlays until it is
+> promoted to a new engine version.
 
 ---
 
@@ -16,7 +19,8 @@
 - **Master roadmap:** `docs/MT5_IMPLEMENTATION_ROADMAP.md` (persistent cross-agent source of truth).
 - **Current Phase:** ALL 11 PHASES DELIVERY-READY (DD scaling overlay + paper demo).
 - **Last Completed Phase:** PHASE 11 (2026-08-28, commit d3c3ecb + 5b29c2c).
-- **Last Completed Work:** REAL-MT5 PARITY REGRESSION FIX (F1+F2+F3) — 2026-08-28 (see end of file).
+- **Last Completed Work (research):** C v1.1 PROMOTED 2026-08-28 (DD Risk Scaling overlay canonicalized; old `MaxDD% 1.85` reference invalidated due to Exp C cross-symbol `entry_ts` bug fix). See "C v1.1 PROMOTION" section near the bottom of this file.
+- **Last Completed Work (MT5):** REAL-MT5 PARITY REGRESSION FIX (F1+F2+F3) — 2026-08-28 (see end of file).
 - **Frozen engines:** `main_research_c_v1_0.py` + `main_research_d_v1_0.py` — git diff CLEAN (verified post-fix).
 - **DD Risk Scaling:** OUT OF SCOPE for production (research: C candidate / D REJECT). Optional future module.
 - **C/D engine selection:** NOT locked. Production runtime stays separate from research.
@@ -189,16 +193,18 @@
 
 ## CURRENT STATE
 
-### Main Research Engines (frozen baselines)
+### Main Research Engines
 
 | Engine | File | Version | Status |
 |---|---|---|---|
-| C | `experiment/main_research_c_v1_0.py` | **v1.0** — C2 EQ | FROZEN baseline |
-| D | `experiment/main_research_d_v1_0.py` | **v1.0** — PURE D EQ | FROZEN baseline |
+| C v1.0 | `experiment/main_research_c_v1_0.py` | **v1.0** — C2 EQ (no overlay) | **FROZEN** baseline (do not modify) |
+| **C v1.1** | `experiment/main_research_c_v1_1.py` | **v1.1** — C2 EQ + DD Risk Scaling | **PROMOTED canonical** (2026-08-28) |
+| D v1.0 | `experiment/main_research_d_v1_0.py` | **v1.0** — PURE D EQ | FROZEN baseline |
 
 > Old versions are never deleted. A new version (v1.x) is only created
 > when a verified change is promoted from an experiment overlay to the
-> research engine.
+> research engine. **C v1.1 was promoted from `exp_maxdd_C_dd_risk_scaling.py`
+> on 2026-08-28 after Phase 1 verified per-symbol entry_ts correctness.**
 
 ### Confirmed C (C2) Results — 6 majors, 2.7Y, 15m
 
@@ -206,13 +212,26 @@
 |---|---:|---:|---:|---:|---:|---:|---:|
 | C1 Displacement (tested) | — | — | weaker than C2 | — | — | — | — |
 | **C2 baseline (C v1.0)** | 2302 | 69.37 | +2875.00 | +1.2489 | 5.08 | 8.00 | 2.73 |
-| C2 + DD Risk Scaling (overlay) | 2302 | 69.37 | +2827.55 | +1.2283 | 5.13 | 8.00 | **1.85** |
+| **C v1.1 (C2 + DD Risk Scaling, PROMOTED)** | 2300 | 69.39 | **+2766.91** | **+1.2026** | **5.13** | **4.71** | **2.19** |
+| _Corrected Exp C reference (used for promotion validation)_ | 2300 | 69.39 | +2766.91 | +1.2026 | 5.13 | 4.71 | 2.19 |
 
-- DD Risk Scaling is a **post-hoc overlay** (`experiment/exp_maxdd_C_dd_risk_scaling.py`).
-  It has NOT been promoted to **C v1.1** — promotion requires a separate
-  decision after standalone validation.
-- C2 baseline numbers are the authoritative reference for every C-family
-  comparison. `main_research_c_v1_0.py` git diff is empty across all experiments.
+> **INVALIDATED old reference (2026-08-28):** the previous
+> `MaxDD% 1.85 / +2823-ish TotalR / 0 paused` numbers in memory-bank
+> were an artifact of a **cross-symbol `entry_ts_map` bug** in
+> `experiment/exp_maxdd_C_dd_risk_scaling.py`. The bug is fixed
+> (per-symbol entry_ts lookup, key = `(symbol, entry_bar_index)`).
+> C v1.1 = corrected Exp C exactly (2300/2300 surviving trade
+> identity match, 0 `pnl_r` mismatch, identical pause set
+> `{('GBPJPY', 96), ('USDJPY', 82)}`).
+>
+> **C v1.1 scaling event distribution (corrected):**
+> x1.0 = 2186, x0.5 = 99, x0.25 = 15, paused = 2.
+>
+> C v1.1 entry_ts is per-symbol scoped (per-trade lookup uses
+> `t.symbol` + `t.entry_bar_index` → its own `bars_15m`). No
+> cross-symbol contamination. Global portfolio DD is applied to
+> the merged 6-major trade stream with chronological
+> `exit_timestamp` walk.
 
 ### Confirmed D (PURE D) Results — 6 majors, 2.7Y, 15m
 
@@ -242,10 +261,16 @@ Both: mechanically verified, file = `experiment/exp_maxdd_*.py`. See
 
 - [x] **A** — Concurrent Exposure Cap (REJECT / non-binding)
 - [x] **B** — 3-Loss / 12-bar Circuit Breaker (REJECT / non-binding)
-- [x] **C** — DD-Based Risk Scaling (MaxDD% 2.73 → 1.85; awaiting promotion decision)
+- [x] **C** — DD-Based Risk Scaling (**PROMOTED → C v1.1, 2026-08-28**. Old `MaxDD% 1.85` reference INVALIDATED — see C v1.1 row in the Confirmed C table above for the corrected authoritative numbers: Trades 2300, paused 2, MaxDD% 2.19, PF 5.13, TotalR +2766.91R.)
 - [x] **D** — Open Exposure / Total-Risk Cap (REJECT / cap reached but only 2 blocked, no MaxDD impact; mechanically ≡ A under 1R/trade)
 - [x] **E** — Time-of-Day Quality Filter (REJECT / non-impact — 67.6% blocked, TotalR −72.5%, MaxDD% worsened)
 - [ ] **Combination tests** — only after all single-variable experiments resolve
+
+> **C v1.1 STATUS = PROMOTED.** The old "candidate / awaiting
+> promotion" phrasing for Exp C is REMOVED. C v1.1 is the canonical
+> research engine for C2 + DD Risk Scaling. Future C-family
+> experiments should target C v1.1 (or its successors), not C v1.0
+> alone.
 
 ### Phase 2 — D v1.0 MaxDD Research (mirror of Phase 1)
 
@@ -275,15 +300,20 @@ Phase 1 Summary:
 |---|---|---|---|---|
 | A | REJECT (non-binding) | 8.00 → 8.00 | 2.73 → 2.73 | unchanged |
 | B | REJECT (non-binding) | 8.00 → 8.00 | 2.73 → 2.73 | unchanged |
-| C | KEEP candidate | 8.00 → 8.00 | 2.73 → 1.85 | −47R (−1.65%) |
+| C | **PROMOTED → C v1.1 (2026-08-28, corrected reference)** | 8.00 → 4.71 | 2.73 → **2.19** | −108.09R (−3.76%) |
 | D | REJECT (non-impact) | 8.00 → 8.00 | 2.73 → 2.73 | −1.41R |
 | E | REJECT (non-impact) | 8.00 → 4.77 | 2.73 → 3.03 | −2084R (−72.5%) |
 
-Only **C (DD Risk Scaling)** is a candidate for promotion. All others are REJECT.
+> **C is NO LONGER a candidate** — it has been promoted to
+> `experiment/main_research_c_v1_1.py`. The `MaxDD% 1.85` number
+> shown in older memory-bank checkpoints was an artifact of a
+> cross-symbol `entry_ts_map` bug; the corrected authoritative
+> reference is 2.19% (PF 5.13, TotalR +2766.91R, paused 2 on
+> `{('GBPJPY', 96), ('USDJPY', 82)}`).
 
-**NEXT ACTION:** Continue Phase 2 D v1.0 mirror experiments (A, B, D, E) or
-combination tests. D + DD Risk Scaling (Exp F) confirmed non-impact — scaling
-triggered on 533 trades but MaxDD unchanged.
+**NEXT ACTION:** Continue Phase 2 D v1.0 mirror experiments (A, B, D, E)
+or combination tests on C v1.1. D + DD Risk Scaling (Exp F) confirmed
+non-impact — scaling triggered on 533 trades but MaxDD unchanged.
 
 Awaiting user direction on next step.
 
@@ -295,7 +325,7 @@ Awaiting user direction on next step.
 |---|---|---|---|---|
 | A | done | REJECT (non-binding) | 0 blocked; baseline unchanged | `experiment/exp_maxdd_A_concurrent_cap.py` |
 | B | done | REJECT (non-binding) | 105 triggers, 0 blocked; mechanically verified | `experiment/exp_maxdd_B_streak_breaker.py` |
-| C | done | MaxDD% 1.85 (pending promotion) | MaxDD% 2.73→1.85, TotalR −1.65% | `experiment/exp_maxdd_C_dd_risk_scaling.py` |
+| C | done | **PROMOTED → C v1.1 (corrected reference)** | 2300T, 2 paused, MaxDD% 2.19, PF 5.13, TotalR +2766.91R | `experiment/exp_maxdd_C_dd_risk_scaling.py` |
 | D | done | REJECT (non-impact) | cap 3R reached (max_open=3) but only 2 blocked wins; MaxDD 8.00R unchanged | `experiment/exp_maxdd_D_open_exposure_cap.py` |
 | E | done | REJECT (non-impact) | 1557 blocked (67.6%), MaxDD(R) 8.00→4.77 but TotalR −2084 (−72.5%), MaxDD% 2.73→3.03 worse, PF 5.08→4.61 | `experiment/exp_maxdd_E_time_of_day.py` |
 | F | done | REJECT (non-impact) | D v1.0 + DD Risk Scaling: 6 paused, MaxDD 7.36R unchanged, MaxDD% 2.76→2.86 worse, TotalR −234.70R (−7.97%) | `experiment/exp_maxdd_F_d_risk_scaling.py` |
@@ -309,13 +339,20 @@ variable, result, decision, next test) lives in `memory-bank/progress.md`.
 
 ```text
 # Frozen baselines (NEVER edited for experiments)
-experiment/main_research_c_v1_0.py        = C v1.0  / C2 EQ baseline
-experiment/main_research_d_v1_0.py        = D v1.0  / PURE D EQ baseline
+experiment/main_research_c_v1_0.py        = C v1.0  / C2 EQ baseline (FROZEN)
+experiment/main_research_d_v1_0.py        = D v1.0  / PURE D EQ baseline (FROZEN)
 
-# C v1.0 MaxDD experiment overlays (Phase 1)
+# PROMOTED canonical research engine
+experiment/main_research_c_v1_1.py        = C v1.1  / C2 EQ + DD Risk Scaling (PROMOTED 2026-08-28)
+
+# C v1.0 MaxDD experiment overlays (Phase 1) — historical/provenance
 experiment/exp_maxdd_A_concurrent_cap.py
 experiment/exp_maxdd_B_streak_breaker.py
-experiment/exp_maxdd_C_dd_risk_scaling.py
+experiment/exp_maxdd_C_dd_risk_scaling.py  # corrected 2026-08-28 (cross-symbol
+                                          # entry_ts bug fix). Now VALIDATION
+                                          # / PROVENANCE artifact, not a
+                                          # canonical dependency. C v1.1
+                                          # imports C v1.0 directly.
 experiment/exp_maxdd_D_open_exposure_cap.py
 experiment/exp_maxdd_E_time_of_day.py
 
@@ -328,6 +365,12 @@ experiment/audit_expB_replay.py      = Experiment B mechanism audit
 
 New experiment files are appended to the overlay list as they are created.
 Baseline files are never modified by experiments.
+
+> **`exp_maxdd_C_dd_risk_scaling.py` post-2026-08-28** keeps a
+> historical/provenance role. C v1.1 does NOT import it; C v1.1
+> directly imports the FROZEN `main_research_c_v1_0.run_test_a` and
+> applies the same DD-scaling algorithm inline. C v1.1 ≡ corrected
+> Exp C at the trade level (Phase 1 verified).
 
 ---
 
@@ -364,6 +407,67 @@ same bar it opened), not a bug. A pure-EXIT walk on the same data gives
 42 triggers; the function's accepted-aware walk gives 105 (authoritative).
 This note applies to any future replay that reuses the same event-stream
 pattern.
+
+---
+
+## C v1.1 PROMOTION (2026-08-28) — COMPLETE
+
+### Status
+
+- **C v1.1 = PROMOTED canonical engine** (research-side).
+- Parent: `C v1.0` (FROZEN, do not modify).
+- Variant: DD-Based Risk Scaling overlay (global portfolio, 6 majors).
+- Source: `experiment/exp_maxdd_C_dd_risk_scaling.py` (corrected 2026-08-28).
+- Old "candidate / awaiting promotion" status REMOVED.
+
+### Authoritative benchmark (corrected)
+
+- **C v1.0 baseline (FROZEN)**: 2302T, 69.37% WR, +2875.00R, +1.2489 AvgR, PF 5.08, MaxDD 8.00R, MaxDD% 2.73%.
+- **C v1.1 (PROMOTED)**: **2300T**, **2 paused**, **69.39% WR**, **+2766.91R**, **+1.2026 AvgR**, **PF 5.13**, **MaxDD 4.71R**, **MaxDD% 2.19%**.
+- Scaling event distribution: x1.0 = 2186, x0.5 = 99, x0.25 = 15, paused = 2.
+- Paused set: `{('GBPJPY', 96), ('USDJPY', 82)}`.
+
+### INVALIDATED old reference
+
+- Previous memory-bank `MaxDD% 1.85%` (and `+2823-ish TotalR / 0 paused`) numbers were an artifact of a **cross-symbol `entry_ts_map` bug** in `exp_maxdd_C_dd_risk_scaling.py`.
+- Root cause: `entry_ts_map = { t.trade_id: ... }` keyed only on `trade_id`. Because `run_test_a` resets its per-symbol `trade_counter` to 0 on every call, 1895/2302 trades (82%) received a cross-symbol-contaminated entry_ts.
+- The contamination happened to produce 0 paused, MaxDD 8.00R, MaxDD% 1.85 — those numbers are NOT the real behavior.
+- Phase 1 (2026-08-28) fixed the bug (per-symbol lookup, key = `(t.symbol, t.entry_bar_index)`) and re-ran the benchmark. C v1.1 = corrected Exp C exactly (2300/2300 surviving trade identity match, 0 `pnl_r` mismatch, identical pause set, identical multiplier distribution).
+
+### Files (this promotion)
+
+- **Created**: `experiment/main_research_c_v1_1.py` (NEW canonical engine, imports C v1.0 by reference).
+- **Created**: `tests/test_main_research_c_v1_1.py` (24 unit tests, all PASS).
+- **Modified**: `experiment/exp_maxdd_C_dd_risk_scaling.py` (cross-symbol bug fix; kept for historical/provenance role; not a canonical dependency).
+- **Modified**: `memory-bank/activeContext.md` + `memory-bank/progress.md` (this section + the tables in `## CURRENT STATE`).
+- **Modified**: `index.json` (regenerated; C v1.1 public functions indexed).
+- **Untouched**: `experiment/main_research_c_v1_0.py` (FROZEN), `experiment/main_research_d_v1_0.py` (FROZEN), all benchmark JSONs in `results/benchmark/`, `src/live/*` (production architecture unchanged).
+
+### Validation
+
+- `pytest tests/test_main_research_c_v1_1.py` → 24/24 PASS.
+- `pytest tests/` (slow parity deselected) → 246 PASS, 1 SKIP, 0 FAIL.
+- `git diff experiment/main_research_c_v1_0.py` → CLEAN (frozen engine untouched).
+- `git diff results/benchmark/` → CLEAN (frozen benchmarks untouched).
+- C v1.1 (corrected Exp C) head-to-head:
+  - 2300/2300 surviving trade identity match (8-field key).
+  - 0 `pnl_r` mismatches.
+  - Identical pause set `{('GBPJPY', 96), ('USDJPY', 82)}`.
+  - Identical multiplier distribution `{2186, 99, 15, 2}`.
+
+### Production linkage
+
+- `src/live/portfolio_dd.py::PortfolioDD` and `compute_lot_multiplier` mirror the same thresholds/multipliers (t1=2, t2=4, t3=6; 1.0/0.5/0.25/0.0). Behavioral parity at the multiplier level.
+- Production does NOT import the research engine; production computes the multiplier live and applies it at sizing time. C v1.1 is the validation/reference for what the production overlay SHOULD produce over a 2.7Y backtest.
+- No production code changes.
+
+### NEXT ACTION
+
+C v1.1 PROMOTED. Research line can now:
+
+- Use C v1.1 as the new baseline for future C-family experiments (combination tests, OOS, etc.).
+- Proceed with Phase 2 D v1.0 mirror experiments (A, B, D, E) or Phase 3 Champion Selection (C v1.1 vs D v1.0).
+- Awaiting user direction.
 
 ---
 
