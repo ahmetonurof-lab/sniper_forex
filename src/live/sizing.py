@@ -132,17 +132,31 @@ class PositionSizer:
         This is a post-sizing helper; it does NOT modify the base sizing
         formula (`compute_lot`). Used by the lifecycle/sizing layer to
         produce the final scaled lot before execution.
+
+        P1 semantics (min-lot scaling):
+        - A REDUCTION multiplier (0 < mult < 1) that cannot be achieved at
+          the broker (quantized lot < volume_min) BLOCKS the trade
+          (returns 0.0). Risk reduction must NEVER be silently upgraded
+          back to full size by a min-lot clamp.
+        - mult == 1.0 keeps the legacy behavior: base lot clamps up to
+          volume_min (full-size entry is not a risk reduction).
+        - mult <= 0.0 (pause) always returns 0.0 (no order).
         """
-        scaled = base_lot * float(lot_multiplier)
+        mult = float(lot_multiplier)
+        # If multiplier indicates pause (0.0), force lot to 0 so Execution
+        # rejects it (no order submission).
+        if mult <= 0.0:
+            return 0.0
+
+        scaled = base_lot * mult
         # Quantize down to step
         if volume_step > 0:
             scaled = round(int(scaled / volume_step) * volume_step, 10)
-        # Clamp
+        # Reduction unachievable at broker minimum -> BLOCK (never clamp up).
+        if 0.0 < mult < 1.0 and scaled < volume_min:
+            return 0.0
+        # Clamp (only relevant for full-size entries hitting volume_max).
         scaled = max(volume_min, min(volume_max, scaled))
-        # If multiplier indicates pause (0.0), force lot to 0 so Execution
-        # rejects it (no order submission).
-        if float(lot_multiplier) <= 0.0:
-            scaled = 0.0
         return scaled if scaled > 0 else 0.0
 
     @staticmethod

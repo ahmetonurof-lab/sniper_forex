@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
+
 from src.live.audit import AuditChain, EventType
 from src.live.candle_feed import M1CandleFeed, resample_15m
 from src.live.clock import _utcnow_naive, server_to_utc_historical
@@ -297,7 +299,11 @@ class PaperSession:
         self.runtime = runtime or StrategyRuntime(symbol)
         self.risk_manager = risk_manager or RiskManager()
         self.contract = contract
+        # P1 — M1 progress (epoch float, M1-domain) is kept SEPARATE from
+        # 15m emission progress (pd.Timestamp, 15m-domain). Mixing the two
+        # domains caused `Timestamp > float` TypeError at paper.py:424.
         self._last_processed_m1_ts: Optional[float] = None
+        self._last_emitted_m15_ts: Optional[pd.Timestamp] = None
         self._warmed: bool = False
         self._paper_context: dict = {}
         self._paper_dd = PortfolioDD(starting_balance_r=100.0)
@@ -326,6 +332,11 @@ class PaperSession:
         self._warmed = self.runtime._warmed
         self._last_processed_m1_ts = (
             float(m1_bars[-1].timestamp.timestamp()) if m1_bars else None
+        )
+        # P1 — 15m emission progress starts at the last warmup bucket so the
+        # first run_step emits only NEW buckets (no duplicate, no type crash).
+        self._last_emitted_m15_ts = (
+            bars_15m[-1].timestamp if bars_15m else None
         )
         # Initialize partial tail with any unclosed M1 after the last full bucket
         # (for P2-6 incremental 15m continuity).
@@ -379,32 +390,43 @@ class PaperSession:
                     self.symbol, float(tick["bid"]), float(tick["ask"])
                 )
                 result.new_closed.extend(closed)
-                # Patch PnL with our contract if known.
-                if self.contract is not None and closed:
-                    for c in closed:
-                        self.broker.update_pnl(c.ticket, self.contract, c.exit_price)
-                        # Update paper PortfolioDD with realized PnL (rehearsal, not MT5 authoritative)
-                        if c.pnl != 0.0:
-                            # Lock initial risk cash per unit from paper context for R conversion
-                            context = self._paper_context.get(c.ticket, {})
-                            initial_risk_total = context.get(
-                                "initial_risk_cash_total", 10.0
-                            )
-                            # Minimal R conversion: use locked initial risk basis
-                            # (simplified for paper rehearsal; full deal-level tracking uses TradeLifecycle)
-                            pnl_r = c.pnl / (initial_risk_total or 10.0)
-                            self._paper_dd.record_realized(pnl_r)
-                        audit.append(
-                            time.time(),
-                            EventType.EXIT,
-                            self.symbol,
-                            {
-                                "ticket": c.ticket,
-                                "reason": c.status.value,
-                                "exit_price": c.exit_price,
-                                "pnl": c.pnl,
-                            },
+                # Patch PnL + record realized R using the AUTHORITATIVE
+                # contract: the per-ticket entry contract, falling back to
+                # the session contract, then to the default contract. The
+                # default-contract entry path must NOT skip close accounting.
+                for c in closed:
+                    context = self._paper_context.get(c.ticket, {})
+                    contract_c = (
+                        context.get("contract")
+                        or self.contract
+                        or self._default_contract()
+                    )
+                    self.broker.update_pnl(c.ticket, contract_c, c.exit_price)
+                    if c.pnl != 0.0:
+                        # R conversion uses the TRADE RISK CASH locked at
+                        # entry (never account equity).
+                        initial_risk_total = context.get(
+                            "initial_risk_cash_total", 0.0
                         )
+                        if initial_risk_total > 0:
+                            pnl_r = c.pnl / initial_risk_total
+                            self._paper_dd.record_realized(pnl_r)
+                        else:
+                            result.errors.append(
+                                f"ticket {c.ticket}: no locked trade risk; "
+                                f"realized cash {c.pnl} NOT converted to R"
+                            )
+                    audit.append(
+                        time.time(),
+                        EventType.EXIT,
+                        self.symbol,
+                        {
+                            "ticket": c.ticket,
+                            "reason": c.status.value,
+                            "exit_price": c.exit_price,
+                            "pnl": c.pnl,
+                        },
+                    )
             result.ticks_processed = len(ticks)
 
         # P2-6 — Combine previous partial M1 tail + new M1 before aggregation
@@ -416,16 +438,22 @@ class PaperSession:
         # is_closed_m1 in fetch/update paths); here we rely on the caller
         # providing closed M1 bars.
         new_15m = resample_15m(combined_m1) if combined_m1 else []
-        # Emit only unseen completed 15m candles
+        # Emit only unseen completed 15m candles (Timestamp-vs-Timestamp
+        # comparison — M1 progress stays in the M1 domain).
         emitted_15m: List[Bar] = []
         for c in new_15m:
             if (
-                self._last_processed_m1_ts is None
-                or c.timestamp > self._last_processed_m1_ts
+                self._last_emitted_m15_ts is None
+                or c.timestamp > self._last_emitted_m15_ts
             ):
                 emitted_15m.append(c)
         if emitted_15m:
-            self._last_processed_m1_ts = emitted_15m[-1].timestamp
+            self._last_emitted_m15_ts = emitted_15m[-1].timestamp
+        # M1 progress tracking (epoch float domain, independent of 15m).
+        if combined_m1:
+            self._last_processed_m1_ts = float(
+                combined_m1[-1].timestamp.timestamp()
+            )
 
         # 2) Run strategy on emitted 15m candles (not on the raw M1 tail directly)
         # We pass emitted_15m to the strategy replay logic.
@@ -516,7 +544,7 @@ class PaperSession:
                 if decision.approved and not decision.blocked and final_lot > 0:
                     pos = self.broker.open(sig, volume=final_lot, contract=contract)
                     self._persist_paper_context(
-                        pos, base_lot, final_lot, decision.lot_multiplier
+                        pos, base_lot, final_lot, decision.lot_multiplier, contract
                     )
                     result.new_opens.append(pos)
                     audit.append(
@@ -541,7 +569,16 @@ class PaperSession:
         base_lot: float,
         final_lot: float,
         lot_multiplier: float,
+        contract: Optional[ContractSpec],
     ) -> None:
+        # Lock the REAL TRADE RISK CASH at entry (never account equity):
+        #   |entry - sl| / tick_size * tick_value * filled_volume.
+        contract_c = contract or self._default_contract()
+        stop_distance = abs(float(pos.entry_price) - float(pos.sl))
+        initial_risk_cash_total = 0.0
+        if contract_c.tick_size > 0 and contract_c.tick_value > 0:
+            ticks = stop_distance / contract_c.tick_size
+            initial_risk_cash_total = ticks * contract_c.tick_value * float(pos.volume)
         self._paper_context[pos.ticket] = {
             "base_lot": float(base_lot),
             "final_lot": float(final_lot),
@@ -550,7 +587,8 @@ class PaperSession:
             "side": pos.side,
             "entry_price": pos.entry_price,
             "initial_sl": pos.sl,
-            "initial_risk_cash_total": float(self.broker.equity or 10000.0),
+            "contract": contract_c,
+            "initial_risk_cash_total": float(initial_risk_cash_total),
         }
 
     def _default_contract(self) -> ContractSpec:
