@@ -4,7 +4,26 @@
 > This file is the chronological per-experiment log for the MaxDD research
 > line. Every experiment entry MUST contain: what was tested, which engine,
 > which dataset, isolated variable, result, decision, next test.
-> Last updated: 2026-08-29 (DEPLOYMENT READY — 217d27a P1 paper/sizing fixes, real MT5 demo gate verified, server audit complete).
+> Last updated: 2026-08-29 (NATIVE WINDOWS MT5 PROVEN — Phase 2/3/4/5 PASS, repository cleanup complete, runtime hardening task list created).
+
+### NATIVE WINDOWS MT5 CHECKPOINT (2026-08-29)
+
+- **What was done**: Proven native Windows → MT5 → IC Markets DEMO execution path
+- **Environment**: Python 3.12.2, MetaTrader5 5.0.6147, MT5 build 6140
+- **Phases verified**:
+  - Phase 2: `mt5.initialize()`, `account_info()`, `symbol_info_tick()` — PASS
+  - Phase 3: BTCUSD DEMO `order_check()` → `order_send()` → SL/TP → close — PASS
+  - Phase 4: Runtime smoke (signal_only=True, 50 bars processed) — PASS
+  - Phase 5: Live polling harness (new M1CandleFeed, no duplicate bars) — PASS
+- **Repository cleanup**: 12 obsolete files deleted (p1 debug, rollback logs, nul, old test harness)
+- **New documents**:
+  - `docs/FOREX_RUNTIME_HARDENING_TASKS.md` — 24 ordered tasks across 8 priorities
+  - `docs/FOREX_OBSERVABILITY_ACTION_PLAN.md` — Crypto reference audit + gap analysis
+  - `docs/FOREX_HARDENING_REPORT.md` — Comprehensive hardening report
+- **Current HEAD**: d87d1e1 (persistent logging)
+- **Next step**: Task 0.1 — Startup Broker State Snapshot (awaiting user direction)
+
+---
 
 ### MT5 REAL CHECKPOINT (2026-08-28)
 - LIVE PRODUCTION PATH TRACE: src/main.py → test_mt5_connection.py → MetaTrader5.initialize() → SignalRunner(mt5=) → M1CandleFeed.fetch_m1 → resample_15m → StrategyRuntime

@@ -1,7 +1,41 @@
 # Active Context — Research Control Panel
 
 > Single source of truth for the MaxDD research line.
-> Last updated: 2026-08-29 (DEPLOYMENT READY — 217d27a: P1 paper/sizing fixes, real MT5 demo gate verified, server audit complete, crypto/forex isolation confirmed).
+> Last updated: 2026-08-29 (NATIVE WINDOWS MT5 PROVEN — Phase 2/3/4/5 PASS, repository cleanup complete, runtime hardening task list created).
+
+## NATIVE WINDOWS MT5 — STATUS (2026-08-29)
+
+### Environment
+- Python: 3.12.2 (64-bit) at `C:\sniper_forex\venv\`
+- MetaTrader5: 5.0.6147 (PyPI)
+- MT5 Terminal: build 6140, IC Markets Global
+- Account: 53012914 @ ICMarketsSC-Demo (DEMO)
+
+### Verified Phases
+| Phase | Test | Result |
+|-------|------|--------|
+| Phase 2 | Read-only MT5 connectivity | PASS |
+| Phase 3 | BTCUSD DEMO execution (entry/SL/TP/close) | PASS |
+| Phase 4 | Runtime smoke (signal_only=True) | PASS |
+| Phase 5 | Live polling harness (signal_only=False) | PASS |
+
+### Key Findings
+- `order_check()` retcode 0 = success (not TRADE_RETCODE_DONE)
+- MT5 comment limit: 29 chars
+- BTCUSD minimum SL/TP distance: ~5000 points ($50)
+- CBDR window: 19:00→01:00 UTC
+
+### Repository Cleanup (2026-08-29)
+- **Deleted**: 12 obsolete files
+- **Preserved**: All audit logs, research artifacts, documentation
+- **Task list**: `docs/FOREX_RUNTIME_HARDENING_TASKS.md`
+- **Observability plan**: `docs/FOREX_OBSERVABILITY_ACTION_PLAN.md`
+
+### Current Task List
+- **Next task**: Task 0.1 — Startup Broker State Snapshot
+- **Priorities**: 8 priorities, 24 tasks total
+
+---
 
 CURRENT IMPLEMENTATION STATE (2026-08-29 checkpoint):
 - C v1.0 (experiment/main_research_c_v1_0.py): FROZEN — git diff CLEAN
