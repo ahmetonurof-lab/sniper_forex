@@ -1,7 +1,7 @@
 # Active Context — Research Control Panel
 
 > Single source of truth for the MaxDD research line.
-> Last updated: 2026-08-29 (REAL MT5 GATE COMPLETE — authoritative exit deal verified, order_check fix, comment length fix, poll_deals position-based query fix).
+> Last updated: 2026-08-29 (DEPLOYMENT READY — 217d27a: P1 paper/sizing fixes, real MT5 demo gate verified, server audit complete, crypto/forex isolation confirmed).
 
 CURRENT IMPLEMENTATION STATE (2026-08-29 checkpoint):
 - C v1.0 (experiment/main_research_c_v1_0.py): FROZEN — git diff CLEAN
@@ -17,12 +17,15 @@ LIVE PRODUCTION PATH TRACE (verified 2026-08-29):
 - candle_feed.py: direct MetaTrader5.copy_rates_from_pos — production data path
 - position_manager.py: tracks open positions, detects disappeared positions for exit deal query
 - SLTP modification: Execution.modify_position_sl_tp() with TRADE_ACTION_SLTP native request
+- paper.py: P1 M1/15m timestamp domain separation + R conversion using trade risk cash (217d27a)
+- sizing.py: P1 min-lot scaling semantics — reduction unachievable blocks trade (217d27a)
 
 VERIFICATION STATUS:
 - Mock verified: PASS (109/109 MT5 lifecycle tests)
 - Static verified: PASS (caller→callee trace, git diff CLEAN, protected files intact)
 - Real MT5 verified: PASS (connection + demo roundtrip + authoritative exit deal)
-- Deployment production-ready: READY FOR CONTROLLED SERVER DEPLOYMENT / DEMO VALIDATION
+- Server audit: COMPLETE (169.58.41.73, Ubuntu, crypto bot isolated at /root/sniper)
+- Deployment: READY FOR CONTROLLED SERVER DEPLOYMENT / DEMO VALIDATION
 
 MT5 GATEWAY STATUS (2026-08-29):
 - Architecture: EXISTING DIRECT API (no new wrapper/factory needed)
@@ -41,6 +44,14 @@ REAL MT5 GATE RESULTS (2026-08-29):
 - P0-2 STATUS: PASS (idempotent, DD reliable)
 - PortfolioDD: Updated exactly once per deal
 - Restart/Recovery: PASS (journal replay, duplicate protection)
+
+SERVER STATE (169.58.41.73):
+- Crypto bot: /root/sniper (Binance paper trader, RUNNING, PID 755865)
+- Forex target: /root/sniper_forex (NOT YET CREATED)
+- MT5 terminal: AVAILABLE (verified working)
+- Python: 3.14.4 (system + crypto venv)
+- Disk: 89G available
+- Crypto isolation: GUARANTEED (separate directory, venv, .env)
 10. realized PnL → PortfolioDD
 11. restart/recovery
 12. reconciliation

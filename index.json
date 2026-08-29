@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-28T06:16:52",
+  "generated_at": "2026-08-29T09:45:30",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -6533,7 +6533,7 @@
           "hash": "sha256:a00a3b35ef1ee926"
         },
         "experiment\\exp_maxdd_C_dd_risk_scaling.py": {
-          "last_modified": "2026-08-29T08:26:41",
+          "last_modified": "2026-08-29T09:41:04",
           "hash": "sha256:ddb7fd0b934e129e"
         },
         "experiment\\exp_maxdd_D_open_exposure_cap.py": {
@@ -6561,7 +6561,7 @@
           "hash": "sha256:fe39581f2a01d652"
         },
         "experiment\\main_research_c_v1_1.py": {
-          "last_modified": "2026-08-29T08:26:41",
+          "last_modified": "2026-08-29T09:41:04",
           "hash": "sha256:bca2a6e70dd4d7f4"
         },
         "experiment\\main_research_d_v1_0.py": {
@@ -6741,7 +6741,7 @@
           "hash": "sha256:e043fedd809609bc"
         },
         "src\\live\\paper.py": {
-          "last_modified": "2026-08-29T08:26:41",
+          "last_modified": "2026-08-29T09:41:04",
           "hash": "sha256:37ab7b12541ef2e1"
         },
         "src\\live\\parity_gate.py": {
@@ -6777,7 +6777,7 @@
           "hash": "sha256:6a8c7f0a2bac88d0"
         },
         "src\\live\\sizing.py": {
-          "last_modified": "2026-08-29T08:26:41",
+          "last_modified": "2026-08-29T08:27:43",
           "hash": "sha256:020a90c46685eca2"
         },
         "src\\live\\state.py": {
@@ -6849,7 +6849,7 @@
           "hash": "sha256:f2527764d64e4fcb"
         },
         "tests\\test_65k_regression_harness.py": {
-          "last_modified": "2026-08-29T08:26:41",
+          "last_modified": "2026-08-29T09:41:04",
           "hash": "sha256:0a549d9281151572"
         },
         "tests\\test_causality_extended.py": {
@@ -6941,7 +6941,7 @@
           "hash": "sha256:95fa6b7d89572f9c"
         },
         "tests\\test_main_research_c_v1_1.py": {
-          "last_modified": "2026-08-29T08:26:41",
+          "last_modified": "2026-08-29T09:41:04",
           "hash": "sha256:58df197d04ea3d62"
         },
         "tests\\test_mt5_connection_hardening.py": {
@@ -7025,7 +7025,7 @@
           "hash": "sha256:df52f8c14634bd3a"
         }
       },
-      "last_full_scan": "2026-08-29T08:26:48"
+      "last_full_scan": "2026-08-29T09:45:30"
     }
   }
 }

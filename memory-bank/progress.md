@@ -4,7 +4,7 @@
 > This file is the chronological per-experiment log for the MaxDD research
 > line. Every experiment entry MUST contain: what was tested, which engine,
 > which dataset, isolated variable, result, decision, next test.
-> Last updated: 2026-08-28 (C v1.1 PROMOTED + Exp C cross-symbol bug fix + LIVE FIX CHECKPOINT + MT5 REAL-CHECKPOINT).
+> Last updated: 2026-08-29 (DEPLOYMENT READY — 217d27a P1 paper/sizing fixes, real MT5 demo gate verified, server audit complete).
 
 ### MT5 REAL CHECKPOINT (2026-08-28)
 - LIVE PRODUCTION PATH TRACE: src/main.py → test_mt5_connection.py → MetaTrader5.initialize() → SignalRunner(mt5=) → M1CandleFeed.fetch_m1 → resample_15m → StrategyRuntime
@@ -649,4 +649,24 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
   - Dry-run benchmark: PASS (`79T`, `PF 6.65`, `DD 4.00R`).
 - **Files:** `experiment/main_research_c_v1_1.py` (function), `tests/test_main_research_c_v1_1.py` (expectations corrected), `test_causality_synthetic.py` / `test_causality_extended.py` (new), `memory-bank/` updated, `index.json` regenerated.
 - **Next:** User decision — full 2.7Y benchmark, commit/push, or Phase 12.
+
+---
+
+### DEPLOYMENT READINESS CHECKPOINT — 2026-08-29 (217d27a)
+
+- **What was done:** Final production fixes + real MT5 demo gate verification + server audit.
+- **Production fixes (217d27a):**
+  - `src/live/paper.py` — M1/15m timestamp domain separation, R conversion using trade risk cash, locked initial risk computation, paper context persistence with contract.
+  - `src/live/sizing.py` — P1 min-lot scaling semantics (reduction unachievable blocks trade, never clamp up).
+- **Real MT5 demo gate (verified on IC Markets demo):**
+  - Connection, account/symbol/M1 read, Execution.send() entry, broker fill, SL/TP, SL modify, close, history_deals_get(position=pid), PortfolioDD, restart/recovery — ALL PASS.
+  - Two production bugs found and fixed: order_check retcode (0 vs 10009), comment length (29-char limit).
+- **Server audit (169.58.41.73):**
+  - Crypto bot: `/root/sniper` (Binance paper, RUNNING, PID 755865) — PROTECTED.
+  - Forex target: `/root/sniper_forex` (NOT YET CREATED).
+  - MT5 terminal: AVAILABLE (verified working).
+  - Python: 3.14.4, Disk: 89G available.
+  - Crypto isolation: GUARANTEED.
+- **Status:** READY FOR CONTROLLED SERVER DEPLOYMENT / DEMO VALIDATION.
+- **Next:** Deploy to `/root/sniper_forex` → isolated venv → MT5 connection → signal-only → demo validation.
 -e "\n---\n### LIVE FIX CHECKPOINT - 2026-08-28 (P1-5 to P3-7)\n- P1-5: Historical M1 timezone canonicalization (server_to_utc_historical) - PASS.\n- P1-4: PositionManager false-close protection (fetch_failed flag, snapshot preserved) - PASS.\n- P0-2: TradeLifecycle + deal tracking (idempotent, partial close, PortfolioDD) - PASS.\n- P0-1: DDscaled lot post-sizing helper (apply_scaling_and_quantize), no double scaling - PASS.\n- P1-3: Paper economic path (non-zero volume, PortfolioDD on close, entry context) - PASS.\n- P2-6: Paper 15m continuity (partial tail, no duplicate emission) - PASS.\n- P3-7: Documentation sync (memory-bank + roadmap updated, stale claims removed) - PASS.\n- All protected files untouched. No frozen benchmark changes. 65K M1 parity harness artifact recorded."
