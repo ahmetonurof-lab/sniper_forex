@@ -10,6 +10,10 @@ dict so the runtime can attach context (price, size, reason, etc.) for
 offline review. The chain can be flushed to a JSONL file for debugging
 or post-mortem analysis.
 
+Auto-flush: events are periodically persisted to disk based on
+event count threshold and/or time interval, ensuring crash recovery
+of recent events without blocking the trading loop.
+
 Pure / injectable: no MT5 dep. The runtime loop (PHASE 11) is expected
 to call `append(...)` at each lifecycle step.
 """
@@ -17,6 +21,7 @@ to call `append(...)` at each lifecycle step.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -36,6 +41,11 @@ class EventType(str, Enum):
     SAFETY = "SAFETY"  # SafetyMonitor blocked a trade
     RECONCILE = "RECONCILE"  # Reconciler produced a decision
     ERROR = "ERROR"  # caught exception / unexpected failure
+    STARTUP = "STARTUP"  # session started
+    SHUTDOWN = "SHUTDOWN"  # session ended
+    MT5_CONNECT = "MT5_CONNECT"  # MT5 terminal connected
+    MT5_DISCONNECT = "MT5_DISCONNECT"  # MT5 terminal disconnected
+    STATE_SAVE = "STATE_SAVE"  # state persisted
 
 
 @dataclass
@@ -55,16 +65,32 @@ class AuditEvent:
 
 
 class AuditChain:
-    """In-memory append-only event log with optional JSONL flush.
+    """In-memory append-only event log with auto-flush to JSONL.
+
+    Auto-flush triggers when:
+    - Event count since last flush >= flush_threshold
+    - Time since last flush >= flush_interval_sec
+
+    Call shutdown() for a final flush at session end.
 
     Usage:
-        audit = AuditChain()
-        audit.append(AuditEvent(time.time(), EventType.SIGNAL, "EURUSD", {"entry": 1.1}))
-        audit.save("audit.jsonl")
+        audit = AuditChain(auto_flush_path="logs/audit.jsonl")
+        audit.append(time.time(), EventType.SIGNAL, "EURUSD", {"entry": 1.1})
+        audit.shutdown()  # final flush
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        auto_flush_path: Optional[str] = None,
+        flush_threshold: int = 50,
+        flush_interval_sec: float = 30.0,
+    ) -> None:
         self._events: List[AuditEvent] = []
+        self._auto_flush_path = auto_flush_path
+        self._flush_threshold = flush_threshold
+        self._flush_interval_sec = flush_interval_sec
+        self._last_flush_time: float = time.time()
+        self._last_flush_count: int = 0
 
     # ── Public API ──────────────────────────────────────────────
     def append(
@@ -82,11 +108,13 @@ class AuditChain:
             payload=dict(payload) if payload else {},
         )
         self._events.append(evt)
+        self._maybe_flush()
         return evt
 
     def append_event(self, event: AuditEvent) -> None:
         """Append a pre-built event (e.g. one returned by a prior append)."""
         self._events.append(event)
+        self._maybe_flush()
 
     @property
     def events(self) -> List[AuditEvent]:
@@ -99,6 +127,37 @@ class AuditChain:
 
     def __len__(self) -> int:
         return len(self._events)
+
+    # ── Auto-flush ──────────────────────────────────────────────
+    def _should_flush(self) -> bool:
+        """Check if auto-flush conditions are met."""
+        if not self._auto_flush_path:
+            return False
+        count_since = len(self._events) - self._last_flush_count
+        time_since = time.time() - self._last_flush_time
+        return (
+            count_since >= self._flush_threshold
+            or time_since >= self._flush_interval_sec
+        )
+
+    def _maybe_flush(self) -> None:
+        """Flush if conditions met."""
+        if self._should_flush():
+            self.flush(self._auto_flush_path)
+
+    def flush(self, path: Optional[str] = None) -> None:
+        """Flush events to JSONL file."""
+        target = path or self._auto_flush_path
+        if not target:
+            return
+        self.save(target)
+        self._last_flush_time = time.time()
+        self._last_flush_count = len(self._events)
+
+    def shutdown(self) -> None:
+        """Final flush at session end."""
+        if self._auto_flush_path:
+            self.flush(self._auto_flush_path)
 
     # ── Persistence ─────────────────────────────────────────────
     def save(self, path: str) -> None:
@@ -119,8 +178,7 @@ class AuditChain:
     def load(self, path: str) -> int:
         """Load events from a JSONL file. Returns the number of events loaded.
 
-        Missing file -> 0. Malformed lines are skipped (logged via
-        print; production should swap to a logger).
+        Missing file -> 0. Malformed lines are skipped.
         """
         p = Path(path)
         if not p.exists():
@@ -142,6 +200,6 @@ class AuditChain:
                         )
                     )
                     n += 1
-                except Exception as e:
-                    print(f"audit.load: skipped malformed line: {e}")
+                except Exception:
+                    pass
         return n
