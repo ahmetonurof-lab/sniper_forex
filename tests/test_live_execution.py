@@ -62,6 +62,7 @@ class FakeMT5:
     TRADE_RETCODE_CONNECTION = 10031
     TRADE_RETCODE_TIMEOUT = 10036
     TRADE_RETCODE_RETRY = 10032
+    CHECK_RETCODE_OK = 0  # order_check returns 0 on success (not TRADE_RETCODE_DONE)
 
     ORDER_TYPE_BUY = 0
     ORDER_TYPE_SELL = 1
@@ -70,7 +71,7 @@ class FakeMT5:
     ORDER_FILLING_IOC = 1
 
     def __init__(self):
-        self.check_retcode = self.TRADE_RETCODE_DONE
+        self.check_retcode = self.CHECK_RETCODE_OK
         self.send_retcodes: List[int] = []
         self.fill_retcode: int = 10009
         self.send_exceptions: List[Optional[Exception]] = []

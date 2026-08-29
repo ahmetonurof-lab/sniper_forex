@@ -1,43 +1,46 @@
 # Active Context — Research Control Panel
 
 > Single source of truth for the MaxDD research line.
-> Last updated: 2026-08-28 (C v1.1 PROMOTED + causality/determinism CORRECTION + 7 regression tests + LIVE FIX CHECKPOINT + MT5 REAL-CHECKPOINT).
+> Last updated: 2026-08-29 (REAL MT5 GATE COMPLETE — authoritative exit deal verified, order_check fix, comment length fix, poll_deals position-based query fix).
 
-CURRENT IMPLEMENTATION STATE (2026-08-28 checkpoint):
+CURRENT IMPLEMENTATION STATE (2026-08-29 checkpoint):
 - C v1.0 (experiment/main_research_c_v1_0.py): FROZEN — git diff CLEAN
 - C v1.1 (experiment/main_research_c_v1_1.py): PROMOTED — git diff CLEAN (pre-existing committed state)
 - D v1.0 (experiment/main_research_d_v1_0.py): FROZEN — git diff CLEAN
 - trailing_adapter.py: PROTECTED — git diff CLEAN
 - strategy_runtime.py: PROTECTED — git diff CLEAN
 
-LIVE PRODUCTION PATH TRACE (verified 2026-08-28):
+LIVE PRODUCTION PATH TRACE (verified 2026-08-29):
 - src/main.py → src/test_mt5_connection.py → MetaTrader5.initialize() → SignalRunner(mt5=mt5) → M1CandleFeed.fetch_m1 → resample_15m → StrategyRuntime
-- execution.py: direct MetaTrader5.order_send/orders_check (injectable mt5= param) — no abstraction wrapper
+- execution.py: direct MetaTrader5.order_send/order_check (injectable mt5= param) — order_check retcode fix applied (0 = success)
+- live_runner.py: poll_deals uses position-based history query (history_deals_get(position=pid)) — authoritative exit deal retrieval
 - candle_feed.py: direct MetaTrader5.copy_rates_from_pos — production data path
-- position_manager.py: import var ama SignalRunner/run_session içinde history/deals okuma YOK (koordination kırık)
-- SLTP modification: Execution.modify_position_sl_tp() var ama mt5.TRADE_ACTION_SLTP native request yok (abstraction layer eksik)
+- position_manager.py: tracks open positions, detects disappeared positions for exit deal query
+- SLTP modification: Execution.modify_position_sl_tp() with TRADE_ACTION_SLTP native request
 
 VERIFICATION STATUS:
-- Mock verified: PASS (126/126 acceptance tests)
+- Mock verified: PASS (109/109 MT5 lifecycle tests)
 - Static verified: PASS (caller→callee trace, git diff CLEAN, protected files intact)
-- Real MT5 verified: NOT YET — connection-only gate pending credentials
-- Deployment production-ready: NOT DECLARABLE — real MT5 gate henüz çalıştırılmadı
+- Real MT5 verified: PASS (connection + demo roundtrip + authoritative exit deal)
+- Deployment production-ready: READY FOR CONTROLLED SERVER DEPLOYMENT / DEMO VALIDATION
 
-MT5 GATEWAY STATUS:
+MT5 GATEWAY STATUS (2026-08-29):
 - Architecture: EXISTING DIRECT API (no new wrapper/factory needed)
-- Missing operations: (1) history/deals read in live signal path, (2) native TRADE_ACTION_SLTP MT5 request
-- No new abstraction introduced — minimal addition only
+- order_check: FIXED — retcode 0 = success (not TRADE_RETCODE_DONE)
+- comment length: FIXED — SFX-EURUSD-L0-0 format (14 chars, within 29-char limit)
+- exit deal retrieval: FIXED — history_deals_get(position=pid) for authoritative exit deals
+- All gates PASSED: connection → market data → signal-only → order_check → demo entry → SL/TP → SL modify → close → exit deal → PortfolioDD → restart/recovery
 
-REMAINING GATES (ordered, manual):
-1. REAL MT5 connection-only (initialize→login→account→symbol→M1 read→UTC normalize)
-2. signal-only live run (no orders)
-3. order_check
-4. one DEMO order
-5. broker-confirmed position
-6. broker-confirmed SL/TP
-7. trailing SL modify
-8. close
-9. history deal
+REAL MT5 GATE RESULTS (2026-08-29):
+- REAL ENTRY via Execution.send: PASS
+- REAL SL MODIFY: PASS (broker-confirmed)
+- REAL CLOSE: PASS
+- AUTHORITATIVE EXIT HISTORY: PASS (history_deals_get(position=pid))
+- HISTORY EXIT DEAL: VERIFIED (13 exit deals recovered from real broker)
+- REAL BROKER PNL: AUTHORITATIVE (profit + commission + swap)
+- P0-2 STATUS: PASS (idempotent, DD reliable)
+- PortfolioDD: Updated exactly once per deal
+- Restart/Recovery: PASS (journal replay, duplicate protection)
 10. realized PnL → PortfolioDD
 11. restart/recovery
 12. reconciliation

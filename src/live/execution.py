@@ -47,7 +47,7 @@ from src.live.strategy_runtime import Signal
 # Default broker timezone is GMT+0..GMT+3; we use UTC for fill time
 # independence. Magic + comment defaults are bot-wide identifiers.
 DEFAULT_MAGIC = 9007001
-DEFAULT_COMMENT_PREFIX = "SNIPER_FX"
+DEFAULT_COMMENT_PREFIX = "SFX"
 
 # Retriable MT5 return codes (broker asked to retry, transient).
 # Ref: https://www.mql5.com/en/docs/constants/errorswarnings/enum_trade_return_codes
@@ -100,6 +100,31 @@ class ExecutionResult:
     attempts: int = 1
     duplicate: bool = False
     retries: int = 0
+    # P0-1: broker-confirmed fill metadata (additive; entry path unchanged).
+    volume: Optional[float] = None
+    position_id: Optional[int] = None
+
+
+@dataclass
+class ModifyResult:
+    """Outcome of a TRADE_ACTION_SLTP position-modification attempt.
+
+    `confirmed` is True ONLY if the broker returned TRADE_RETCODE_DONE for
+    the SL/TP modification. Local state must be treated as authoritative
+    ONLY after `confirmed=True` (P0-1 acceptance).
+    """
+
+    sent: bool
+    confirmed: bool
+    dry_run: bool = False
+    retcode: Optional[int] = None
+    retcode_name: str = ""
+    reason: str = ""
+    position_id: Optional[int] = None
+    sl: Optional[float] = None
+    tp: Optional[float] = None
+    request: Optional[Dict[str, Any]] = None
+    response: Optional[Dict[str, Any]] = None
 
 
 class Execution:
@@ -141,6 +166,11 @@ class Execution:
         self.retry_sleep_sec = retry_sleep_sec
         # Per-symbol recent-orders cache: (sl, tp, direction) -> last_send_ts
         self._recent: Dict[str, float] = {}
+        # P0-1 — SL/TP modification dedupe state (per position):
+        #   _confirmed_modify[(pos, sl, tp)] -> confirmed by broker
+        #   _last_modify_request[pos] -> last (sl, tp) request sent
+        self._confirmed_modify: Dict[int, tuple] = {}
+        self._last_modify_request: Dict[int, tuple] = {}
 
     # ── Public API ──────────────────────────────────────────────
     def send(self, request: OrderRequest) -> ExecutionResult:
@@ -188,10 +218,7 @@ class Execution:
         else:
             check_error = None
 
-        if (
-            check is None
-            or getattr(check, "retcode", None) != self.mt5.TRADE_RETCODE_DONE
-        ):
+        if check is None or getattr(check, "retcode", None) != 0:
             # Validation failed — DO NOT send. Mark as retriable so the caller
             # can decide whether to escalate, but do NOT auto-retry a
             # validation failure (it is usually a config error).
@@ -258,6 +285,8 @@ class Execution:
                     request=payload,
                     response=normalized,
                     attempts=attempts,
+                    volume=normalized.get("volume"),
+                    position_id=normalized.get("position_id"),
                 )
 
             # Not filled.
@@ -282,13 +311,144 @@ class Execution:
         last_result.attempts = attempts
         return last_result
 
+    # ── P0-1: Position SL/TP modification (TRADE_ACTION_SLTP) ───
+    def modify_position_sl_tp(
+        self,
+        position_ticket: int,
+        symbol: str,
+        sl: float,
+        tp: float,
+        deviation: int = 20,
+        magic: Optional[int] = None,
+    ) -> ModifyResult:
+        """Modify the SL/TP of an open position via TRADE_ACTION_SLTP.
+
+        Semantics (P0-1 acceptance):
+        - Only sends when (sl, tp) differs from the last broker-confirmed
+          state (duplicate suppression, per position).
+        - `confirmed=True` ONLY on broker TRADE_RETCODE_DONE. The caller
+          must NOT update authoritative local state before that.
+        - Rejections are returned (never silently ignored); no local
+          state change happens on rejection.
+        - signal_only=True (safety default) -> dry-run, nothing sent.
+        """
+        pos = int(position_ticket)
+        desired = (float(sl), float(tp))
+
+        # Duplicate suppression: identical to last broker-confirmed state.
+        if self._confirmed_modify.get(pos) == desired:
+            return ModifyResult(
+                sent=False,
+                confirmed=False,
+                reason="already_confirmed",
+                position_id=pos,
+                sl=desired[0],
+                tp=desired[1],
+            )
+        # Duplicate suppression: identical request already in flight.
+        if self._last_modify_request.get(pos) == desired:
+            return ModifyResult(
+                sent=False,
+                confirmed=False,
+                reason="modify_in_flight",
+                position_id=pos,
+                sl=desired[0],
+                tp=desired[1],
+            )
+
+        payload = {
+            "action": self.mt5.TRADE_ACTION_SLTP,
+            "symbol": symbol,
+            "position": pos,
+            "sl": desired[0],
+            "tp": desired[1],
+            "deviation": deviation,
+            "magic": magic if magic is not None else self.magic,
+        }
+
+        # signal_only safety mode: record what WOULD be sent.
+        if self.signal_only:
+            self._last_modify_request[pos] = desired
+            return ModifyResult(
+                sent=False,
+                confirmed=False,
+                dry_run=True,
+                reason="signal_only",
+                position_id=pos,
+                sl=desired[0],
+                tp=desired[1],
+                request=payload,
+            )
+
+        self._last_modify_request[pos] = desired
+        try:
+            result = self.mt5.order_send(payload)
+        except Exception as e:
+            # Exception -> nothing confirmed; caller may retry later.
+            self._last_modify_request.pop(pos, None)
+            return ModifyResult(
+                sent=False,
+                confirmed=False,
+                reason=f"modify_exception: {e}",
+                position_id=pos,
+                sl=desired[0],
+                tp=desired[1],
+                request=payload,
+            )
+
+        normalized = self._normalize_result(result)
+        retcode = normalized.get("retcode")
+        retcode_name = self._retcode_name(retcode)
+        if self._is_filled(retcode):
+            self._confirmed_modify[pos] = desired
+            self._last_modify_request[pos] = desired
+            return ModifyResult(
+                sent=True,
+                confirmed=True,
+                retcode=retcode,
+                retcode_name=retcode_name,
+                position_id=pos,
+                sl=desired[0],
+                tp=desired[1],
+                request=payload,
+                response=normalized,
+            )
+
+        # Rejected: clear in-flight marker so a retry is possible, do NOT
+        # update confirmed state, and surface the rejection to the caller.
+        self._last_modify_request.pop(pos, None)
+        return ModifyResult(
+            sent=True,
+            confirmed=False,
+            retcode=retcode,
+            retcode_name=retcode_name,
+            reason=retcode_name or "modify_rejected",
+            position_id=pos,
+            sl=desired[0],
+            tp=desired[1],
+            request=payload,
+            response=normalized,
+        )
+
+    def confirmed_sl_tp(self, position_ticket: int) -> Optional[tuple]:
+        """Broker-confirmed (sl, tp) for a position, or None if never modified."""
+        return self._confirmed_modify.get(int(position_ticket))
+
+    def forget_position(self, position_ticket: int) -> None:
+        """Drop dedupe state for a closed position (stale-protect cleanup)."""
+        pos = int(position_ticket)
+        self._confirmed_modify.pop(pos, None)
+        self._last_modify_request.pop(pos, None)
+
     # ── Build payload ───────────────────────────────────────────
     def _build_request(self, request: OrderRequest) -> Dict[str, Any]:
         """Build the MT5 order_send payload from a Signal + lot."""
         sig = request.signal
+        # MT5 comment limit is 31 chars (broker-enforced). Use compact format.
+        # Format: SFX-{symbol}-{S|L}-{zone}-{sweep}  (max ~20 chars)
+        side_char = "L" if sig.side == "long" else "S"
         comment = request.comment or (
-            f"{self.comment_prefix}|{sig.symbol}|{sig.direction}|"
-            f"sweep{sig.sweep_bar_index}|z{sig.zone_index}"
+            f"SFX-{sig.symbol}-{side_char}{sig.zone_index}-{sig.sweep_bar_index}"
         )
         order_type = (
             self.mt5.ORDER_TYPE_BUY if sig.side == "long" else self.mt5.ORDER_TYPE_SELL
@@ -363,6 +523,9 @@ class Execution:
                 or getattr(result, "deal_id", None),
                 "fill_price": getattr(result, "price", None)
                 or getattr(result, "fill_price", None),
+                "volume": getattr(result, "volume", None),
+                "position_id": getattr(result, "position", None)
+                or getattr(result, "position_id", None),
                 "comment": getattr(result, "comment", None),
             }
         except Exception:
