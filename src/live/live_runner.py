@@ -42,6 +42,7 @@ from src.live.trade_lifecycle import (
     build_open_context_from_fill,
 )
 from src.live.trailing_bridge import TrailingBridge, TrailingEvent
+from src.live.reconciliation import Reconciler
 
 
 @dataclass
@@ -96,6 +97,8 @@ class LiveRunner:
         signal_only: bool = True,
         starting_balance_r: float = 100.0,
         magic: int = 9007001,
+        auto_snapshot: bool = False,
+        configured_symbols: Optional[List[str]] = None,
     ):
         if mt5 is None and execution is None:
             import MetaTrader5 as mt5_mod  # type: ignore
@@ -113,14 +116,16 @@ class LiveRunner:
         self.contract = contract
         self.audit = audit or AuditChain()
         self.runtime = runtime or StrategyRuntime(symbol)
+        self._position_to_ctx: Dict[int, OpenTradeContext] = {}
+        self._last_poll_ts: float = time.time()
+        self._known_position_ids: set = set()
         open_positions_fn = self._positions_get
         self.bridge = TrailingBridge(
             execution=self.execution,
             is_open=lambda pid: open_positions_fn(pid),
         )
-        self._position_to_ctx: Dict[int, OpenTradeContext] = {}
-        self._last_poll_ts: float = time.time()
-        self._known_position_ids: set = set()
+        if auto_snapshot:
+            self.startup_snapshot(configured_symbols=configured_symbols)
 
     # ── Broker helpers (injectable in tests via self.mt5) ─────────
     def _positions_get(self, position_id: int) -> bool:
@@ -131,6 +136,215 @@ class LiveRunner:
         except Exception:
             return True  # transient failure -> do NOT treat as stale
         return len(positions) > 0
+
+    # ── Startup snapshot (S5 broker state + S8 recon gate) ────────────
+
+    def startup_snapshot(
+        self,
+        configured_symbols: Optional[List[str]] = None,
+    ) -> dict:
+        """Capture broker + local state at startup (S5/S8).
+
+        Returns a dict consumed by the orchestrator's S5/S8 phases:
+
+            mt5_connected: bool
+            mt5_build: str
+            account: str  (login or "unknown")
+            server: str
+            balance: float
+            equity: float
+            symbols: list[str]
+            positions: list[dict]  (bot-magic, with SL/TP audit info)
+            pending_orders: list[dict]
+            reconciliation: {
+                status: str,         # "OK" | "ORPHAN" | "UNKNOWN_OPEN" | "MISMATCH" | "NOT_RUN"
+                block_trading: bool,
+                details: list[str],
+            }
+            local_state: {
+                dd_reliable: bool,
+                quarantined_exits_count: int,
+                known_position_ids: list[int],
+            }
+            safe_mode: bool  (True if connected=False OR recon blocks OR DD unreliable)
+        """
+        from src.live.position_manager import _to_position
+
+        snapshot: Dict[str, Any] = {
+            "mt5_connected": False,
+            "mt5_build": "unknown",
+            "account": "unknown",
+            "server": "unknown",
+            "balance": 0.0,
+            "equity": 0.0,
+            "symbols": configured_symbols or [self.symbol],
+            "positions": [],
+            "pending_orders": [],
+            "reconciliation": {
+                "status": "NOT_RUN",
+                "block_trading": True,
+                "details": [],
+            },
+            "local_state": {
+                "dd_reliable": self.lifecycle.dd_is_reliable(),
+                "quarantined_exits_count": len(self.lifecycle.quarantined_exits),
+                "known_position_ids": sorted(self._known_position_ids),
+            },
+            "safe_mode": False,
+        }
+
+        # ── Connected? ──────────────────────────────────────
+        if self.mt5 is None:
+            snapshot["safe_mode"] = True
+            self._emit_startup_audit(snapshot)
+            return snapshot
+
+        # terminal info
+        terminal_info = None
+        try:
+            terminal_info = self.mt5.terminal_info()
+        except Exception:
+            terminal_info = None
+
+        if terminal_info is None:
+            snapshot["safe_mode"] = True
+            self._emit_startup_audit(snapshot)
+            return snapshot
+
+        snapshot["mt5_connected"] = True
+        snapshot["mt5_build"] = str(getattr(terminal_info, "build", "unknown"))
+
+        # account info
+        account_info = None
+        try:
+            if hasattr(self.mt5, "account_info"):
+                account_info = self.mt5.account_info()
+        except Exception:
+            account_info = None
+
+        if account_info is None:
+            # connected but no account — degraded
+            snapshot["safe_mode"] = True
+        else:
+            snapshot["account"] = str(getattr(account_info, "login", "unknown"))
+            snapshot["server"] = str(getattr(account_info, "server", "unknown"))
+            snapshot["balance"] = float(getattr(account_info, "balance", 0.0))
+            snapshot["equity"] = float(getattr(account_info, "equity", 0.0))
+
+        # ── Positions + orders (bot-magic only) ─────────────
+        remote_positions: Dict[int, Any] = {}
+        try:
+            raw_positions = self.mt5.positions_get() or []
+            for raw in raw_positions:
+                pos = _to_position(raw, self.magic)
+                if pos is not None and pos.ticket > 0:
+                    remote_positions[pos.ticket] = pos
+                    snapshot["positions"].append(
+                        {
+                            "ticket": pos.ticket,
+                            "symbol": pos.symbol,
+                            "side": pos.side,
+                            "volume": pos.volume,
+                            "entry_price": pos.entry_price,
+                            "sl": pos.sl,
+                            "tp": pos.tp,
+                            "magic": pos.magic,
+                            "comment": pos.comment,
+                            "open_time": pos.open_time,
+                            "profit": pos.profit,
+                            "swap": pos.swap,
+                        }
+                    )
+        except Exception:
+            pass
+
+        try:
+            raw_orders = self.mt5.orders_get() or []
+            for raw in raw_orders:
+                o_magic = getattr(raw, "magic", 0)
+                try:
+                    if int(o_magic) != int(self.magic):
+                        continue
+                except Exception:
+                    continue
+                snapshot["pending_orders"].append(
+                    {
+                        "ticket": getattr(raw, "ticket", 0),
+                        "symbol": getattr(raw, "symbol", ""),
+                        "type": getattr(raw, "type", 0),
+                        "volume_initial": getattr(raw, "volume_initial", 0.0),
+                        "price_open": getattr(raw, "price_open", 0.0),
+                        "price": getattr(raw, "price_open", 0.0),
+                        "sl": getattr(raw, "sl", 0.0),
+                        "tp": getattr(raw, "tp", 0.0),
+                        "magic": o_magic,
+                        "comment": getattr(raw, "comment", ""),
+                        "state": getattr(raw, "state", 0),
+                    }
+                )
+        except Exception:
+            pass
+
+        # ── Reconciliation (S8) ─────────────────────────────
+        # Build local positions from lifecycle open_trades so the Reconciler
+        # can compare ticket sets. Use Position-like objects for comparison.
+        local_for_recon: Dict[int, Any] = {}
+        for pid, ctx in self.lifecycle.open_trades.items():
+            local_for_recon[pid] = ctx
+
+        # Convert remote MT5 positions to Position objects for Reconciler
+        remote_for_recon: Dict[int, Any] = {}
+        for ticket, pos in remote_positions.items():
+            remote_for_recon[ticket] = pos
+
+        if local_for_recon or remote_for_recon:
+            reconciler = Reconciler()
+            decision = reconciler.reconcile(local_for_recon, remote_for_recon)
+            snapshot["reconciliation"] = {
+                "status": decision.status.value,
+                "block_trading": decision.block_trading,
+                "details": decision.details,
+            }
+            if decision.block_trading:
+                snapshot["safe_mode"] = True
+        else:
+            # No local or remote positions — clean state, OK.
+            snapshot["reconciliation"] = {
+                "status": "OK",
+                "block_trading": False,
+                "details": [],
+            }
+
+        # ── DD reliability (P1) ─────────────────────────────
+        if not self.lifecycle.dd_is_reliable():
+            snapshot["safe_mode"] = True
+
+        self._emit_startup_audit(snapshot)
+        return snapshot
+
+    def _emit_startup_audit(self, snapshot: dict) -> None:
+        """Emit a STARTUP audit event for the snapshot."""
+        try:
+            self.audit.append(
+                time.time(),
+                EventType.STARTUP,
+                self.symbol,
+                {
+                    "mt5_connected": snapshot["mt5_connected"],
+                    "mt5_build": snapshot["mt5_build"],
+                    "account": snapshot["account"],
+                    "server": snapshot["server"],
+                    "balance": snapshot["balance"],
+                    "equity": snapshot["equity"],
+                    "symbols": snapshot["symbols"],
+                    "positions_count": len(snapshot["positions"]),
+                    "pending_orders_count": len(snapshot["pending_orders"]),
+                    "safe_mode": snapshot["safe_mode"],
+                    "reconciliation_status": snapshot["reconciliation"]["status"],
+                },
+            )
+        except Exception:
+            pass
 
     def _resolve_position_id(self, result) -> Optional[int]:
         if result.position_id:

@@ -32,7 +32,8 @@
 - **Observability plan**: `docs/FOREX_OBSERVABILITY_ACTION_PLAN.md`
 
 ### Current Task List
-- **Next task**: Task 0.1 — Startup Broker State Snapshot
+- **Next task**: Task 0.1 — Startup Broker State Snapshot ✅ DONE
+- **Next task**: TAŞ 2 — Orchestrator S3-S9 + Bar Pipeline + Lock Contract ✅ DONE
 - **Priorities**: 8 priorities, 24 tasks total
 
 ---
@@ -761,3 +762,5 @@ Phase 12 (DD scaling production integration).
 - **Benchmark:** dry-run passes; full 2.7Y/6-major pending user direction.
 - **No production / C v1.0 / memory-bank / git changes outside this entry.
 -e "\n---\n### LIVE FIX CHECKPOINT (2026-08-28) - P1-5 / P1-4 / P0-2 / P0-1 / P1-3 / P2-6 / P3-7 PASS\n- Scope: timezone canonicalization, false-close protection, lifecycle/deal owner, DD-scaled lot, paper economic path, paper 15m continuity, doc sync.\n- Protected files preserved: frozen C/D engines and benchmark JSONs untouched.\n- 65K M1 artifact frozen: results/research/65k_m1_eurusd_parity_artifact.json.\n- No strategy optimization. Ready for user direction: commit/push or Phase 12."
+
+---
