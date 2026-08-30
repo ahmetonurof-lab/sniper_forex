@@ -874,3 +874,20 @@ değil; worktree çalışması için working-tree src/experiment kopyalandı. Fa
 - Orchestrator süiti: **97/97** (tas2 36 + startup 13 + snapshot 14 + tas3 15 + tas4 19)
 - Tam süit: **7 failed, 455 passed, 1 skipped** — fail listesi öncekiyle BİREBİR
   (2× e2e_live_chain pin'li + 5× canonical research pre-existing), drift YOK.
+
+## SEREMONİ DEFTERİ — PUSH KAYDI (final gate)
+
+```
+push: onaylı (hakem, final gate — bu sohbet) — spot-check 7 yeşil + 1 sarı→yeşil
+  (Q8: FakeOrch 12 referans = entry-point test seam, meşru ve zorunlu; K1
+  gerçek-branch kanıtı Q8a dokümantasyonu + Q7 20 test + 98/98 koşum ile).
+N2 policy ilk uygulama: kayıtsız push kapatıldı; itibarıyla her push = yazılı
+  onay + log (kim/ne/zaman).
+İKİ COMMIT (düzeltme — önceki taslakta yanlış hash'ti):
+  2bff15b (research baseline / Aşama 0) + 5136094 (piece-1, D1–D48) → origin/main.
+  NOT: e06fb3b zaten remote'taydı — push setine ait DEĞİL; deftere yanlış
+  hash yazılma hatası push öncesi yakalandı ve düzeltildi.
+Sonrası doğrulama: git log --oneline origin/main..HEAD → BOŞ beklenir;
+  git ls-remote origin main → 5136094 beklenir. İki çıktı Aşama 1'in imzasıdır.
+Onay: HAKEM — bu sohbet, final gate.
+```
