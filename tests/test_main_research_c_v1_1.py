@@ -39,7 +39,6 @@ from experiment.main_research_c_v1_1 import (  # noqa: E402
     run_test_a_v11,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────
 
 
@@ -187,9 +186,7 @@ def test_apply_dd_scaling_no_lookahead():
     t1 = _mk_trade(1, entry_ts=10.0, exit_ts=20.0, pnl_r=1.0)
     t2 = _mk_trade(2, entry_ts=25.0, exit_ts=30.0, pnl_r=-1.0)
     t3 = _mk_trade(3, entry_ts=35.0, exit_ts=40.0, pnl_r=0.5)
-    surviving, paused, n1, n05, n025 = apply_dd_scaling(
-        [t1, t2, t3], entry_ts=[10.0, 25.0, 35.0]
-    )
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([t1, t2, t3], entry_ts=[10.0, 25.0, 35.0])
     assert paused == 0
     assert n1 == 3
     assert n05 == 0
@@ -201,10 +198,7 @@ def test_apply_dd_scaling_no_lookahead():
 def test_apply_dd_scaling_pause_drops_trade():
     """Force DD > 6R before a trade entry, that trade is paused."""
     # 4 winning trades then a losing trade after DD>6R.
-    wins = [
-        _mk_trade(i, entry_ts=10.0 * i, exit_ts=11.0 * i, pnl_r=2.0)
-        for i in range(1, 5)
-    ]
+    wins = [_mk_trade(i, entry_ts=10.0 * i, exit_ts=11.0 * i, pnl_r=2.0) for i in range(1, 5)]
     # 4 x 2R = +8R -> peak=108R. After trades realized=+8R.
     # Now insert a trade that would push DD > 6R if applied with x1.0.
     # Actually: peak=108, equity=108, DD=0 after wins. We need DD>6R
@@ -242,9 +236,7 @@ def test_apply_dd_scaling_x05_tier():
     t1 = _mk_trade(1, entry_ts=10.0, exit_ts=15.0, pnl_r=1.0)
     t2 = _mk_trade(2, entry_ts=20.0, exit_ts=25.0, pnl_r=-2.5, result="LOSS")
     t3 = _mk_trade(3, entry_ts=30.0, exit_ts=35.0, pnl_r=2.0)
-    surviving, paused, n1, n05, n025 = apply_dd_scaling(
-        [t1, t2, t3], entry_ts=[10.0, 20.0, 30.0]
-    )
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([t1, t2, t3], entry_ts=[10.0, 20.0, 30.0])
     assert paused == 0
     assert n1 == 2  # t1, t2 (x1)
     assert n05 == 1  # t3 (DD=2.5 > 2 -> x0.5)
@@ -273,9 +265,7 @@ def test_apply_dd_scaling_x025_tier():
     t1 = _mk_trade(1, entry_ts=10.0, exit_ts=15.0, pnl_r=5.0)
     t2 = _mk_trade(2, entry_ts=20.0, exit_ts=25.0, pnl_r=-6.0, result="LOSS")
     t3 = _mk_trade(3, entry_ts=30.0, exit_ts=35.0, pnl_r=2.0)
-    surviving, paused, n1, n05, n025 = apply_dd_scaling(
-        [t1, t2, t3], entry_ts=[10.0, 20.0, 30.0]
-    )
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([t1, t2, t3], entry_ts=[10.0, 20.0, 30.0])
     assert paused == 0
     assert n1 == 2  # t1, t2 (x1)
     assert n05 == 0
@@ -318,18 +308,14 @@ def test_apply_dd_scaling_sorts_by_exit_timestamp():
     t_early = _mk_trade(2, entry_ts=10.0, exit_ts=20.0, pnl_r=1.0)
     t_mid = _mk_trade(3, entry_ts=50.0, exit_ts=60.0, pnl_r=1.0)
     # Pass in arbitrary order.
-    surviving, *_ = apply_dd_scaling(
-        [t_late, t_early, t_mid], entry_ts=[100.0, 10.0, 50.0]
-    )
+    surviving, *_ = apply_dd_scaling([t_late, t_early, t_mid], entry_ts=[100.0, 10.0, 50.0])
     # All three are x1.0 (DD never exceeds 2R for any entry because the
     # two wins complete before trade 1's late entry at t=100, and the
     # loss happens after both).
     out_pnls = [t.pnl_r for t in surviving]
     assert sorted(out_pnls) == [-3.0, 1.0, 1.0]
     # Order-independence: same scaling when given in exit order.
-    surviving_sorted, *_ = apply_dd_scaling(
-        [t_early, t_mid, t_late], entry_ts=[10.0, 50.0, 100.0]
-    )
+    surviving_sorted, *_ = apply_dd_scaling([t_early, t_mid, t_late], entry_ts=[10.0, 50.0, 100.0])
     assert sorted(t.pnl_r for t in surviving_sorted) == [-3.0, 1.0, 1.0]
 
 
@@ -445,9 +431,7 @@ def test_c_v11_pnl_differs_from_v10_only_via_multiplier():
     t2 = _mk_trade(2, entry_ts=30.0, exit_ts=40.0, pnl_r=1.0)
     t3 = _mk_trade(3, entry_ts=50.0, exit_ts=60.0, pnl_r=-2.0, result="LOSS")
     t4 = _mk_trade(4, entry_ts=70.0, exit_ts=80.0, pnl_r=4.0)
-    surviving, *_ = apply_dd_scaling(
-        [t1, t2, t3, t4], entry_ts=[10.0, 30.0, 50.0, 70.0]
-    )
+    surviving, *_ = apply_dd_scaling([t1, t2, t3, t4], entry_ts=[10.0, 30.0, 50.0, 70.0])
     expected_pnls = [1.0, 1.0, -2.0, 4.0]  # all x1, DD never exceeds 2R
     assert [t.pnl_r for t in surviving] == expected_pnls
 
@@ -648,9 +632,7 @@ def test_F_starting_balance_consistency():
     t1.symbol = "X"
     t2.symbol = "X"
     sb = 200.0
-    surviving, *_ = apply_dd_scaling(
-        [t1, t2], entry_ts=[10.0, 30.0], starting_balance=sb
-    )
+    surviving, *_ = apply_dd_scaling([t1, t2], entry_ts=[10.0, 30.0], starting_balance=sb)
     stats = compute_stats_v11(surviving, starting_balance=sb)
     # Both x1.0; total_pnl = 1.0 + (-3.0) = -2.0; MaxDD = 3.0
     assert stats["total_pnl"] == -2.0
@@ -697,12 +679,8 @@ def test_G_main_global_single_scaling_pass_via_main_contract():
     # Compute stats from the same scaled stream
     stats = compute_stats_v11(scaled, starting_balance=100.0)
     # Post-conditions (mirror of main()'s post-condition asserts)
-    completed_base = sum(
-        1 for t in all_base if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
-    )
-    completed_scaled = sum(
-        1 for t in scaled if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
-    )
+    completed_base = sum(1 for t in all_base if t.result in ("TP", "PROFIT_TRAIL", "LOSS"))
+    completed_scaled = sum(1 for t in scaled if t.result in ("TP", "PROFIT_TRAIL", "LOSS"))
     assert n1 + n05 + n025 + paused == completed_base
     assert completed_scaled + paused == completed_base
     # And a sanity check: total_pnl from stats equals sum of scaled pnl_r
@@ -733,9 +711,7 @@ def _reference_dd_and_mult(trades, entry_ts, starting_balance=100.0):
     never in the realized DD state.
     """
     completed = [
-        (t, e)
-        for t, e in zip(trades, entry_ts)
-        if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
+        (t, e) for t, e in zip(trades, entry_ts) if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
     ]
     from experiment.main_research_c_v1_1 import _to_float_ts, compute_dd_multiplier
 
@@ -818,8 +794,9 @@ def test_D_arbitrary_input_order_invariant():
         exit_ts = float(random.randint(0, 200))
         entry_ts = exit_ts + float(random.randint(1, 30))
         pnl = random.choice([2.0, -4.0, 3.0, -6.0, 1.0])
-        t = _mk_trade(i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl,
-                     result="LOSS" if pnl < 0 else "TP")
+        t = _mk_trade(
+            i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl, result="LOSS" if pnl < 0 else "TP"
+        )
         trades.append(t)
         ets.append(entry_ts)
 
@@ -849,8 +826,9 @@ def test_E_brute_force_reference_zero_mismatch():
         exit_ts = float(random.randint(0, 1000))
         entry_ts = exit_ts + float(random.randint(0, 60))
         pnl = random.choice([1.0, 2.0, -3.0, -5.0, 1.5, -7.0])
-        t = _mk_trade(i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl,
-                     result="LOSS" if pnl < 0 else "TP")
+        t = _mk_trade(
+            i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl, result="LOSS" if pnl < 0 else "TP"
+        )
         trades.append(t)
         ets.append(entry_ts)
 
@@ -859,8 +837,9 @@ def test_E_brute_force_reference_zero_mismatch():
 
     # Recover per-trade multiplier from production output.
     base_pnl = {(t.symbol, t.trade_id): t.pnl_r for t in trades}
-    prod_mult = {(t.symbol, t.trade_id): t.pnl_r / base_pnl[(t.symbol, t.trade_id)]
-                for t in surviving}
+    prod_mult = {
+        (t.symbol, t.trade_id): t.pnl_r / base_pnl[(t.symbol, t.trade_id)] for t in surviving
+    }
     # Paused trades are absent from surviving -> multiplier implied 0.0.
     for key, (dd, m, is_paused) in ref.items():
         got = prod_mult.get(key, 0.0)
@@ -879,9 +858,7 @@ def test_open_trades_excluded_from_entry_correspondence():
     t_open = _mk_trade(1, entry_ts=10.0, exit_ts=20.0, pnl_r=0.0, result="OPEN")
     t_win = _mk_trade(2, entry_ts=30.0, exit_ts=40.0, pnl_r=5.0)
     # entry_ts aligned to the full list order: [open_entry, win_entry]
-    surviving, paused, n1, n05, n025 = apply_dd_scaling(
-        [t_open, t_win], entry_ts=[10.0, 30.0]
-    )
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([t_open, t_win], entry_ts=[10.0, 30.0])
     # Only t_win survives; its DD is measured from trades that closed
     # before entry=30 -> t_open is OPEN (excluded) so dd=0 -> x1.
     assert len(surviving) == 1

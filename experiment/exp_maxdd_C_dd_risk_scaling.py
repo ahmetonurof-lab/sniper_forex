@@ -62,10 +62,10 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 # ── Import the canonical, UNTOUCHED C2 engine ──
 from experiment.main_research_c_v1_0 import (  # noqa: E402
-    run_test_a,
-    compute_stats,
-    BenchmarkTrade,
     STARTING_BALANCE_R,
+    BenchmarkTrade,
+    compute_stats,
+    run_test_a,
 )
 
 # Risk scaling thresholds (proposed, first test).
@@ -155,6 +155,7 @@ def _load_symbol_trades(symbol: str, dry_run: bool) -> List[BenchmarkTrade]:
     """Run the UNTOUCHED C2 engine (run_test_a) for one symbol. Engine code is
     never modified; we only consume its returned records."""
     import pandas as pd
+
     from src.strategy.models import Bar
 
     feather_dir = _PROJECT_ROOT / "data" / "icmarket_feather"
@@ -188,13 +189,12 @@ def _load_symbol_trades(symbol: str, dry_run: bool) -> List[BenchmarkTrade]:
 
 def _load_all_trades(symbols: List[str], dry_run: bool) -> List[BenchmarkTrade]:
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
     from tqdm import tqdm
 
     all_trades: List[BenchmarkTrade] = []
     with ThreadPoolExecutor(max_workers=6) as executor:
-        futures = {
-            executor.submit(_load_symbol_trades, sym, dry_run): sym for sym in symbols
-        }
+        futures = {executor.submit(_load_symbol_trades, sym, dry_run): sym for sym in symbols}
         pbar = tqdm(total=len(symbols), desc="Processing", unit="sym", ncols=80)
         for future in as_completed(futures):
             sym = futures[future]
@@ -208,9 +208,7 @@ def _load_all_trades(symbols: List[str], dry_run: bool) -> List[BenchmarkTrade]:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="C2 MaxDD Experiment C: DD-Based Risk Scaling"
-    )
+    parser = argparse.ArgumentParser(description="C2 MaxDD Experiment C: DD-Based Risk Scaling")
     parser.add_argument("symbols", nargs="*", help="Symbols (default: 6 majors)")
     parser.add_argument("--dry-run", action="store_true", help="Smoke test (2000 bars)")
     parser.add_argument(
@@ -282,22 +280,12 @@ def main():
     print("-" * 40)
     print(f"{'Trades':<14} {base_stats['trades']:>12d} {scaled_stats['trades']:>12d}")
     print(f"{'Blocked':<14} {0:>12d} {paused:>12d}")
-    print(
-        f"{'WinRate%':<14} {base_stats['win_rate']:>11.2f} {scaled_stats['win_rate']:>11.2f}"
-    )
-    print(
-        f"{'TotalR':<14} {base_stats['total_pnl']:>12.2f} {scaled_stats['total_pnl']:>12.2f}"
-    )
+    print(f"{'WinRate%':<14} {base_stats['win_rate']:>11.2f} {scaled_stats['win_rate']:>11.2f}")
+    print(f"{'TotalR':<14} {base_stats['total_pnl']:>12.2f} {scaled_stats['total_pnl']:>12.2f}")
     print(f"{'AvgR':<14} {base_stats['avg_r']:>12.4f} {scaled_stats['avg_r']:>12.4f}")
-    print(
-        f"{'PF':<14} {base_stats['profit_factor']:>12.2f} {scaled_stats['profit_factor']:>12.2f}"
-    )
-    print(
-        f"{'MaxDD(R)':<14} {base_stats['max_dd']:>12.2f} {scaled_stats['max_dd']:>12.2f}"
-    )
-    print(
-        f"{'MaxDD(%)':<14} {base_stats['max_dd_pct']:>12.2f} {scaled_stats['max_dd_pct']:>12.2f}"
-    )
+    print(f"{'PF':<14} {base_stats['profit_factor']:>12.2f} {scaled_stats['profit_factor']:>12.2f}")
+    print(f"{'MaxDD(R)':<14} {base_stats['max_dd']:>12.2f} {scaled_stats['max_dd']:>12.2f}")
+    print(f"{'MaxDD(%)':<14} {base_stats['max_dd_pct']:>12.2f} {scaled_stats['max_dd_pct']:>12.2f}")
 
     # Persist
     out_dir = _PROJECT_ROOT / "results" / "research"

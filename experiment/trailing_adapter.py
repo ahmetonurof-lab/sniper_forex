@@ -23,19 +23,19 @@ if _NEXUS_SNIPER_SRC not in sys.path:
     sys.path.insert(0, _NEXUS_SNIPER_SRC)
 
 from fvg import detect_fvgs as _nexus_detect_fvgs  # noqa: E402
-from models import Bar as NexusBar, FVG as NexusFVG  # noqa: E402
+from models import FVG as NexusFVG
+from models import Bar as NexusBar  # noqa: E402
 
 # ── Import sniper_forex Bar ──
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.strategy.models import Bar as ForexBar  # noqa: E402
-
 # ── Config ──
 from experiment.config import (  # noqa: E402
     ATR_TRAIL_MULT,
-    TRAIL_MIN_MOVE_MULT,
     FVG_MIN_SIZE_ATR_MULT,
     FVG_WICK_RATIO_MAX,
+    TRAIL_MIN_MOVE_MULT,
 )
+from src.strategy.models import Bar as ForexBar  # noqa: E402
 
 
 def _norm_side(side: str) -> str:

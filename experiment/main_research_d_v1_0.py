@@ -70,7 +70,7 @@ import sys
 import time
 from bisect import bisect_right
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -93,36 +93,43 @@ if hasattr(sys.stderr, "reconfigure"):
 _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.strategy.models import Bar, Direction  # noqa: E402
-
 # ── Canonical engine — import only, do NOT modify ──────────────────────────
 import experiment.main_research_c_v1_0 as _canon  # noqa: E402
+from experiment.config import (  # noqa: E402
+    ATR_PERIOD,
+    FVG_BUFFER_MIN_FACTOR,
+    FVG_BUFFER_MULT,
+    FVG_MIN_SIZE_ATR_MULT,
+    FVG_WICK_RATIO_MAX,
+    MIN_RISK_DIST_ATR_MULT,
+    SESSION_END_HOUR,
+    SESSION_START_HOUR,
+    SL_ATR_MULT,
+    TP_RR,
+)
 from experiment.main_research_c_v1_0 import (  # noqa: E402
     STARTING_BALANCE_R,
     BenchmarkTrade,
     _nexus_detect_fvgs,
-    _to_nexus_bar as _canon_to_nexus_bar,
+)
+from experiment.main_research_c_v1_0 import (
     _is_fresh_fvg as _canon_is_fresh_fvg,
+)
+from experiment.main_research_c_v1_0 import (
+    _to_nexus_bar as _canon_to_nexus_bar,
+)
+from experiment.main_research_c_v1_0 import (
     compute_atr as _canon_compute_atr,
+)
+from experiment.main_research_c_v1_0 import (
     compute_stats as _canon_compute_stats,
 )
 from experiment.trailing_adapter import (  # noqa: E402
+    _norm_side,
     apply_trailing,
     check_exit,
-    _norm_side,
 )
-from experiment.config import (  # noqa: E402
-    TP_RR,
-    SL_ATR_MULT,
-    FVG_MIN_SIZE_ATR_MULT,
-    FVG_WICK_RATIO_MAX,
-    FVG_BUFFER_MULT,
-    FVG_BUFFER_MIN_FACTOR,
-    MIN_RISK_DIST_ATR_MULT,
-    ATR_PERIOD,
-    SESSION_START_HOUR,
-    SESSION_END_HOUR,
-)
+from src.strategy.models import Bar, Direction  # noqa: E402
 
 # ── Nexus pivot API (FVG detection itself comes from canonical) ───────────
 _NEXUS = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
@@ -533,9 +540,7 @@ def run_test_a_pure_d(
         min_fvg_size = max(atr_val * FVG_MIN_SIZE_ATR_MULT, 1e-8)
 
         if active_trade is not None:
-            apply_trailing(
-                bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol
-            )
+            apply_trailing(bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol)
             exit_info = check_exit(bar, active_trade)
             if exit_info is not None:
                 exit_price = exit_info["exit_price"]
@@ -605,12 +610,8 @@ def run_test_a_pure_d(
                 active_trade = None
                 continue
 
-            active_trade["max_price"] = max(
-                active_trade.get("max_price", bar.high), bar.high
-            )
-            active_trade["min_price"] = min(
-                active_trade.get("min_price", bar.low), bar.low
-            )
+            active_trade["max_price"] = max(active_trade.get("max_price", bar.high), bar.high)
+            active_trade["min_price"] = min(active_trade.get("min_price", bar.low), bar.low)
             continue
 
         sweep = session.update(bar)
@@ -622,9 +623,7 @@ def run_test_a_pure_d(
             continue
 
         # ─── canonical sweep_direction (verbatim) ───
-        sweep_direction = (
-            "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
-        )
+        sweep_direction = "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
         lb = min(100, i + 1)
         nexus_bars = nexus_bars_full[i + 1 - lb : i + 1]
 
@@ -753,16 +752,10 @@ def run_test_a_pure_d(
 
             rd = abs(entry_price - sl)
             if rd <= 0:
-                sl = (
-                    entry_price - rp2 * 2
-                    if fvg.direction == "bullish"
-                    else entry_price + rp2 * 2
-                )
+                sl = entry_price - rp2 * 2 if fvg.direction == "bullish" else entry_price + rp2 * 2
                 rd = abs(entry_price - sl)
             tp = (
-                entry_price + rd * TP_RR
-                if fvg.direction == "bullish"
-                else entry_price - rd * TP_RR
+                entry_price + rd * TP_RR if fvg.direction == "bullish" else entry_price - rd * TP_RR
             )
 
             if rd < atr_val * MIN_RISK_DIST_ATR_MULT:
@@ -787,10 +780,7 @@ def run_test_a_pure_d(
                 "zone_bottom": fvg.bottom,
                 "zone_size": fvg.size,
                 "zone_size_atr": fvg.size / atr_val if atr_val > 0 else 0,
-                "sweep_size_atr": abs(
-                    last_sweep.sweep_price - last_sweep.reference_level
-                )
-                / atr_val
+                "sweep_size_atr": abs(last_sweep.sweep_price - last_sweep.reference_level) / atr_val
                 if atr_val > 0
                 else 0,
                 "bars_sweep_to_zone": fvg.real_index - last_sweep.bar_index,
@@ -1149,9 +1139,7 @@ def main():
                 "trailing_count": t.trailing_count,
             }
         )
-    with open(
-        out_dir / f"variant_D_fvg_origin_eq{suffix}_trades.json", "w", encoding="utf-8"
-    ) as f:
+    with open(out_dir / f"variant_D_fvg_origin_eq{suffix}_trades.json", "w", encoding="utf-8") as f:
         json.dump(trade_audit, f, indent=2, default=str)
 
     # FVG-candidate audit
@@ -1198,10 +1186,7 @@ def main():
 
     print(f"\nResults saved to {out_dir}")
     if args.dry_run:
-        print(
-            "  (DRY-RUN artifacts use '_pure_dryrun' suffix; "
-            "previous artifacts NOT overwritten)"
-        )
+        print("  (DRY-RUN artifacts use '_pure_dryrun' suffix; previous artifacts NOT overwritten)")
 
 
 if __name__ == "__main__":

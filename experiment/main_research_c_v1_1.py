@@ -186,8 +186,10 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 # Import the FROZEN C v1.0 engine (UNTOUCHED). We re-use its trade
 # generation core BY IMPORT. We do NOT modify it.
 from experiment.main_research_c_v1_0 import (  # noqa: E402
-    BenchmarkTrade,
     STARTING_BALANCE_R,
+    BenchmarkTrade,
+)
+from experiment.main_research_c_v1_0 import (
     run_test_a as _run_test_a_v10,
 )
 
@@ -567,9 +569,7 @@ def compute_stats_v11(
 # ─────────────────────────────────────────────────────────────────────
 
 
-def _run_symbol_base(
-    sym: str, dry_run: bool
-) -> Tuple[List[BenchmarkTrade], List[float]]:
+def _run_symbol_base(sym: str, dry_run: bool) -> Tuple[List[BenchmarkTrade], List[float]]:
     """Run the FROZEN C v1.0 engine for one symbol and derive per-symbol
     `entry_ts` (one timestamp per base trade). No DD scaling here.
 
@@ -622,9 +622,7 @@ def _run_symbol_base(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Research C v1.1 — C2 EQ + DD Risk Scaling"
-    )
+    parser = argparse.ArgumentParser(description="Research C v1.1 — C2 EQ + DD Risk Scaling")
     parser.add_argument("symbols", nargs="*", help="Symbols (default: 6 majors)")
     parser.add_argument("--dry-run", action="store_true", help="Smoke test (2000 bars)")
     parser.add_argument(
@@ -694,12 +692,8 @@ def main():
     # equal the scaled stream length. Equivalently: tier counts
     # (x1 + x0.5 + x0.25 + paused) must equal the COMPLETED base
     # trade count (the same number used for total_pnl denominator).
-    completed_base = sum(
-        1 for t in all_base_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
-    )
-    completed_scaled = sum(
-        1 for t in scaled_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
-    )
+    completed_base = sum(1 for t in all_base_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS"))
+    completed_scaled = sum(1 for t in scaled_trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS"))
     if n_x1 + n_x05 + n_x025 + paused != completed_base:
         raise RuntimeError(
             f"main STEP 3 consistency violated: tier counts "
@@ -767,11 +761,10 @@ def main():
 
 def _load_bars(sym: str, dry_run: bool) -> List:
     import pandas as pd
+
     from src.strategy.models import Bar
 
-    df = pd.read_feather(
-        _PROJECT_ROOT / "data" / "icmarket_feather" / f"{sym}_15m.feather"
-    )
+    df = pd.read_feather(_PROJECT_ROOT / "data" / "icmarket_feather" / f"{sym}_15m.feather")
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     bars_15m = [
         Bar(

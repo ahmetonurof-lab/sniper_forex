@@ -24,14 +24,13 @@ DISIPLIN:
 from __future__ import annotations
 
 import json
+import multiprocessing as mp
+import sys
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
-import multiprocessing as mp
-
-import sys
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
@@ -40,28 +39,28 @@ _NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/sr
 if _NEXUS_SNIPER_SRC not in sys.path:
     sys.path.insert(0, _NEXUS_SNIPER_SRC)
 
-from src.strategy.session import SessionManager  # noqa: E402
-from src.strategy.models import Bar, SweepEvent, Direction  # noqa: E402
+from bisect import bisect_right  # noqa: E402
+
+from fvg import detect_fvgs as _nexus_detect_fvgs  # noqa: E402
+from pivot import find_swing_highs, find_swing_lows  # noqa: E402
 
 from experiment.config import (  # noqa: E402
-    TP_RR,
-    SL_ATR_MULT,
+    ATR_PERIOD,
+    FVG_BUFFER_MIN_FACTOR,
+    FVG_BUFFER_MULT,
     FVG_MIN_SIZE_ATR_MULT,
     FVG_WICK_RATIO_MAX,
-    FVG_BUFFER_MULT,
-    FVG_BUFFER_MIN_FACTOR,
     MIN_RISK_DIST_ATR_MULT,
-    ATR_PERIOD,
-    SESSION_START_HOUR,
     SESSION_END_HOUR,
+    SESSION_START_HOUR,
+    SL_ATR_MULT,
+    TP_RR,
 )
-from experiment.trailing_adapter import apply_trailing, check_exit, _norm_side  # noqa: E402
+from experiment.gemini_benchmark import _is_fresh_fvg, _to_nexus_bar, compute_atr  # noqa: E402
 from experiment.main_research_c_v1_0 import run_test_a  # noqa: E402
-from experiment.gemini_benchmark import _to_nexus_bar, _is_fresh_fvg, compute_atr  # noqa: E402
-
-from pivot import find_swing_highs, find_swing_lows  # noqa: E402
-from fvg import detect_fvgs as _nexus_detect_fvgs  # noqa: E402
-from bisect import bisect_right  # noqa: E402
+from experiment.trailing_adapter import _norm_side, apply_trailing, check_exit  # noqa: E402
+from src.strategy.models import Bar, Direction, SweepEvent  # noqa: E402
+from src.strategy.session import SessionManager  # noqa: E402
 
 ICMARKET_FEATHER = str(_PROJECT_ROOT / "data" / "icmarket_feather")
 SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "GBPJPY"]
@@ -75,9 +74,7 @@ def _build_swing_timeline(
     bars_15m: List[Bar],
     left: int = 3,
     right: int = 3,
-) -> Tuple[
-    List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]
-]:
+) -> Tuple[List[Tuple[int, int, float]], List[int], List[Tuple[int, int, float]], List[int]]:
     """Precompute ALL confirmed swing events ONCE per symbol. O(n).
 
     Returns (high_events, high_keys, low_events, low_keys).
@@ -143,9 +140,7 @@ def run_test_a_dynamic_eq(
         return []
 
     # ── Precompute swing timeline once (O(n)) ──
-    swing_highs, high_keys, swing_lows, low_keys = _build_swing_timeline(
-        bars_15m, left=3, right=3
-    )
+    swing_highs, high_keys, swing_lows, low_keys = _build_swing_timeline(bars_15m, left=3, right=3)
 
     session = SessionManager(
         symbol=symbol,
@@ -184,9 +179,7 @@ def run_test_a_dynamic_eq(
         min_fvg_size = max(atr_val * FVG_MIN_SIZE_ATR_MULT, 1e-8)
 
         if active_trade is not None:
-            apply_trailing(
-                bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol
-            )
+            apply_trailing(bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol)
             exit_info = check_exit(bar, active_trade)
             if exit_info is not None:
                 exit_price = exit_info["exit_price"]
@@ -248,12 +241,8 @@ def run_test_a_dynamic_eq(
                 active_trade = None
                 continue
 
-            active_trade["max_price"] = max(
-                active_trade.get("max_price", bar.high), bar.high
-            )
-            active_trade["min_price"] = min(
-                active_trade.get("min_price", bar.low), bar.low
-            )
+            active_trade["max_price"] = max(active_trade.get("max_price", bar.high), bar.high)
+            active_trade["min_price"] = min(active_trade.get("min_price", bar.low), bar.low)
             continue
 
         sweep = session.update(bar)
@@ -268,9 +257,7 @@ def run_test_a_dynamic_eq(
         if not sweep_detected or last_sweep is None:
             continue
 
-        sweep_direction = (
-            "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
-        )
+        sweep_direction = "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
         lb = min(100, i + 1)
         nexus_bars = nexus_bars_full[i + 1 - lb : i + 1]
 
@@ -345,15 +332,11 @@ def run_test_a_dynamic_eq(
             rd = abs(entry_price - sl_price)
             if rd <= 0:
                 sl_price = (
-                    entry_price - rp2 * 2
-                    if fvg.direction == "bullish"
-                    else entry_price + rp2 * 2
+                    entry_price - rp2 * 2 if fvg.direction == "bullish" else entry_price + rp2 * 2
                 )
                 rd = abs(entry_price - sl_price)
             tp = (
-                entry_price + rd * TP_RR
-                if fvg.direction == "bullish"
-                else entry_price - rd * TP_RR
+                entry_price + rd * TP_RR if fvg.direction == "bullish" else entry_price - rd * TP_RR
             )
 
             if rd < atr_val * MIN_RISK_DIST_ATR_MULT:
@@ -633,16 +616,12 @@ def main():
         "attribution": {
             "both": [{"symbol": k[0], "zone_index": k[1]} for k in both],
             "only_frozen": [{"symbol": k[0], "zone_index": k[1]} for k in only_frozen],
-            "only_dynamic": [
-                {"symbol": k[0], "zone_index": k[1]} for k in only_dynamic
-            ],
+            "only_dynamic": [{"symbol": k[0], "zone_index": k[1]} for k in only_dynamic],
         },
         "symbol_results": sym_results,
     }
     comp_path = out_dir / "exp5f_frozen_vs_dynamic.json"
-    comp_path.write_text(
-        json.dumps(comparison, indent=2, default=str), encoding="utf-8"
-    )
+    comp_path.write_text(json.dumps(comparison, indent=2, default=str), encoding="utf-8")
 
     # ── Report ──
     L: List[str] = []
@@ -653,9 +632,7 @@ def main():
     L.append("Aynı motorun tek değişkenli EQ karşılaştırması.")
     L.append("")
     L.append("- **Variant A (Frozen EQ)**: `eq = (sweep_price + range_opposite) / 2`")
-    L.append(
-        "- **Variant B (Dynamic Research EQ)**: `research_eq = (swing_high + swing_low) / 2`"
-    )
+    L.append("- **Variant B (Dynamic Research EQ)**: `research_eq = (swing_high + swing_low) / 2`")
     L.append("")
     L.append("Tek değişken: EQ definition. Her şey aynı.")
     L.append("")
@@ -773,9 +750,7 @@ def main():
             for t in [dynamic_keys[k] for k in only_dynamic]
             if t["result"] in ("TP", "PROFIT_TRAIL")
         )
-        od_losses = sum(
-            1 for t in [dynamic_keys[k] for k in only_dynamic] if t["result"] == "LOSS"
-        )
+        od_losses = sum(1 for t in [dynamic_keys[k] for k in only_dynamic] if t["result"] == "LOSS")
         L.append(
             f"- Dynamic EQ **added** {len(only_dynamic)} new trades "
             f"({od_wins} wins, {od_losses} losses)"
@@ -786,9 +761,7 @@ def main():
             for t in [frozen_keys[k] for k in only_frozen]
             if t["result"] in ("TP", "PROFIT_TRAIL")
         )
-        of_losses = sum(
-            1 for t in [frozen_keys[k] for k in only_frozen] if t["result"] == "LOSS"
-        )
+        of_losses = sum(1 for t in [frozen_keys[k] for k in only_frozen] if t["result"] == "LOSS")
         L.append(
             f"- Dynamic EQ **removed** {len(only_frozen)} Frozen EQ trades "
             f"({of_wins} wins, {of_losses} losses)"

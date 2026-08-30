@@ -1,0 +1,20 @@
+# Ruff configuration (seremoni: research baseline commit)
+# - experiment/ ve tests/ genel repoya genisletildi; bu dosyalar script-format
+#   (sys.path.insert + module-level prints) — E402 orada beklenen bir desen.
+# - E741 (`l` degisken adi) research kodunda yaygin; game-changing degil.
+line-length = 100
+
+[lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E402",  # module import not at top: experiment/tests scripts use sys.path.insert
+    "E741",  # ambiguous var name `l`: widespread in research/legacy code
+    "E501",  # long lines: frozen report/print strings - reformatting risks touching canonical text
+    "F841",  # unused locals: pre-existing in frozen baseline; deletion = strategy-code touch.
+             # Vulture already scans unused code (min-confidence 80) via pre-commit.
+]
+
+[lint.per-file-ignores]
+"experiment/*" = ["F841"]
+"tests/*" = ["F841"]
+"scripts/*" = ["E402", "F841"]

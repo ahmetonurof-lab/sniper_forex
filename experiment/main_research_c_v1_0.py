@@ -12,39 +12,39 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import sys
 import time
-import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
+from tqdm import tqdm
 
 # ── Setup paths ──
 _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 # noqa: E402 — Project paths must be inserted before strategy imports
-from src.strategy.data_loader import DataLoader  # noqa: E402
-from src.strategy.session import SessionManager  # noqa: E402
-from src.strategy.models import Bar, SweepEvent, Direction  # noqa: E402
-
 # noqa: E402 — Project paths must be inserted before experiment imports
 from experiment.config import (  # noqa: E402
-    TP_RR,
-    SL_ATR_MULT,
+    ATR_PERIOD,
+    FVG_BUFFER_MIN_FACTOR,
+    FVG_BUFFER_MULT,
     FVG_MIN_SIZE_ATR_MULT,
     FVG_WICK_RATIO_MAX,
-    FVG_BUFFER_MULT,
-    FVG_BUFFER_MIN_FACTOR,
     MIN_RISK_DIST_ATR_MULT,
-    ATR_PERIOD,
-    SESSION_START_HOUR,
     SESSION_END_HOUR,
+    SESSION_START_HOUR,
+    SL_ATR_MULT,
+    TP_RR,
 )
-from experiment.trailing_adapter import apply_trailing, check_exit, _norm_side  # noqa: E402
 from experiment.gemini_detector import detect_gemini_entry  # noqa: E402
+from experiment.trailing_adapter import _norm_side, apply_trailing, check_exit  # noqa: E402
+from src.strategy.data_loader import DataLoader  # noqa: E402
+from src.strategy.models import Bar, Direction, SweepEvent  # noqa: E402
+from src.strategy.session import SessionManager  # noqa: E402
 
 # ── Portfolio equity curve starting balance ──
 STARTING_BALANCE_R = 100.0
@@ -139,11 +139,7 @@ def resample_15m(bars_1m: List[Bar]) -> List[Bar]:
     _15M_MS = 15 * 60 * 1000
     buckets: dict = {}
     for b in bars_1m:
-        ts_ms = (
-            int(b.timestamp.timestamp() * 1000)
-            if hasattr(b.timestamp, "timestamp")
-            else 0
-        )
+        ts_ms = int(b.timestamp.timestamp() * 1000) if hasattr(b.timestamp, "timestamp") else 0
         slot = (ts_ms // _15M_MS) * _15M_MS
         if slot not in buckets:
             buckets[slot] = []
@@ -237,9 +233,7 @@ def run_test_a(
         min_fvg_size = max(atr_val * FVG_MIN_SIZE_ATR_MULT, 1e-8)
 
         if active_trade is not None:
-            apply_trailing(
-                bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol
-            )
+            apply_trailing(bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol)
             exit_info = check_exit(bar, active_trade)
             if exit_info is not None:
                 exit_price = exit_info["exit_price"]
@@ -309,12 +303,8 @@ def run_test_a(
                 active_trade = None
                 continue
 
-            active_trade["max_price"] = max(
-                active_trade.get("max_price", bar.high), bar.high
-            )
-            active_trade["min_price"] = min(
-                active_trade.get("min_price", bar.low), bar.low
-            )
+            active_trade["max_price"] = max(active_trade.get("max_price", bar.high), bar.high)
+            active_trade["min_price"] = min(active_trade.get("min_price", bar.low), bar.low)
             continue
 
         sweep = session.update(bar)
@@ -325,9 +315,7 @@ def run_test_a(
         if not sweep_detected or last_sweep is None:
             continue
 
-        sweep_direction = (
-            "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
-        )
+        sweep_direction = "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
         lb = min(100, i + 1)
         nexus_bars = nexus_bars_full[i + 1 - lb : i + 1]
 
@@ -418,16 +406,10 @@ def run_test_a(
 
             rd = abs(entry_price - sl)
             if rd <= 0:
-                sl = (
-                    entry_price - rp2 * 2
-                    if fvg.direction == "bullish"
-                    else entry_price + rp2 * 2
-                )
+                sl = entry_price - rp2 * 2 if fvg.direction == "bullish" else entry_price + rp2 * 2
                 rd = abs(entry_price - sl)
             tp = (
-                entry_price + rd * TP_RR
-                if fvg.direction == "bullish"
-                else entry_price - rd * TP_RR
+                entry_price + rd * TP_RR if fvg.direction == "bullish" else entry_price - rd * TP_RR
             )
 
             if rd < atr_val * MIN_RISK_DIST_ATR_MULT:
@@ -453,10 +435,7 @@ def run_test_a(
                 "zone_bottom": fvg.bottom,
                 "zone_size": fvg.size,
                 "zone_size_atr": fvg.size / atr_val if atr_val > 0 else 0,
-                "sweep_size_atr": abs(
-                    last_sweep.sweep_price - last_sweep.reference_level
-                )
-                / atr_val
+                "sweep_size_atr": abs(last_sweep.sweep_price - last_sweep.reference_level) / atr_val
                 if atr_val > 0
                 else 0,
                 "bars_sweep_to_zone": fvg.real_index - last_sweep.bar_index,
@@ -561,9 +540,7 @@ def run_test_b(
             atr_val = (atr_val * (ATR_PERIOD - 1) + tr) / ATR_PERIOD
 
         if active_trade is not None:
-            apply_trailing(
-                bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol
-            )
+            apply_trailing(bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol)
             exit_info = check_exit(bar, active_trade)
             if exit_info is not None:
                 exit_price = exit_info["exit_price"]
@@ -618,13 +595,9 @@ def run_test_b(
                     sweep_size_atr=active_trade.get("sweep_size_atr", 0),
                     bars_sweep_to_zone=active_trade.get("bars_sweep_to_zone", 0),
                     bars_zone_to_entry=active_trade.get("bars_zone_to_entry", 0),
-                    body_close_confirmed=active_trade.get(
-                        "body_close_confirmed", False
-                    ),
+                    body_close_confirmed=active_trade.get("body_close_confirmed", False),
                     master_bias=active_trade.get("master_bias", ""),
-                    internal_sweep_found=active_trade.get(
-                        "internal_sweep_found", False
-                    ),
+                    internal_sweep_found=active_trade.get("internal_sweep_found", False),
                     purge_verified=active_trade.get("purge_verified", False),
                     exit_price=exit_price,
                     exit_bar_index=i,
@@ -640,12 +613,8 @@ def run_test_b(
                 active_trade = None
                 continue
 
-            active_trade["max_price"] = max(
-                active_trade.get("max_price", bar.high), bar.high
-            )
-            active_trade["min_price"] = min(
-                active_trade.get("min_price", bar.low), bar.low
-            )
+            active_trade["max_price"] = max(active_trade.get("max_price", bar.high), bar.high)
+            active_trade["min_price"] = min(active_trade.get("min_price", bar.low), bar.low)
             continue
 
         # ── Sweep detection ──
@@ -683,12 +652,8 @@ def run_test_b(
                     "initial_tp": gemini_result.tp,
                     "entry_bar": i + 1,
                     "sweep_bar_index": gemini_result.sweep_bar_index,
-                    "zone_index": gemini_result.fvg.real_index
-                    if gemini_result.fvg
-                    else 0,
-                    "zone_creation_bar": gemini_result.fvg.real_index
-                    if gemini_result.fvg
-                    else 0,
+                    "zone_index": gemini_result.fvg.real_index if gemini_result.fvg else 0,
+                    "zone_creation_bar": gemini_result.fvg.real_index if gemini_result.fvg else 0,
                     "zone_top": gemini_result.fvg.top if gemini_result.fvg else 0,
                     "zone_bottom": gemini_result.fvg.bottom if gemini_result.fvg else 0,
                     "zone_size": gemini_result.fvg_size,
@@ -847,6 +812,7 @@ def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:
     feather_dir = _PROJECT_ROOT / "data" / "icmarket_feather"
     # Load 15m directly — no resampling needed
     import pandas as pd
+
     from src.strategy.models import Bar
 
     feather_path = feather_dir / f"{sym}_15m.feather"
@@ -873,9 +839,7 @@ def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:
             range(len(timestamps)), timestamps, opens, highs, lows, closes, volumes
         )
     ]
-    print(
-        f"  [WORKER] {sym}: loaded {len(bars_15m)} 15m bars, backtesting...", flush=True
-    )
+    print(f"  [WORKER] {sym}: loaded {len(bars_15m)} 15m bars, backtesting...", flush=True)
     if dry_run:
         bars_15m = bars_15m[:2000]
     print(
@@ -888,7 +852,7 @@ def _run_symbol(sym: str, test_type: str, dry_run: bool) -> List[dict]:
     if test_type == "POST_SWEEP_FVG":
         trades = run_test_a(sym, bars_15m)
         t1 = time.time()
-        print(f"  [WORKER] {sym}: run_test_a took {t1-t0:.1f}s", flush=True)
+        print(f"  [WORKER] {sym}: run_test_a took {t1 - t0:.1f}s", flush=True)
     else:
         trades = run_test_b(sym, bars_15m)
     elapsed = time.time() - t0
@@ -901,9 +865,7 @@ def main():
     parser = argparse.ArgumentParser(description="Gemini vs POST_SWEEP_FVG Benchmark")
     parser.add_argument("symbols", nargs="*", help="Symbols (default: all)")
     parser.add_argument("--dry-run", action="store_true", help="Smoke test")
-    parser.add_argument(
-        "--workers", type=int, default=6, help="Parallel workers (default: 6)"
-    )
+    parser.add_argument("--workers", type=int, default=6, help="Parallel workers (default: 6)")
     parser.add_argument(
         "--test", default="POST_SWEEP_FVG", help="Test type (default: POST_SWEEP_FVG)"
     )
@@ -916,9 +878,7 @@ def main():
     args = parser.parse_args()
 
     loader = DataLoader(feather_dir=_PROJECT_ROOT / "data" / "icmarket_feather")
-    symbols = (
-        [s.upper() for s in args.symbols] if args.symbols else loader.list_symbols()
-    )
+    symbols = [s.upper() for s in args.symbols] if args.symbols else loader.list_symbols()
     test_types = [args.test]
 
     print("=== RESEARCH C — C2 EQ BENCHMARK ===")
@@ -941,8 +901,7 @@ def main():
         )
         with ThreadPoolExecutor(max_workers=args.workers) as executor:
             futures = {
-                executor.submit(_run_symbol, sym, test_type, args.dry_run): sym
-                for sym in symbols
+                executor.submit(_run_symbol, sym, test_type, args.dry_run): sym for sym in symbols
             }
             pbar = tqdm(total=len(symbols), desc="Processing", unit="sym", ncols=80)
             print(f"  {len(futures)} futures submitted, waiting...", flush=True)

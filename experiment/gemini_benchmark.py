@@ -12,35 +12,34 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import sys
 import time
-import statistics
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 # ── Setup paths ──
 _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.strategy.data_loader import DataLoader
-from src.strategy.session import SessionManager
-from src.strategy.models import Bar, SweepEvent, Direction
-
 from experiment.config import (
-    TP_RR,
-    SL_ATR_MULT,
+    ATR_PERIOD,
+    FVG_BUFFER_MIN_FACTOR,
+    FVG_BUFFER_MULT,
     FVG_MIN_SIZE_ATR_MULT,
     FVG_WICK_RATIO_MAX,
-    FVG_BUFFER_MULT,
-    FVG_BUFFER_MIN_FACTOR,
     MIN_RISK_DIST_ATR_MULT,
-    ATR_PERIOD,
-    SESSION_START_HOUR,
     SESSION_END_HOUR,
+    SESSION_START_HOUR,
+    SL_ATR_MULT,
+    TP_RR,
 )
-from experiment.trailing_adapter import apply_trailing, check_exit, _norm_side
 from experiment.gemini_detector import detect_gemini_entry
+from experiment.trailing_adapter import _norm_side, apply_trailing, check_exit
+from src.strategy.data_loader import DataLoader
+from src.strategy.models import Bar, Direction, SweepEvent
+from src.strategy.session import SessionManager
 
 # ── NEXUS FVG module ──
 _NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
@@ -91,8 +90,9 @@ class BenchmarkTrade:
 
 
 # ── Helpers ──
-def _to_nexus_bar(bar: Bar) -> 'NexusBar':
+def _to_nexus_bar(bar: Bar) -> Any:
     from models import Bar as NexusBar
+
     return NexusBar(
         index=bar.index,
         open=bar.open,
@@ -101,7 +101,9 @@ def _to_nexus_bar(bar: Bar) -> 'NexusBar':
         close=bar.close,
         volume=bar.volume,
         is_closed=True,
-        timestamp=int(bar.timestamp.timestamp() * 1000) if hasattr(bar.timestamp, 'timestamp') else 0,
+        timestamp=int(bar.timestamp.timestamp() * 1000)
+        if hasattr(bar.timestamp, "timestamp")
+        else 0,
     )
 
 
@@ -121,6 +123,7 @@ def compute_atr(bars: List[Bar], period: int = 14) -> float:
     if len(trs) < period:
         return 0.0
     import numpy as np
+
     return float(np.mean(trs[-period:]))
 
 
@@ -128,7 +131,7 @@ def resample_15m(bars_1m: List[Bar]) -> List[Bar]:
     _15M_MS = 15 * 60 * 1000
     buckets: dict = {}
     for b in bars_1m:
-        ts_ms = int(b.timestamp.timestamp() * 1000) if hasattr(b.timestamp, 'timestamp') else 0
+        ts_ms = int(b.timestamp.timestamp() * 1000) if hasattr(b.timestamp, "timestamp") else 0
         slot = (ts_ms // _15M_MS) * _15M_MS
         if slot not in buckets:
             buckets[slot] = []
@@ -139,15 +142,17 @@ def resample_15m(bars_1m: List[Bar]) -> List[Bar]:
         c = buckets[slot]
         if len(c) < 3:
             continue
-        m15.append(Bar(
-            index=len(m15),
-            timestamp=c[0].timestamp,
-            open=c[0].open,
-            high=max(b.high for b in c),
-            low=min(b.low for b in c),
-            close=c[-1].close,
-            volume=sum(b.volume for b in c),
-        ))
+        m15.append(
+            Bar(
+                index=len(m15),
+                timestamp=c[0].timestamp,
+                open=c[0].open,
+                high=max(b.high for b in c),
+                low=min(b.low for b in c),
+                close=c[-1].close,
+                volume=sum(b.volume for b in c),
+            )
+        )
     return m15
 
 
@@ -209,7 +214,7 @@ def run_test_a(
         min_fvg_size = max(atr_val * FVG_MIN_SIZE_ATR_MULT, 1e-8)
 
         if active_trade is not None:
-            apply_trailing(bars_15m[max(0, i - 500):i + 1], [active_trade], atr_val, symbol)
+            apply_trailing(bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol)
             exit_info = check_exit(bar, active_trade)
             if exit_info is not None:
                 exit_price = exit_info["exit_price"]
@@ -217,33 +222,61 @@ def run_test_a(
                 # Direction-dispatch fix: branch on normalized side ("long"/"short"),
                 # NOT on direction ("bullish"/"bearish") which never matched.
                 if _norm_side(active_trade["side"]) == "long":
-                    pnl_r = (exit_price - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                        active_trade["entry_price"] - active_trade["initial_sl"]
+                    )
                 else:
-                    pnl_r = (active_trade["entry_price"] - exit_price) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                        active_trade["sl"] - active_trade["entry_price"]
+                    )
                 if result == "LOSS":
                     pnl_r = -1.0
 
                 if _norm_side(active_trade["side"]) == "long":
-                    mfe = (active_trade.get("max_price", active_trade["entry_price"]) - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
-                    mae = (active_trade["entry_price"] - active_trade.get("min_price", active_trade["entry_price"])) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mfe = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mae = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
                 else:
-                    mfe = (active_trade["entry_price"] - active_trade.get("min_price", active_trade["entry_price"])) / abs(active_trade["sl"] - active_trade["entry_price"])
-                    mae = (active_trade.get("max_price", active_trade["entry_price"]) - active_trade["entry_price"]) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    mfe = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    mae = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["sl"] - active_trade["entry_price"])
 
                 record = BenchmarkTrade(
-                    trade_id=active_trade["trade_id"], symbol=symbol, test_type="POST_SWEEP_FVG",
-                    direction=active_trade["direction"], entry_price=active_trade["entry_price"],
-                    sl=active_trade["initial_sl"], tp=active_trade["initial_tp"],
-                    entry_bar_index=active_trade["entry_bar"], sweep_bar_index=active_trade["sweep_bar_index"],
-                    zone_index=active_trade.get("zone_index", 0), zone_creation_bar=active_trade.get("zone_creation_bar", 0),
-                    zone_top=active_trade.get("zone_top", 0), zone_bottom=active_trade.get("zone_bottom", 0),
-                    zone_size=active_trade.get("zone_size", 0), zone_size_atr=active_trade.get("zone_size_atr", 0),
+                    trade_id=active_trade["trade_id"],
+                    symbol=symbol,
+                    test_type="POST_SWEEP_FVG",
+                    direction=active_trade["direction"],
+                    entry_price=active_trade["entry_price"],
+                    sl=active_trade["initial_sl"],
+                    tp=active_trade["initial_tp"],
+                    entry_bar_index=active_trade["entry_bar"],
+                    sweep_bar_index=active_trade["sweep_bar_index"],
+                    zone_index=active_trade.get("zone_index", 0),
+                    zone_creation_bar=active_trade.get("zone_creation_bar", 0),
+                    zone_top=active_trade.get("zone_top", 0),
+                    zone_bottom=active_trade.get("zone_bottom", 0),
+                    zone_size=active_trade.get("zone_size", 0),
+                    zone_size_atr=active_trade.get("zone_size_atr", 0),
                     sweep_size_atr=active_trade.get("sweep_size_atr", 0),
                     bars_sweep_to_zone=active_trade.get("bars_sweep_to_zone", 0),
                     bars_zone_to_entry=active_trade.get("bars_zone_to_entry", 0),
-                    exit_price=exit_price, exit_bar_index=i, result=result, pnl_r=pnl_r,
+                    exit_price=exit_price,
+                    exit_bar_index=i,
+                    result=result,
+                    pnl_r=pnl_r,
                     trailing_count=active_trade.get("trailing_count", 0),
-                    max_favorable=mfe, max_adverse=mae,
+                    max_favorable=mfe,
+                    max_adverse=mae,
                     hold_bars=i - active_trade["entry_bar"],
                 )
                 trades.append(record)
@@ -263,10 +296,15 @@ def run_test_a(
             continue
 
         sweep_direction = "bullish" if last_sweep.direction == Direction.BULLISH else "bearish"
-        nexus_bars = [_to_nexus_bar(b) for b in bars_15m[:i + 1]]
+        nexus_bars = [_to_nexus_bar(b) for b in bars_15m[: i + 1]]
 
-        fvgs = _nexus_detect_fvgs(nexus_bars, lookback=min(100, len(nexus_bars)), timeframe="15m",
-                                   min_fvg_size=min_fvg_size, max_wick_ratio=FVG_WICK_RATIO_MAX)
+        fvgs = _nexus_detect_fvgs(
+            nexus_bars,
+            lookback=min(100, len(nexus_bars)),
+            timeframe="15m",
+            min_fvg_size=min_fvg_size,
+            max_wick_ratio=FVG_WICK_RATIO_MAX,
+        )
 
         eq_rejected = 0
 
@@ -284,7 +322,8 @@ def run_test_a(
             # SWEEP -> CBDR OPPOSITE ENDPOINT EQ FILTER
             # ============================================================
             range_opposite = (
-                session.cbdr.body_low if last_sweep.direction == Direction.BEARISH
+                session.cbdr.body_low
+                if last_sweep.direction == Direction.BEARISH
                 else session.cbdr.body_high
             )
 
@@ -317,17 +356,33 @@ def run_test_a(
             fh = fvg.top - fvg.bottom
             rp2 = atr_val * SL_ATR_MULT
             if fvg.direction == "bullish":
-                ab = max(fh * FVG_BUFFER_MIN_FACTOR, max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT))) if fh > 0 else rp2 * 2
+                ab = (
+                    max(
+                        fh * FVG_BUFFER_MIN_FACTOR,
+                        max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT)),
+                    )
+                    if fh > 0
+                    else rp2 * 2
+                )
                 sl = fvg.bottom - ab if fh > 0 else entry_price - rp2 * 2
             else:
-                ab = max(fh * FVG_BUFFER_MIN_FACTOR, max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT))) if fh > 0 else rp2 * 2
+                ab = (
+                    max(
+                        fh * FVG_BUFFER_MIN_FACTOR,
+                        max(rp2 * 0.1, min(fh * 0.25, rp2 * FVG_BUFFER_MULT)),
+                    )
+                    if fh > 0
+                    else rp2 * 2
+                )
                 sl = fvg.top + ab if fh > 0 else entry_price + rp2 * 2
 
             rd = abs(entry_price - sl)
             if rd <= 0:
                 sl = entry_price - rp2 * 2 if fvg.direction == "bullish" else entry_price + rp2 * 2
                 rd = abs(entry_price - sl)
-            tp = entry_price + rd * TP_RR if fvg.direction == "bullish" else entry_price - rd * TP_RR
+            tp = (
+                entry_price + rd * TP_RR if fvg.direction == "bullish" else entry_price - rd * TP_RR
+            )
 
             if rd < atr_val * MIN_RISK_DIST_ATR_MULT:
                 continue
@@ -336,16 +391,31 @@ def run_test_a(
             active_trade = {
                 # Direction-dispatch fix: side must be "long"/"short" for the
                 # execution engine; direction stays "bullish"/"bearish" for records.
-                "trade_id": trade_counter, "side": _norm_side(fvg.direction), "direction": fvg.direction,
-                "entry_price": entry_price, "sl": sl, "tp": tp, "initial_sl": sl, "initial_tp": tp,
-                "entry_bar": i + 1, "sweep_bar_index": last_sweep.bar_index,
-                "zone_index": fvg.real_index, "zone_creation_bar": fvg.real_index,
-                "zone_top": fvg.top, "zone_bottom": fvg.bottom, "zone_size": fvg.size,
+                "trade_id": trade_counter,
+                "side": _norm_side(fvg.direction),
+                "direction": fvg.direction,
+                "entry_price": entry_price,
+                "sl": sl,
+                "tp": tp,
+                "initial_sl": sl,
+                "initial_tp": tp,
+                "entry_bar": i + 1,
+                "sweep_bar_index": last_sweep.bar_index,
+                "zone_index": fvg.real_index,
+                "zone_creation_bar": fvg.real_index,
+                "zone_top": fvg.top,
+                "zone_bottom": fvg.bottom,
+                "zone_size": fvg.size,
                 "zone_size_atr": fvg.size / atr_val if atr_val > 0 else 0,
-                "sweep_size_atr": abs(last_sweep.sweep_price - last_sweep.reference_level) / atr_val if atr_val > 0 else 0,
+                "sweep_size_atr": abs(last_sweep.sweep_price - last_sweep.reference_level) / atr_val
+                if atr_val > 0
+                else 0,
                 "bars_sweep_to_zone": fvg.real_index - last_sweep.bar_index,
                 "bars_zone_to_entry": i - fvg.real_index,
-                "trailing_count": 0, "max_price": entry_price, "min_price": entry_price, "closed": False,
+                "trailing_count": 0,
+                "max_price": entry_price,
+                "min_price": entry_price,
+                "closed": False,
             }
             sweep_detected = False
             last_sweep = None
@@ -356,23 +426,38 @@ def run_test_a(
         last_bar = bars_15m[-1]
         if _norm_side(active_trade["side"]) == "long":
             exit_price = last_bar.close
-            pnl_r = (exit_price - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+            pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                active_trade["entry_price"] - active_trade["initial_sl"]
+            )
         else:
             exit_price = last_bar.close
-            pnl_r = (active_trade["entry_price"] - exit_price) / abs(active_trade["sl"] - active_trade["entry_price"])
+            pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                active_trade["sl"] - active_trade["entry_price"]
+            )
 
         record = BenchmarkTrade(
-            trade_id=active_trade["trade_id"], symbol=symbol, test_type="POST_SWEEP_FVG",
-            direction=active_trade["direction"], entry_price=active_trade["entry_price"],
-            sl=active_trade["initial_sl"], tp=active_trade["initial_tp"],
-            entry_bar_index=active_trade["entry_bar"], sweep_bar_index=active_trade["sweep_bar_index"],
-            zone_index=active_trade.get("zone_index", 0), zone_creation_bar=active_trade.get("zone_creation_bar", 0),
-            zone_top=active_trade.get("zone_top", 0), zone_bottom=active_trade.get("zone_bottom", 0),
-            zone_size=active_trade.get("zone_size", 0), zone_size_atr=active_trade.get("zone_size_atr", 0),
+            trade_id=active_trade["trade_id"],
+            symbol=symbol,
+            test_type="POST_SWEEP_FVG",
+            direction=active_trade["direction"],
+            entry_price=active_trade["entry_price"],
+            sl=active_trade["initial_sl"],
+            tp=active_trade["initial_tp"],
+            entry_bar_index=active_trade["entry_bar"],
+            sweep_bar_index=active_trade["sweep_bar_index"],
+            zone_index=active_trade.get("zone_index", 0),
+            zone_creation_bar=active_trade.get("zone_creation_bar", 0),
+            zone_top=active_trade.get("zone_top", 0),
+            zone_bottom=active_trade.get("zone_bottom", 0),
+            zone_size=active_trade.get("zone_size", 0),
+            zone_size_atr=active_trade.get("zone_size_atr", 0),
             sweep_size_atr=active_trade.get("sweep_size_atr", 0),
             bars_sweep_to_zone=active_trade.get("bars_sweep_to_zone", 0),
             bars_zone_to_entry=active_trade.get("bars_zone_to_entry", 0),
-            exit_price=exit_price, exit_bar_index=len(bars_15m) - 1, result="OPEN", pnl_r=pnl_r,
+            exit_price=exit_price,
+            exit_bar_index=len(bars_15m) - 1,
+            result="OPEN",
+            pnl_r=pnl_r,
             trailing_count=active_trade.get("trailing_count", 0),
         )
         trades.append(record)
@@ -422,34 +507,58 @@ def run_test_b(
             atr_val = (atr_val * (ATR_PERIOD - 1) + tr) / ATR_PERIOD
 
         if active_trade is not None:
-            apply_trailing(bars_15m[max(0, i - 500):i + 1], [active_trade], atr_val, symbol)
+            apply_trailing(bars_15m[max(0, i - 500) : i + 1], [active_trade], atr_val, symbol)
             exit_info = check_exit(bar, active_trade)
             if exit_info is not None:
                 exit_price = exit_info["exit_price"]
                 result = exit_info["result"]
                 # Direction-dispatch fix: branch on normalized side ("long"/"short").
                 if _norm_side(active_trade["side"]) == "long":
-                    pnl_r = (exit_price - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                        active_trade["entry_price"] - active_trade["initial_sl"]
+                    )
                 else:
-                    pnl_r = (active_trade["entry_price"] - exit_price) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                        active_trade["sl"] - active_trade["entry_price"]
+                    )
                 if result == "LOSS":
                     pnl_r = -1.0
 
                 if _norm_side(active_trade["side"]) == "long":
-                    mfe = (active_trade.get("max_price", active_trade["entry_price"]) - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
-                    mae = (active_trade["entry_price"] - active_trade.get("min_price", active_trade["entry_price"])) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mfe = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+                    mae = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
                 else:
-                    mfe = (active_trade["entry_price"] - active_trade.get("min_price", active_trade["entry_price"])) / abs(active_trade["sl"] - active_trade["entry_price"])
-                    mae = (active_trade.get("max_price", active_trade["entry_price"]) - active_trade["entry_price"]) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    mfe = (
+                        active_trade["entry_price"]
+                        - active_trade.get("min_price", active_trade["entry_price"])
+                    ) / abs(active_trade["sl"] - active_trade["entry_price"])
+                    mae = (
+                        active_trade.get("max_price", active_trade["entry_price"])
+                        - active_trade["entry_price"]
+                    ) / abs(active_trade["sl"] - active_trade["entry_price"])
 
                 record = BenchmarkTrade(
-                    trade_id=active_trade["trade_id"], symbol=symbol, test_type="GEMINI_SWEEP_FVG",
-                    direction=active_trade["direction"], entry_price=active_trade["entry_price"],
-                    sl=active_trade["initial_sl"], tp=active_trade["initial_tp"],
-                    entry_bar_index=active_trade["entry_bar"], sweep_bar_index=active_trade["sweep_bar_index"],
-                    zone_index=active_trade.get("zone_index", 0), zone_creation_bar=active_trade.get("zone_creation_bar", 0),
-                    zone_top=active_trade.get("zone_top", 0), zone_bottom=active_trade.get("zone_bottom", 0),
-                    zone_size=active_trade.get("zone_size", 0), zone_size_atr=active_trade.get("zone_size_atr", 0),
+                    trade_id=active_trade["trade_id"],
+                    symbol=symbol,
+                    test_type="GEMINI_SWEEP_FVG",
+                    direction=active_trade["direction"],
+                    entry_price=active_trade["entry_price"],
+                    sl=active_trade["initial_sl"],
+                    tp=active_trade["initial_tp"],
+                    entry_bar_index=active_trade["entry_bar"],
+                    sweep_bar_index=active_trade["sweep_bar_index"],
+                    zone_index=active_trade.get("zone_index", 0),
+                    zone_creation_bar=active_trade.get("zone_creation_bar", 0),
+                    zone_top=active_trade.get("zone_top", 0),
+                    zone_bottom=active_trade.get("zone_bottom", 0),
+                    zone_size=active_trade.get("zone_size", 0),
+                    zone_size_atr=active_trade.get("zone_size_atr", 0),
                     sweep_size_atr=active_trade.get("sweep_size_atr", 0),
                     bars_sweep_to_zone=active_trade.get("bars_sweep_to_zone", 0),
                     bars_zone_to_entry=active_trade.get("bars_zone_to_entry", 0),
@@ -457,9 +566,13 @@ def run_test_b(
                     master_bias=active_trade.get("master_bias", ""),
                     internal_sweep_found=active_trade.get("internal_sweep_found", False),
                     purge_verified=active_trade.get("purge_verified", False),
-                    exit_price=exit_price, exit_bar_index=i, result=result, pnl_r=pnl_r,
+                    exit_price=exit_price,
+                    exit_bar_index=i,
+                    result=result,
+                    pnl_r=pnl_r,
                     trailing_count=active_trade.get("trailing_count", 0),
-                    max_favorable=mfe, max_adverse=mae,
+                    max_favorable=mfe,
+                    max_adverse=mae,
                     hold_bars=i - active_trade["entry_bar"],
                 )
                 trades.append(record)
@@ -482,7 +595,12 @@ def run_test_b(
         if sweep_detected and last_sweep is not None:
             next_bar = bars_15m[i + 1] if i + 1 < len(bars_15m) else None
             gemini_result = detect_gemini_entry(
-                bars_15m, last_sweep, bar, i, atr_val, symbol,
+                bars_15m,
+                last_sweep,
+                bar,
+                i,
+                atr_val,
+                symbol,
                 next_bar=next_bar,
             )
 
@@ -490,12 +608,16 @@ def run_test_b(
                 trade_counter += 1
                 active_trade = {
                     # Direction-dispatch fix: side normalized for execution engine.
-                    "trade_id": trade_counter, "side": _norm_side(gemini_result.direction),
+                    "trade_id": trade_counter,
+                    "side": _norm_side(gemini_result.direction),
                     "direction": gemini_result.direction,
                     "entry_price": gemini_result.entry_price,
-                    "sl": gemini_result.sl, "tp": gemini_result.tp,
-                    "initial_sl": gemini_result.sl, "initial_tp": gemini_result.tp,
-                    "entry_bar": i + 1, "sweep_bar_index": gemini_result.sweep_bar_index,
+                    "sl": gemini_result.sl,
+                    "tp": gemini_result.tp,
+                    "initial_sl": gemini_result.sl,
+                    "initial_tp": gemini_result.tp,
+                    "entry_bar": i + 1,
+                    "sweep_bar_index": gemini_result.sweep_bar_index,
                     "zone_index": gemini_result.fvg.real_index if gemini_result.fvg else 0,
                     "zone_creation_bar": gemini_result.fvg.real_index if gemini_result.fvg else 0,
                     "zone_top": gemini_result.fvg.top if gemini_result.fvg else 0,
@@ -509,8 +631,10 @@ def run_test_b(
                     "master_bias": gemini_result.master_bias,
                     "internal_sweep_found": gemini_result.internal_sweep_found,
                     "purge_verified": gemini_result.purge_verified,
-                    "trailing_count": 0, "max_price": gemini_result.entry_price,
-                    "min_price": gemini_result.entry_price, "closed": False,
+                    "trailing_count": 0,
+                    "max_price": gemini_result.entry_price,
+                    "min_price": gemini_result.entry_price,
+                    "closed": False,
                 }
                 sweep_detected = False
                 last_sweep = None
@@ -521,19 +645,31 @@ def run_test_b(
         last_bar = bars_15m[-1]
         if _norm_side(active_trade["side"]) == "long":
             exit_price = last_bar.close
-            pnl_r = (exit_price - active_trade["entry_price"]) / abs(active_trade["entry_price"] - active_trade["initial_sl"])
+            pnl_r = (exit_price - active_trade["entry_price"]) / abs(
+                active_trade["entry_price"] - active_trade["initial_sl"]
+            )
         else:
             exit_price = last_bar.close
-            pnl_r = (active_trade["entry_price"] - exit_price) / abs(active_trade["sl"] - active_trade["entry_price"])
+            pnl_r = (active_trade["entry_price"] - exit_price) / abs(
+                active_trade["sl"] - active_trade["entry_price"]
+            )
 
         record = BenchmarkTrade(
-            trade_id=active_trade["trade_id"], symbol=symbol, test_type="GEMINI_SWEEP_FVG",
-            direction=active_trade["direction"], entry_price=active_trade["entry_price"],
-            sl=active_trade["initial_sl"], tp=active_trade["initial_tp"],
-            entry_bar_index=active_trade["entry_bar"], sweep_bar_index=active_trade["sweep_bar_index"],
-            zone_index=active_trade.get("zone_index", 0), zone_creation_bar=active_trade.get("zone_creation_bar", 0),
-            zone_top=active_trade.get("zone_top", 0), zone_bottom=active_trade.get("zone_bottom", 0),
-            zone_size=active_trade.get("zone_size", 0), zone_size_atr=active_trade.get("zone_size_atr", 0),
+            trade_id=active_trade["trade_id"],
+            symbol=symbol,
+            test_type="GEMINI_SWEEP_FVG",
+            direction=active_trade["direction"],
+            entry_price=active_trade["entry_price"],
+            sl=active_trade["initial_sl"],
+            tp=active_trade["initial_tp"],
+            entry_bar_index=active_trade["entry_bar"],
+            sweep_bar_index=active_trade["sweep_bar_index"],
+            zone_index=active_trade.get("zone_index", 0),
+            zone_creation_bar=active_trade.get("zone_creation_bar", 0),
+            zone_top=active_trade.get("zone_top", 0),
+            zone_bottom=active_trade.get("zone_bottom", 0),
+            zone_size=active_trade.get("zone_size", 0),
+            zone_size_atr=active_trade.get("zone_size_atr", 0),
             sweep_size_atr=active_trade.get("sweep_size_atr", 0),
             bars_sweep_to_zone=active_trade.get("bars_sweep_to_zone", 0),
             bars_zone_to_entry=active_trade.get("bars_zone_to_entry", 0),
@@ -541,7 +677,10 @@ def run_test_b(
             master_bias=active_trade.get("master_bias", ""),
             internal_sweep_found=active_trade.get("internal_sweep_found", False),
             purge_verified=active_trade.get("purge_verified", False),
-            exit_price=exit_price, exit_bar_index=len(bars_15m) - 1, result="OPEN", pnl_r=pnl_r,
+            exit_price=exit_price,
+            exit_bar_index=len(bars_15m) - 1,
+            result="OPEN",
+            pnl_r=pnl_r,
             trailing_count=active_trade.get("trailing_count", 0),
         )
         trades.append(record)
@@ -553,11 +692,22 @@ def run_test_b(
 def compute_stats(trades: List[BenchmarkTrade]) -> Dict[str, Any]:
     if not trades:
         return {
-            "trades": 0, "wins": 0, "losses": 0, "open": 0,
-            "win_rate": 0, "total_pnl": 0, "avg_r": 0, "max_dd": 0,
-            "profit_factor": 0, "trailing_trades": 0, "total_hops": 0,
-            "avg_hops": 0, "avg_mfe": 0, "avg_mae": 0,
-            "median_mfe": 0, "median_mae": 0,
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "open": 0,
+            "win_rate": 0,
+            "total_pnl": 0,
+            "avg_r": 0,
+            "max_dd": 0,
+            "profit_factor": 0,
+            "trailing_trades": 0,
+            "total_hops": 0,
+            "avg_hops": 0,
+            "avg_mfe": 0,
+            "avg_mae": 0,
+            "median_mfe": 0,
+            "median_mae": 0,
         }
 
     completed = [t for t in trades if t.result in ("TP", "PROFIT_TRAIL", "LOSS")]
@@ -588,19 +738,25 @@ def compute_stats(trades: List[BenchmarkTrade]) -> Dict[str, Any]:
 
     gross_wins = sum(t.pnl_r for t in wins)
     gross_losses = abs(sum(t.pnl_r for t in losses))
-    profit_factor = gross_wins / gross_losses if gross_losses > 0 else float('inf')
+    profit_factor = gross_wins / gross_losses if gross_losses > 0 else float("inf")
 
     return {
-        "trades": len(trades), "wins": len(wins), "losses": len(losses),
+        "trades": len(trades),
+        "wins": len(wins),
+        "losses": len(losses),
         "open": len([t for t in trades if t.result == "OPEN"]),
         "win_rate": len(wins) / len(completed) * 100 if completed else 0,
         "total_pnl": round(total_pnl, 4),
         "avg_r": round(total_pnl / len(completed), 4) if completed else 0,
-        "max_dd": round(max_dd, 4), "profit_factor": round(profit_factor, 2),
-        "trailing_trades": len(trailed), "total_hops": total_hops,
+        "max_dd": round(max_dd, 4),
+        "profit_factor": round(profit_factor, 2),
+        "trailing_trades": len(trailed),
+        "total_hops": total_hops,
         "avg_hops": round(total_hops / len(trailed), 2) if trailed else 0,
-        "avg_mfe": round(avg_mfe, 4), "avg_mae": round(avg_mae, 4),
-        "median_mfe": round(median_mfe, 4), "median_mae": round(median_mae, 4),
+        "avg_mfe": round(avg_mfe, 4),
+        "avg_mae": round(avg_mae, 4),
+        "median_mfe": round(median_mfe, 4),
+        "median_mae": round(median_mae, 4),
     }
 
 
@@ -616,7 +772,7 @@ def main():
 
     test_types = ["POST_SWEEP_FVG", "GEMINI_SWEEP_FVG"]
 
-    print(f"=== GEMINI vs POST_SWEEP_FVG BENCHMARK ===")
+    print("=== GEMINI vs POST_SWEEP_FVG BENCHMARK ===")
     print(f"Symbols: {len(symbols)} | Tests: {test_types}")
     print(f"{'DRY RUN' if args.dry_run else 'FULL RUN'}")
     print()
@@ -647,23 +803,31 @@ def main():
                     l = sum(1 for t in trades if t.result == "LOSS")
                     pnl = sum(t.pnl_r for t in trades)
                     tc = sum(t.trailing_count for t in trades)
-                    print(f"  [{idx+1:3d}/{len(symbols)}] {sym:12s} {len(trades):3d}T | {w:2d}W/{l:2d}L | {pnl:+7.2f}R | {tc:3d} hops")
+                    print(
+                        f"  [{idx + 1:3d}/{len(symbols)}] {sym:12s} {len(trades):3d}T | {w:2d}W/{l:2d}L | {pnl:+7.2f}R | {tc:3d} hops"
+                    )
             except Exception as e:
-                print(f"  [{idx+1:3d}/{len(symbols)}] {sym:12s} ERROR: {e}")
+                print(f"  [{idx + 1:3d}/{len(symbols)}] {sym:12s} ERROR: {e}")
 
         elapsed = time.time() - t0
         stats = compute_stats(test_trades)
         all_results[test_type] = {"stats": stats, "trades": test_trades, "elapsed": elapsed}
-        print(f"  [{test_type}] {stats['trades']}T | {stats['wins']}W/{stats['losses']}L | {stats['win_rate']:.1f}% WR | {stats['total_pnl']:+.2f}R | PF {stats['profit_factor']:.2f} | DD {stats['max_dd']:.2f}R | {stats['trailing_trades']} trailed ({stats['total_hops']} hops) | {elapsed:.1f}s")
+        print(
+            f"  [{test_type}] {stats['trades']}T | {stats['wins']}W/{stats['losses']}L | {stats['win_rate']:.1f}% WR | {stats['total_pnl']:+.2f}R | PF {stats['profit_factor']:.2f} | DD {stats['max_dd']:.2f}R | {stats['trailing_trades']} trailed ({stats['total_hops']} hops) | {elapsed:.1f}s"
+        )
         print()
 
     # Comparison
     print("=== COMPARISON ===")
-    print(f"{'Test':<22} {'Trades':>7} {'WR%':>6} {'PnL':>10} {'AvgR':>8} {'PF':>6} {'MaxDD':>8} {'MFE':>8} {'MAE':>8} {'Trail':>6}")
+    print(
+        f"{'Test':<22} {'Trades':>7} {'WR%':>6} {'PnL':>10} {'AvgR':>8} {'PF':>6} {'MaxDD':>8} {'MFE':>8} {'MAE':>8} {'Trail':>6}"
+    )
     print("-" * 100)
     for tt in test_types:
         s = all_results[tt]["stats"]
-        print(f"{tt:<22} {s['trades']:>7d} {s['win_rate']:>5.1f}% {s['total_pnl']:>+9.2f}R {s['avg_r']:>+7.4f} {s['profit_factor']:>5.2f} {s['max_dd']:>7.2f}R {s['avg_mfe']:>+7.4f} {s['avg_mae']:>+7.4f} {s['trailing_trades']:>6d}")
+        print(
+            f"{tt:<22} {s['trades']:>7d} {s['win_rate']:>5.1f}% {s['total_pnl']:>+9.2f}R {s['avg_r']:>+7.4f} {s['profit_factor']:>5.2f} {s['max_dd']:>7.2f}R {s['avg_mfe']:>+7.4f} {s['avg_mae']:>+7.4f} {s['trailing_trades']:>6d}"
+        )
 
     # Save
     output_dir = _PROJECT_ROOT / "results" / "benchmark"
