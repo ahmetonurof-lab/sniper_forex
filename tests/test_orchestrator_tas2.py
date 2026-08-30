@@ -938,9 +938,11 @@ class TestTas2Blockers:
     def test_T3_s5_injects_contract_lifecycle_runtime_sizer_risk_manager(
         self, tmp_state, monkeypatch, synthetic_base_time
     ):
-        """T3 (Blocker 2): the orchestrator constructs TradeLifecycle,
-        PositionSizer, RiskManager and the StrategyRuntime itself, and
-        passes them to LiveRunner. LiveRunner is NOT edited."""
+        """T3 (Blocker 2 / D38): the orchestrator constructs TradeLifecycle,
+        PositionSizer, RiskManager and the StrategyRuntime itself and hands
+        them to LiveRunner. D38 retains the SAME real LiveRunner instance on
+        the orchestrator (`self._runner`) for process lifetime — we assert
+        identity on it directly, with NO second probe reconstruction."""
 
         class _FullMT5:
             TIMEFRAME_M1 = 1
@@ -996,35 +998,24 @@ class TestTas2Blockers:
         result = orch.startup()
         assert result.verdict == StartupVerdict.PROCEED
 
-        # Verify the orchestrator OWNS the components.
+        # Preconditions: the orchestrator OWNS the contract and the runner.
         assert orch._contract is not None
+        assert orch._runner is not None
+
+        # D38: the real LiveRunner built in S5 is retained on the
+        # orchestrator. Assert identity on the SAME instance the
+        # orchestrator will use for the loop — NO probe reconstruction.
+        assert orch._runner.contract is orch._contract
+        assert orch._runner.lifecycle is orch._lifecycle
+        assert orch._runner.runtime is orch._runtime
+        assert orch._runner.sizer is orch._sizer
+        assert orch._runner.risk_manager is orch._risk_manager
+
+        # The orchestrator owns all injected components too.
         assert orch._runtime is not None
         assert orch._lifecycle is not None
         assert orch._sizer is not None
         assert orch._risk_manager is not None
-        # Verify the LiveRunner received the SAME instances (by identity).
-        # We reconstruct a runner the same way the orchestrator does and
-        # verify the orchestrator's references match what LiveRunner
-        # would have stored.
-        from src.live.live_runner import LiveRunner
-
-        probe = LiveRunner(
-            symbol="EURUSD",
-            mt5=orch._mt5,
-            audit=orch.audit,
-            magic=orch.magic,
-            signal_only=True,
-            contract=orch._contract,
-            lifecycle=orch._lifecycle,
-            runtime=orch._runtime,
-            sizer=orch._sizer,
-            risk_manager=orch._risk_manager,
-        )
-        assert probe.contract is orch._contract
-        assert probe.lifecycle is orch._lifecycle
-        assert probe.runtime is orch._runtime
-        assert probe.sizer is orch._sizer
-        assert probe.risk_manager is orch._risk_manager
 
         del sys.modules["MetaTrader5"]
 

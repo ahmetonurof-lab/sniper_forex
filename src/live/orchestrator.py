@@ -311,6 +311,11 @@ class Orchestrator:
         self._mt5: Any = mt5
         # MT5Connection (production fetch path) — injectable for tests.
         self._mt5_conn: Any = mt5_conn
+        # D38 (runner lifetime retention): the LiveRunner built in S5 is
+        # retained on the orchestror for process lifetime. The Taş 3 loop
+        # will call on_bar()/poll_deals()/sync_trailing() ONLY through
+        # self._runner — no second LiveRunner is ever reconstructed.
+        self._runner: Optional[Any] = None
         self._symbol: str = ""
         self._contract: Optional[ContractSpec] = None
         # S5 injection: orchestrator OWNS these, hands them to LiveRunner.
@@ -585,7 +590,10 @@ class Orchestrator:
             "pending_orders": [],
         }
         try:
-            runner = LiveRunner(
+            # D38: retain the REAL LiveRunner instance on the orchestrator
+            # so the process-lifetime loop uses the SAME object identity.
+            # No second LiveRunner is ever reconstructed.
+            self._runner = LiveRunner(
                 symbol=self._symbol,
                 mt5=self._mt5,
                 audit=self.audit,
@@ -597,7 +605,7 @@ class Orchestrator:
                 sizer=self._sizer,
                 risk_manager=self._risk_manager,
             )
-            snapshot = runner.startup_snapshot(
+            snapshot = self._runner.startup_snapshot(
                 configured_symbols=self.configured_symbols
             )
         except Exception as e:
