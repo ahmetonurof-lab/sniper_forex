@@ -38,7 +38,6 @@ from src.live.orchestrator import (
     StartupVerdict,
 )
 
-
 # ── Synthetic M1 rate generator ──────────────────────────────────
 
 
@@ -180,11 +179,7 @@ class FakeMT5ForBars:
 
     def copy_rates_from_pos(self, symbol, tf, start, count):
         self._call_count += 1
-        return (
-            self._m1_rates[-count:]
-            if count <= len(self._m1_rates)
-            else self._m1_rates[:]
-        )
+        return self._m1_rates[-count:] if count <= len(self._m1_rates) else self._m1_rates[:]
 
 
 class ProgressiveFakeMT5(FakeMT5ForBars):
@@ -237,9 +232,7 @@ class TestBarIdentityDedup:
     """D19: Bar identity = (symbol, bar_open_time UTC).
     Same identity never emits twice (trailing edge)."""
 
-    def test_bar_idempotent_not_emitted_twice(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_bar_idempotent_not_emitted_twice(self, tmp_state, monkeypatch, synthetic_base_time):
         """A 15m bar that was already emitted should not emit again."""
         # 30 M1 bars = 2 complete 15m buckets
         rates = _make_m1_rates_utc(synthetic_base_time, 30)
@@ -289,9 +282,7 @@ class TestIndexContinuity:
     """D20: _rates_to_bars resets index to 0 each fetch.
     Orchestrator maintains global monotonic index across fetches."""
 
-    def test_index_continues_across_fetches(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_index_continues_across_fetches(self, tmp_state, monkeypatch, synthetic_base_time):
         """After first fetch produces bars [0,1], second fetch should
         continue from index 2, not restart at 0."""
         rates1 = _make_m1_rates_utc(synthetic_base_time, 30)  # 2 15m bars
@@ -328,9 +319,7 @@ class TestIndexContinuity:
 class TestRealTerminalSmoke:
     """D28: 100 M1 → _rates_to_bars → timestamps grid-aligned + UTC."""
 
-    def test_smoke_grid_aligned_timestamps(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_smoke_grid_aligned_timestamps(self, tmp_state, monkeypatch, synthetic_base_time):
         """All M1 bar timestamps must be on a 1-minute grid (grid-aligned)."""
         rates = _make_m1_rates_utc(synthetic_base_time, 100)
 
@@ -352,9 +341,7 @@ class TestRealTerminalSmoke:
 
         orch.lock.release()
 
-    def test_smoke_15m_slot_alignment(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_smoke_15m_slot_alignment(self, tmp_state, monkeypatch, synthetic_base_time):
         """D19: 15m buckets align to a 15-minute epoch grid (15m slot alignment).
 
         resample_15m buckets by (ts_ms // 15min) * 15min. The bar's
@@ -382,9 +369,7 @@ class TestRealTerminalSmoke:
             ts_ms = int(bar.timestamp.timestamp() * 1000)
             bucket_ms = (ts_ms // _15M_MS) * _15M_MS
             # The bucket epoch must be on the 15m grid
-            assert (
-                bucket_ms % _15M_MS == 0
-            ), f"15m bucket epoch not grid-aligned: {bucket_ms}"
+            assert bucket_ms % _15M_MS == 0, f"15m bucket epoch not grid-aligned: {bucket_ms}"
             # Each bar must contain exactly 15 M1 bars (or fewer at edges)
             # Just verify the bucket is consistent
 
@@ -547,8 +532,8 @@ class TestPrematureEmitScenario:
         last_bucket_close = last_bucket.close
 
         # The last bucket's close must NOT be the forming 12:19 bar's close
-        assert (
-            last_bucket_close != pytest.approx(forming_close)
+        assert last_bucket_close != pytest.approx(
+            forming_close
         ), f"Forming bar polluted bucket: close={last_bucket_close} vs forming={forming_close}"
 
         orch.lock.release()
@@ -560,9 +545,7 @@ class TestPrematureEmitScenario:
 class TestWarmupIntegration:
     """S9 warmup with real-terminal smoke (D15/D28)."""
 
-    def test_warmup_requires_minimum_bars(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_warmup_requires_minimum_bars(self, tmp_state, monkeypatch, synthetic_base_time):
         """Warmup succeeds when enough M1 bars are available for 100+ 15m candles."""
         # 1500+ M1 bars = 100+ 15m bars (1500/15 = 100)
         rates = _make_m1_rates_utc(synthetic_base_time, 1600)
@@ -576,9 +559,7 @@ class TestWarmupIntegration:
         orch.lock.acquire()
 
         ok, n_bars, result = orch._warmup(m1_count=1600)
-        assert (
-            ok is True
-        ), f"warmup failed: {result['reason']}, errors={result['errors']}"
+        assert ok is True, f"warmup failed: {result['reason']}, errors={result['errors']}"
         assert n_bars >= 100
 
         orch.lock.release()
@@ -611,9 +592,7 @@ class TestWarmupIntegration:
 class TestSafeModePersistence:
     """D24: safe-mode persistence and startup enforcement."""
 
-    def test_safe_mode_file_forces_safe_start(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_safe_mode_file_forces_safe_start(self, tmp_state, monkeypatch, synthetic_base_time):
         """D24 (Taş 2): persisted safe-mode file does NOT short-circuit.
         Phases run end-to-end; the persisted reason is surfaced in the
         final SAFE_START verdict. This is the Aşama-1 policy:
@@ -798,9 +777,7 @@ class TestTas2Blockers:
 
     # ── T1 / Blocker 1: slot-floor identity + now >= slot+15m ─────
 
-    def test_T1_seen_bar_slots_is_slot_set_not_tuple(
-        self, tmp_state, synthetic_base_time
-    ):
+    def test_T1_seen_bar_slots_is_slot_set_not_tuple(self, tmp_state, synthetic_base_time):
         """T1 (Blocker 1): `_seen_bar_slots` holds slot-ms ints (NOT
         identity tuples). The trailing-edge emit rule requires
         `now >= slot + 15m` to fire."""
@@ -824,9 +801,7 @@ class TestTas2Blockers:
             assert s % _15M_MS == 0
 
         # The legacy tuple-identity set must not exist.
-        assert not hasattr(orch, "_seen_bar_ids") or not getattr(
-            orch, "_seen_bar_ids", None
-        )
+        assert not hasattr(orch, "_seen_bar_ids") or not getattr(orch, "_seen_bar_ids", None)
         orch.lock.release()
 
     def test_T1b_forming_bucket_with_now_before_slot_plus_15m_is_dropped(
@@ -1045,9 +1020,7 @@ class TestTas2Blockers:
         lock = Lock(lock_path)
         lock.acquire()
         # Force the file's created_at far into the past.
-        stale_data = LockData(
-            pid=os.getpid(), created_at=time.time() - 999_999, phase="run"
-        )
+        stale_data = LockData(pid=os.getpid(), created_at=time.time() - 999_999, phase="run")
         lock_path.write_text(json.dumps(stale_data.to_dict()), encoding="utf-8")
         # heartbeat() must NOT raise; it must refresh created_at.
         lock.heartbeat()
@@ -1391,9 +1364,7 @@ class TestTas2Blockers:
 
     # ── T7 / Blocker 5: load_lifecycle is called in S7 ──────────
 
-    def test_T7_s7_calls_load_lifecycle(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_T7_s7_calls_load_lifecycle(self, tmp_state, monkeypatch, synthetic_base_time):
         """T7 (Blocker 5): S7 calls `self._recovery.load_lifecycle(
         self._lifecycle, self._symbol)`. We verify via a probe
         RuntimeRecovery that exposes the call."""
@@ -1497,9 +1468,7 @@ class TestTas2Blockers:
         assert orch.lock.owned  # lock held even in SAFE-START
         del sys.modules["MetaTrader5"]
 
-    def test_T8b_mismatch_still_fatal(
-        self, tmp_state, monkeypatch, synthetic_base_time
-    ):
+    def test_T8b_mismatch_still_fatal(self, tmp_state, monkeypatch, synthetic_base_time):
         """T8b (Blocker 6): set + mismatch is still FATAL (regression
         guard for the original D12 behavior)."""
 
@@ -1772,9 +1741,7 @@ class TestTas2Blockers:
         safe_path = tmp_state / "orchestrator_safe.json"
         safe_path.parent.mkdir(parents=True, exist_ok=True)
         safe_path.write_text(
-            json.dumps(
-                {"safe_mode": True, "reason": "prior_warmup_fail", "ts": time.time()}
-            ),
+            json.dumps({"safe_mode": True, "reason": "prior_warmup_fail", "ts": time.time()}),
             encoding="utf-8",
         )
 

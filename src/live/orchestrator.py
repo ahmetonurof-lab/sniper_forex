@@ -29,23 +29,26 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from types import SimpleNamespace
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 
 from src.config.mt5_config import get_mt5_config
 from src.live.audit import AuditChain, EventType
+from src.live.candle_feed import _15M_MS, M1CandleFeed, resample_15m
 from src.live.clock import _utcnow_naive, server_to_utc_historical
-from src.live.candle_feed import M1CandleFeed, _15M_MS, resample_15m
-from src.live.recovery import RuntimeRecovery
-from src.live.risk import RiskManager
+from src.live.reconciliation import ReconcileStatus, ReconciliationDecision
+from src.live.recovery import RuntimeRecovery, schedule_snapshot
+from src.live.risk import Account, RiskManager
+from src.live.safety import SafetyMonitor
 from src.live.sizing import ContractSpec, PositionSizer
 from src.live.strategy_runtime import StrategyRuntime
 from src.live.trade_lifecycle import TradeLifecycle
 from src.strategy.models import Bar
-
 
 # ── Slot helpers (D19/D20 — 15m grid alignment) ─────────────────────
 
@@ -53,6 +56,20 @@ from src.strategy.models import Bar
 def _slot_floor_ms(label_ms: int) -> int:
     """Floor a millisecond label to its 15-minute grid slot (D19/D20)."""
     return (label_ms // _15M_MS) * _15M_MS
+
+
+def _naive_utc_epoch(ts: Any) -> float:
+    """Epoch seconds for a naive-UTC timestamp (D45).
+
+    Project convention: naive = UTC (clock._utcnow_naive). stdlib
+    ``datetime.timestamp()`` misinterprets naive datetimes as LOCAL time,
+    while pandas assumes UTC — mixing the two shifts ``now_ms`` by the
+    machine's tz offset. On a non-UTC VPS the D19 close-filter would emit
+    late (UTC+) or reintroduce premature emit (UTC−). This helper is the
+    single canonical conversion.
+    """
+    ts = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
+    return ts.replace(tzinfo=timezone.utc).timestamp()
 
 
 def _pid_alive(pid: int) -> bool:
@@ -86,10 +103,7 @@ def _pid_alive(pid: int) -> bool:
             return False
         try:
             ec = ctypes.c_ulong()
-            return (
-                bool(k32.GetExitCodeProcess(h, ctypes.byref(ec)))
-                and ec.value == STILL_ACTIVE
-            )
+            return bool(k32.GetExitCodeProcess(h, ctypes.byref(ec))) and ec.value == STILL_ACTIVE
         finally:
             k32.CloseHandle(h)
     try:
@@ -161,6 +175,12 @@ class OrchestratorConfig:
     alert_env: str = "SNIPER_ALERT"
     expected_login: Optional[str] = None
     safe_mode_file: str = "orchestrator_safe.json"
+    # ── Taş 3 runtime loop ────────────────────────────────────────
+    max_spread_points: float = 30.0
+    error_ladder_threshold: int = 3
+    backoff_multiplier: float = 2.0
+    backoff_max_sec: float = 300.0  # < LOCK_STALE_SEC(900) — heartbeat aralığı güvenli
+    feed_cap: int = 1024
 
 
 # ── Lock ──────────────────────────────────────────────────────────
@@ -188,6 +208,58 @@ class LockData:
 
 class LockError(Exception):
     pass
+
+
+class ConsoleAlert:
+    """Minimal alert sink (Taş 3 Aşama 1): stderr + in-memory log.
+
+    Tests observe ``alert.alert_log`` entries (``.level`` / ``.msg``).
+    Real alerting channels (env SNIPER_ALERT routing) are Taş 4+ scope.
+    """
+
+    def __init__(self, env: str = "SNIPER_ALERT") -> None:
+        self.env = env
+        self.alert_log: List[Any] = []
+
+    def send(self, level: str, msg: str) -> None:
+        import sys
+
+        entry = SimpleNamespace(level=level, msg=msg, ts=time.time())
+        self.alert_log.append(entry)
+        print(f"[{self.env}][{level}] {msg}", file=sys.stderr)
+
+
+class SafeModeStore:
+    """Read/write accessor for the persisted safe-mode file (D24).
+
+    Thin standalone view over the same JSON the orchestrator writes via
+    ``_write_safe_mode`` — exists so tools/tests can inspect persisted
+    safe-mode state without constructing a full Orchestrator.
+    """
+
+    def __init__(self, state_dir: str, filename: str = "orchestrator_safe.json"):
+        self.state_dir = Path(state_dir)
+        self.path = self.state_dir / filename
+
+    def load(self) -> Optional[dict]:
+        if not self.path.exists():
+            return None
+        try:
+            return json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    def write(self, reason: str) -> None:
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        data = {"safe_mode": True, "reason": reason, "ts": time.time()}
+        self.path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def clear(self) -> None:
+        if self.path.exists():
+            try:
+                self.path.unlink()
+            except OSError:
+                pass
 
 
 class Lock:
@@ -297,6 +369,7 @@ class Orchestrator:
         config_obj: Optional[OrchestratorConfig] = None,
         mt5: Any = None,
         mt5_conn: Any = None,
+        now_fn: Optional[Callable[[], datetime]] = None,
     ):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -341,6 +414,19 @@ class Orchestrator:
         self._seen_bar_slots: set = set()
         # Persisted safe-mode (read once at startup, consumed by S11).
         self._persisted_safe_reason: Optional[str] = None
+        # ── Taş 3 runtime loop state ─────────────────────────────
+        self._now_fn: Callable[[], datetime] = now_fn or _utcnow_naive
+        self._startup_result: Optional[StartupResult] = None
+        self._kill_requested: bool = False
+        self._runtime_safe: bool = False  # D10: transient, auto-clear
+        self._runtime_safe_reason: str = ""
+        self._gate_was_allowed: Optional[bool] = None
+        self._last_bar_ts: Optional[Any] = None
+        self._pending_feed: List[Any] = []
+        self._feed_cap_alerted: bool = False
+        self._ladder_alerted: bool = False
+        self._safety: Optional[Any] = None
+        self.alert = ConsoleAlert(self.config.alert_env)
 
     def startup(self) -> StartupResult:
         """Run S0→S11 startup sequence with lock ownership contract.
@@ -370,14 +456,18 @@ class Orchestrator:
             self._persisted_safe_reason = str(safe.get("reason", "unknown"))
 
         try:
-            return self._run_phases()
+            result = self._run_phases()
+            self._startup_result = result  # Taş 3: run() consumes this
+            return result
         except Exception as e:
             self.lock.release()
-            return StartupResult(
+            fatal = StartupResult(
                 verdict=StartupVerdict.FATAL,
                 phase=StartupPhase.S0_CONFIG,
                 reason=f"unexpected: {type(e).__name__}: {e}",
             )
+            self._startup_result = fatal
+            return fatal
 
     def _run_phases(self) -> StartupResult:
         # ── S0: Config ──────────────────────────────────────────
@@ -410,9 +500,16 @@ class Orchestrator:
         # redirected via sys.modules patching in tests. Production
         # wires this in `run_production.py` (future Taş) by passing
         # `mt5_conn=MT5Connection()` to the Orchestrator constructor.
-        # When unset, _fetch_m1_tri_state falls back to self._mt5.
+        # When unset, _fetch_m1_tri_state falls back to self._mt5 (test
+        # seam). B2 lesson (Taş 4 delta, S5): a silent seam must never be
+        # silent in production - surface it in the audit chain.
         if self._mt5_conn is None:
-            self._mt5_conn = None  # explicit
+            self.audit.append(
+                time.time(),
+                EventType.SAFETY,
+                None,
+                {"phase": "S1_connect", "warning": "mt5_conn_unset_test_seam_active"},
+            )
 
         terminal_path = config.get("terminal_path", "")
         try:
@@ -605,9 +702,7 @@ class Orchestrator:
                 sizer=self._sizer,
                 risk_manager=self._risk_manager,
             )
-            snapshot = self._runner.startup_snapshot(
-                configured_symbols=self.configured_symbols
-            )
+            snapshot = self._runner.startup_snapshot(configured_symbols=self.configured_symbols)
         except Exception as e:
             safe_reasons.append(f"snapshot_failed: {type(e).__name__}")
 
@@ -635,9 +730,7 @@ class Orchestrator:
         self._runtime_restored = False
         self._lifecycle_restored = False
         try:
-            self._runtime_restored = bool(
-                self._recovery.load(self._runtime, self._symbol)
-            )
+            self._runtime_restored = bool(self._recovery.load(self._runtime, self._symbol))
         except Exception as e:
             safe_reasons.append(f"recovery_failed: {type(e).__name__}")
         if self._lifecycle is not None:
@@ -670,9 +763,7 @@ class Orchestrator:
         except Exception as e:
             safe_reasons.append(f"warmup_exception: {type(e).__name__}: {e}")
         if not warmup_ok:
-            safe_reasons.append(
-                f"warmup_failed: {smoke_result.get('reason', 'unknown')}"
-            )
+            safe_reasons.append(f"warmup_failed: {smoke_result.get('reason', 'unknown')}")
 
         # Heartbeat (Taş 2): healthy S9 completion touches the lock so a
         # long healthy process is not misclassified as stale.
@@ -680,9 +771,7 @@ class Orchestrator:
 
         # D24: prepend persisted safe-mode reason if present.
         if self._persisted_safe_reason is not None:
-            safe_reasons.insert(
-                0, f"safe_mode_persisted: {self._persisted_safe_reason}"
-            )
+            safe_reasons.insert(0, f"safe_mode_persisted: {self._persisted_safe_reason}")
 
         # ── S11: READY ──────────────────────────────────────────
         if safe_reasons:
@@ -738,10 +827,87 @@ class Orchestrator:
         """Explicit lock release for shutdown (Taş 4)."""
         self.lock.release()
 
+    def shutdown(self, exit_code: int = 0, reason: str = "shutdown") -> None:
+        """Taş 4 (B-a): idempotent graceful teardown, safe to call from ANY
+        exit path (kill, ownership-lost, safe-mode, strategy exception).
+
+        Guarantees:
+          - SHUTDOWN audit event is recorded exactly once (B-a: the
+            ownership-lost path previously wrote only ERROR, no SHUTDOWN).
+          - audit chain is flushed to disk (final flush).
+          - MT5 terminal is shut down (release the broker handle).
+          - lock is released (only if we own it).
+        Idempotent: a second call is a no-op.
+        """
+        if getattr(self, "_shutdown_done", False):
+            return
+        self._shutdown_done = True
+
+        # B-a: record a SHUTDOWN event if none was already written for this
+        # exit (run() writes one on the kill paths; ownership-lost did not).
+        has_shutdown = any(
+            getattr(e, "event_type", None) == EventType.SHUTDOWN for e in self.audit.events
+        )
+        if not has_shutdown:
+            self.audit.append(
+                time.time(),
+                EventType.SHUTDOWN,
+                self._symbol or None,
+                {"reason": reason, "exit": exit_code},
+            )
+
+        # Final flush of the audit chain (persist all events).
+        try:
+            self.audit.shutdown()
+        except Exception:
+            pass
+
+        # Release the broker handle (only if we hold it).
+        try:
+            if self._mt5 is not None and hasattr(self._mt5, "shutdown"):
+                self._mt5.shutdown()
+        except Exception:
+            pass
+
+        # D48: close-save runtime + lifecycle BEFORE releasing the lock so
+        # the next boot restores warm state instead of paying full warmup.
+        # (Aşama 2 şartı: per-N-bar periodic save - graceful path alone
+        # cannot shrink the kill -9 crash window.)
+        if self._runtime is not None and self._lifecycle is not None:
+            try:
+                schedule_snapshot(
+                    self._runtime,
+                    self._lifecycle,
+                    self._symbol,
+                    state_dir=str(self.state_dir),
+                )
+            except Exception as e:
+                # K3 (Taş 4 final): teardown must never raise, but a failed
+                # close-save must not be silent either — the next boot pays
+                # full warmup and the operator must know why.
+                try:
+                    self.audit.append(
+                        time.time(),
+                        EventType.ERROR,
+                        self._symbol,
+                        {"phase": "shutdown_snapshot", "error": str(e)},
+                    )
+                except Exception:
+                    pass
+
+        # Release the lock (no-op if not owned / not ours).
+        try:
+            self.lock.release()
+        except Exception:
+            pass
+
     # ── Safe-mode persistence (D24) ──────────────────────────────
 
     def _safe_path(self) -> Path:
-        return self.state_dir / self.config.safe_mode_file
+        # D18: absolute path — the process may chdir (systemd WorkingDirectory,
+        # cron, watchdog relaunch); a relative state_dir would silently write
+        # safe-mode to the wrong cwd. Resolve once against the real cwd.
+        return (self.state_dir / self.config.safe_mode_file).resolve()
 
     def _read_safe_mode(self) -> Optional[dict]:
         path = self._safe_path()
@@ -756,12 +922,17 @@ class Orchestrator:
             return None
 
     def _write_safe_mode(self, reason: str) -> None:
+        # D18 + atomic: write to a tmp sibling then rename, so a crash mid-write
+        # never leaves a truncated/corrupt safe-mode file (which would force a
+        # spurious SAFE-START on the next boot). Absolute path via _safe_path().
         path = self._safe_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         import json
 
         data = {"safe_mode": True, "reason": reason, "ts": time.time()}
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.replace(path)
 
     def clear_safe_mode(self) -> None:
         """Clear persisted safe-mode file (manual or after clean reconcile)."""
@@ -860,9 +1031,7 @@ class Orchestrator:
 
         # Is the runtime a VALID warm continuation? (runtime restore +
         # previously warmed) vs. merely "some state on disk".
-        warm_skip = bool(
-            self._runtime is not None and getattr(self._runtime, "_warmed", False)
-        )
+        warm_skip = bool(self._runtime is not None and getattr(self._runtime, "_warmed", False))
 
         if self._mt5 is None:
             if warm_skip:
@@ -884,8 +1053,10 @@ class Orchestrator:
             return False, 0, smoke_result
 
         # (a) timestamps grid-aligned + UTC.
+        # D45: canonical naive-UTC epoch — pandas .timestamp() assumes UTC,
+        # stdlib assumes LOCAL; the modulo check must use one convention.
         for b in m1_bars_all:
-            ts_ms = int(b.timestamp.timestamp() * 1000)
+            ts_ms = int(_naive_utc_epoch(b.timestamp) * 1000)
             if ts_ms % (60 * 1000) != 0:
                 smoke_result["reason"] = "grid_misalign"
                 smoke_result["errors"].append(
@@ -928,10 +1099,11 @@ class Orchestrator:
         m15_full = resample_15m(closed_full)
 
         # D19 (redelivery 2): skip restore-seeded slots, close-filter the rest.
-        now_ms = int(now.timestamp() * 1000)
+        # D45: canonical naive-UTC epoch (tz-portable — never stdlib .timestamp()).
+        now_ms = int(_naive_utc_epoch(now) * 1000)
         reindexed: List[Bar] = []
         for b in m15_full:
-            ts_ms = int(b.timestamp.timestamp() * 1000)
+            ts_ms = int(_naive_utc_epoch(b.timestamp) * 1000)
             slot = _slot_floor_ms(ts_ms)
             if slot in self._seen_bar_slots:
                 continue  # restored — never re-emit / re-index
@@ -982,11 +1154,12 @@ class Orchestrator:
         except Exception:
             return
         now = _utcnow_naive()
-        now_ms = int(now.timestamp() * 1000)
+        # D45: canonical naive-UTC epoch (tz-portable).
+        now_ms = int(_naive_utc_epoch(now) * 1000)
         for b in bars:
             if not hasattr(b, "timestamp"):
                 continue
-            ts_ms = int(b.timestamp.timestamp() * 1000)
+            ts_ms = int(_naive_utc_epoch(b.timestamp) * 1000)
             slot = _slot_floor_ms(ts_ms)
             if now_ms >= slot + _15M_MS:
                 self._seen_bar_slots.add(slot)
@@ -1107,10 +1280,11 @@ class Orchestrator:
 
         m15 = resample_15m(closed_m1)
 
-        now_ms = int(now.timestamp() * 1000)
+        # D45: canonical naive-UTC epoch (tz-portable).
+        now_ms = int(_naive_utc_epoch(now) * 1000)
         new_bars: List[Bar] = []
         for c in m15:
-            ts_ms = int(c.timestamp.timestamp() * 1000)
+            ts_ms = int(_naive_utc_epoch(c.timestamp) * 1000)
             slot = _slot_floor_ms(ts_ms)
             # D19 (Taş 2): slot-floor identity (NOT a tuple).
             if slot in self._seen_bar_slots:
@@ -1139,7 +1313,41 @@ class Orchestrator:
         if new_bars:
             self._last_15m_ts = new_bars[-1].timestamp
 
+        # D42: gap check — a skipped 15m slot between consecutive NEW bars
+        # signals a broker data gap (feed interruption / missing bucket).
+        # Informational + audit: the strategy still runs on the bars it has,
+        # but the gap is surfaced so an operator can reconcile the hole.
+        self._check_bar_gaps(new_bars)
+
         return new_bars
+
+    def _check_bar_gaps(self, new_bars: List[Any]) -> None:
+        """D42: detect skipped 15m slots between consecutive new bars.
+
+        Emits a SAFETY audit event + WARN alert when a hole is found.
+        Pure/injectable so tests can drive it directly.
+        """
+        if len(new_bars) < 2:
+            return
+        gaps = []
+        for a, b in zip(new_bars, new_bars[1:]):
+            slot_a = _slot_floor_ms(int(_naive_utc_epoch(a.timestamp) * 1000))
+            slot_b = _slot_floor_ms(int(_naive_utc_epoch(b.timestamp) * 1000))
+            missing = (slot_b - slot_a) // _15M_MS - 1
+            if missing > 0:
+                gaps.append((slot_a, slot_b, int(missing)))
+        if gaps:
+            self.audit.append(
+                time.time(),
+                EventType.SAFETY,
+                self._symbol,
+                {"phase": "bar_pipeline", "gap_slots": gaps},
+            )
+            self.alert.send(
+                "WARN",
+                f"D42 data gap: {len(gaps)} hole(s) in 15m feed "
+                f"(missing slots: {[g[2] for g in gaps]})",
+            )
 
     # ── D9 tri-state fetch helper (Blocker 4) ──────────────────────
 
@@ -1225,3 +1433,419 @@ class Orchestrator:
             return self._mt5.terminal_info() is not None
         except Exception:
             return False
+
+    # ── TAŞ 3: runtime loop ────────────────────────────────────────
+
+    def _install_signal_handlers(self) -> None:
+        """D11: SIGINT/SIGTERM → kill flag. Non-main-thread/test-safe."""
+        try:
+            import signal
+
+            signal.signal(signal.SIGINT, self._on_signal)
+            signal.signal(signal.SIGTERM, self._on_signal)
+        except (ValueError, ImportError, AttributeError, OSError):
+            pass
+
+    def _on_signal(self, _signum: Any, _frame: Any) -> None:
+        self._kill_requested = True
+
+    def _heartbeat_validated(self) -> bool:
+        """D35: ownership-verified heartbeat. False = another process took
+        over (D36 STALE-ALIVE resurrection) → caller must exit immediately.
+
+        No lock file on disk → ownership NOT provable (external tamper or
+        D36 takeover race window) → False. A lock file owned by a DIFFERENT
+        pid → ownership lost → False. Same pid → refresh heartbeat → True.
+        """
+        data = self.lock._read()
+        if data is None:
+            # No lock file on disk — ownership cannot be proven (external
+            # tamper or D36 takeover race). Do NOT self-reclaim; report
+            # ownership loss so the caller exits (fatal, code 1).
+            return False
+        if int(data.pid) != os.getpid():
+            return False
+        self.lock.heartbeat()
+        return True
+
+    def _interruptible_sleep(self, seconds: float, kill_fn) -> bool:
+        """D46: chunked interruptible sleep.
+
+        PEP 475: a plain time.sleep(300) is NOT interrupted by SIGINT/SIGTERM
+        → graceful shutdown would stall up to 300s (systemd SIGKILL → Taş 4
+        graceful path skipped). Sleep in <=1s chunks and re-check the kill
+        flag between chunks. Returns True if a kill was requested mid-sleep.
+        """
+        chunk = 1.0
+        remaining = float(seconds)
+        while remaining > 0:
+            if kill_fn():
+                return True
+            time.sleep(min(chunk, remaining))
+            remaining -= chunk
+        return False
+
+    def _recon_decision_for_gate(self) -> ReconciliationDecision:
+        """D34: safety.check's reconciliation input — NEVER None.
+
+        Startup point-in-time decision; periodic reconcile = Aşama 2 (Task 2.1).
+        """
+        snap = self._startup_result.snapshot if self._startup_result else None
+        rc = (snap or {}).get("reconciliation") or {}
+        try:
+            status = ReconcileStatus(str(rc.get("status", "NOT_RUN")))
+        except ValueError:
+            return ReconciliationDecision(
+                status=ReconcileStatus.MISMATCH,
+                block_trading=True,
+                details=[f"snapshot_recon_not_parseable:{rc.get('status')}"],
+            )
+        return ReconciliationDecision(
+            status=status,
+            block_trading=bool(rc.get("block_trading", True)),
+            details=list(rc.get("details") or []),
+        )
+
+    def _get_spread_state(self, now_dt: datetime) -> Tuple[bool, float]:
+        """(tick_fresh, spread_points). Tick missing/stale → (False, 0.0);
+        caller maps that to connection_ok=False (CONNECTION gate).
+
+        D44: tick.time is raw SERVER epoch — negative ages (future)
+        tolerated; staleness is therefore approximate on offset servers;
+        STALE_DATA (UTC-correct bars) is the authoritative freshness guard
+        in Aşama 1.
+        """
+        try:
+            if self._mt5_conn is not None and hasattr(self._mt5_conn, "get_tick_data"):
+                d = self._mt5_conn.get_tick_data(self._symbol)
+                if not d:
+                    return False, 0.0
+                bid, ask, t = float(d["bid"]), float(d["ask"]), float(d["time"])
+            elif self._mt5 is not None:
+                tk = self._mt5.symbol_info_tick(self._symbol)
+                if tk is None:
+                    return False, 0.0
+                bid, ask, t = float(tk.bid), float(tk.ask), float(tk.time)
+            else:
+                return False, 0.0
+        except Exception:
+            return False, 0.0
+        if t <= 0:
+            return False, 0.0
+        age = _naive_utc_epoch(now_dt) - t
+        if age > self.config.tick_stale_sec:
+            return False, 0.0  # age < 0 (server ahead) tolerated — D44
+        point = self._contract.tick_size if self._contract else 0.0
+        if point <= 0:
+            return False, 0.0
+        return True, max(0.0, (ask - bid) / point)
+
+    def _get_account(self) -> Optional[Account]:
+        """D4/D14: FRESH account per bar cycle; never cache across ticks."""
+        try:
+            acc = self._mt5.account_info() if self._mt5 is not None else None
+        except Exception:
+            return None
+        if acc is None:
+            return None
+        return Account(
+            balance=float(getattr(acc, "balance", 0.0)),
+            equity=float(getattr(acc, "equity", 0.0)),
+        )
+
+    def _assert_signal_only(self, res: Any) -> Optional[str]:
+        """Aşama 1 invariant: nothing real may leave the loop."""
+        if getattr(res, "order_sent", False):
+            return "order_sent_true_in_signal_only"
+        if getattr(res, "fill", None) is not None:
+            return "fill_in_signal_only"
+        if getattr(res, "context_registered", None) is not None:
+            return "context_registered_in_signal_only"
+        return None
+
+    def _feed_bars(self, bars: List[Any], account: Account) -> Optional[int]:
+        """Feed bars through runner.on_bar. Returns exit code on emergency."""
+        for bar in bars:
+            try:
+                res = self._runner.on_bar(bar, account)
+            except Exception as e:
+                # D6: strategy exception → persist + alert + STOP.
+                # Restart is the clean path: recovery rebuilds deterministic
+                # state from market data, not from a half-updated memory.
+                self._write_safe_mode(f"strategy_exception:{type(e).__name__}")
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol,
+                    {"phase": "on_bar", "error": str(e)},
+                )
+                self.alert.send(
+                    "CRITICAL",
+                    f"strategy exception: {e} — safe mode persisted, loop stops",
+                )
+                return 2
+            violation = self._assert_signal_only(res)
+            if violation:
+                self._write_safe_mode(violation)
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol,
+                    {"phase": "signal_only", "violation": violation},
+                )
+                self.alert.send("CRITICAL", f"SIGNAL_ONLY VIOLATION: {violation} — loop stops")
+                return 2
+        return None
+
+    def run(
+        self,
+        kill_switch_fn: Optional[Callable[[], bool]] = None,
+        sleep_fn: Optional[Callable[[float], None]] = None,
+    ) -> int:
+        """TAŞ 3 runtime loop. Requires startup().
+
+        Returns:
+          0 — clean shutdown (kill switch, healthy state)
+          2 — safe-mode shutdown (strategy exception / signal_only violation /
+              killed while SAFE-START or runtime-safe)
+          1 — fatal runtime anomaly (lock ownership lost)
+        Entry point (Taş 4) maps to process exit + calls shutdown().
+        """
+        if self._startup_result is None:
+            raise RuntimeError("run() called before startup()")
+        kill_fn = kill_switch_fn or (lambda: self._kill_requested)
+        sleep = sleep_fn or time.sleep
+        self._install_signal_handlers()
+
+        monitor_only = self._runner is None  # D39
+        entries_enabled = self._startup_result.verdict == StartupVerdict.PROCEED
+        recon_decision = self._recon_decision_for_gate()  # D34
+        self._safety = SafetyMonitor(max_spread_points=self.config.max_spread_points)
+
+        rt_bars = list(getattr(self._runtime, "bars", []) or []) if self._runtime else []
+        if rt_bars:
+            self._last_bar_ts = rt_bars[-1].timestamp
+
+        # D5: tracking seed — broker positions ↔ open_trades baseline
+        if not monitor_only:
+            try:
+                self._runner.poll_deals()
+            except Exception as e:
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol,
+                    {"phase": "poll_deals_seed", "error": str(e)},
+                )
+
+        # D41: backlog replay — bars restored/warmed but not yet fed through
+        # on_bar (state continuity; parity with SignalRunner replay).
+        # Guarded by entries_enabled: SAFE-START (entries closed) must NOT
+        # accumulate a pending backlog — gate stays closed, feed never runs,
+        # so an unguarded replay would pile up until feed_cap.
+        self._pending_feed = []
+        if not monitor_only and entries_enabled and self._runtime is not None:
+            nxt = int(getattr(self._runtime, "_next_idx", 0) or 0)
+            if 0 <= nxt < len(rt_bars):
+                self._pending_feed = list(rt_bars[nxt:])
+
+        consecutive_errors = 0
+        backoff = float(self.config.poll_interval_sec)
+
+        while True:
+            # 1) kill switch (D11) — FIRST. A human kill request wins over
+            #    ownership state: its exit code (0/2) must not be overridden
+            #    by a concurrent ownership check. Ownership loss is a system
+            #    decision → fatal 1, checked only when no kill is pending.
+            try:
+                killed = bool(kill_fn())
+            except Exception:
+                killed = False
+            if killed:
+                code = 2 if (self._runtime_safe or not entries_enabled) else 0
+                self.audit.append(
+                    time.time(),
+                    EventType.SHUTDOWN,
+                    self._symbol,
+                    {"reason": "kill_switch", "exit": code},
+                )
+                self.shutdown(exit_code=code, reason="kill_switch")
+                return code
+
+            # 2) D35 ownership-validated heartbeat — after kill check. A lost
+            #    lock is fatal (code 1) regardless of strategy state.
+            if not self._heartbeat_validated():
+                self.alert.send(
+                    "CRITICAL",
+                    "lock ownership LOST — another process took over; exiting",
+                )
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol,
+                    {"phase": "lock", "error": "ownership_lost"},
+                )
+                # B-a: ownership-lost previously wrote only ERROR; shutdown()
+                # records the SHUTDOWN event + flushes + releases lock.
+                self.shutdown(exit_code=1, reason="ownership_lost")
+                return 1
+
+            # 3) bar pipeline (D19/D20; fetch fail → internal ERROR counter)
+            try:
+                new_bars = self.produce_new_bars()
+            except Exception as e:
+                new_bars = []
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol,
+                    {"phase": "bar_pipeline", "error": str(e)},
+                )
+            if new_bars:
+                self._last_bar_ts = new_bars[-1].timestamp
+                if not monitor_only and entries_enabled:
+                    self._pending_feed.extend(new_bars)
+                    if len(self._pending_feed) > self.config.feed_cap:  # D43
+                        self._pending_feed = self._pending_feed[-self.config.feed_cap :]
+                        if not self._feed_cap_alerted:
+                            self._feed_cap_alerted = True
+                            self.alert.send(
+                                "WARN",
+                                f"feed backlog capped at {self.config.feed_cap} — replay gap",
+                            )
+                            self.audit.append(
+                                time.time(),
+                                EventType.ERROR,
+                                self._symbol,
+                                {"phase": "feed", "error": "backlog_capped"},
+                            )
+
+            # 4) fresh account (D4/D14)
+            account = self._get_account()
+
+            # 5) tick/spread state (gate input; D13/D44)
+            now_dt = self._now_fn()
+            tick_fresh, spread_points = self._get_spread_state(now_dt)
+            connection_ok = tick_fresh
+
+            # 6) exits + trailing — ALWAYS run when runner exists
+            #    (SAFE MODE keeps position management; entries are gated)
+            poll_error = False
+            if not monitor_only:
+                try:
+                    exits = self._runner.poll_deals()
+                    if exits and any(isinstance(x, dict) and "error" in x for x in exits):
+                        poll_error = True
+                except Exception as e:
+                    poll_error = True
+                    self.audit.append(
+                        time.time(),
+                        EventType.ERROR,
+                        self._symbol,
+                        {"phase": "poll_deals", "error": str(e)},
+                    )
+                try:
+                    self._runner.sync_trailing()
+                except Exception as e:
+                    self.audit.append(
+                        time.time(),
+                        EventType.ERROR,
+                        self._symbol,
+                        {"phase": "sync_trailing", "error": str(e)},
+                    )
+
+            # 7) D10 fail ladder (data path: rates + account + positions)
+            healthy = self._fetch_error_count == 0 and account is not None and not poll_error
+            if healthy:
+                if consecutive_errors > 0:
+                    self.alert.send(
+                        "INFO",
+                        f"broker data recovered after {consecutive_errors} failed tick(s)",
+                    )
+                consecutive_errors = 0
+                backoff = float(self.config.poll_interval_sec)
+                self._ladder_alerted = False
+                self._runtime_safe = False  # transient safe auto-clears
+                self._runtime_safe_reason = ""
+            else:
+                consecutive_errors += 1
+                backoff = min(
+                    backoff * self.config.backoff_multiplier,
+                    self.config.backoff_max_sec,
+                )
+                if (
+                    consecutive_errors >= self.config.error_ladder_threshold
+                    and not self._ladder_alerted
+                ):
+                    self._ladder_alerted = True
+                    self._runtime_safe = True
+                    self._runtime_safe_reason = f"broker_data_ladder:{consecutive_errors}"
+                    self.alert.send(
+                        "WARN",
+                        f"{self._runtime_safe_reason} — entries blocked (transient)",
+                    )
+
+            # 8) safety gate — every tick (S2: recon decision never None)
+            decision = self._safety.check(
+                kill_switch=False,
+                connection_ok=connection_ok,
+                last_candle_time=(
+                    _naive_utc_epoch(self._last_bar_ts) if self._last_bar_ts is not None else None
+                ),
+                now=_naive_utc_epoch(now_dt),
+                spread_points=spread_points,
+                reconciliation=recon_decision,
+            )
+            gate_allowed = bool(
+                decision.allowed and entries_enabled and not self._runtime_safe and not monitor_only
+            )
+            if gate_allowed != self._gate_was_allowed:  # transition-only alerts
+                self._gate_was_allowed = gate_allowed
+                reason = decision.reason or (
+                    "startup_SAFE_START"
+                    if not entries_enabled
+                    else (self._runtime_safe_reason or "monitor_only")
+                )
+                self.alert.send(
+                    "INFO" if gate_allowed else "WARN",
+                    f"entry gate {'OPEN' if gate_allowed else 'CLOSED'}: {reason}",
+                )
+                self.audit.append(
+                    time.time(),
+                    EventType.SAFETY,
+                    self._symbol,
+                    {
+                        "gate": "open" if gate_allowed else "closed",
+                        "reason": reason,
+                        "failing_check": (
+                            decision.failing_check.value if decision.failing_check else None
+                        ),
+                    },
+                )
+
+            # 9) feed (entry path — the ONLY caller of runner.on_bar)
+            if gate_allowed and account is not None and self._pending_feed:
+                code = self._feed_bars(self._pending_feed, account)
+                if code is not None:
+                    self.shutdown(exit_code=code, reason="feed_emergency")
+                    return code
+                self._pending_feed = []
+
+            # 10) D46 interruptible sleep — chunked <=1s so SIGINT/SIGTERM
+            #     (PEP 475) can break a long backoff; kill re-checked between
+            #     chunks. When a sleep_fn is injected (tests), call it once
+            #     with the full value so backoff cadence stays observable.
+            target = backoff if not healthy else float(self.config.poll_interval_sec)
+            if sleep_fn is not None:
+                sleep(target)
+            elif self._interruptible_sleep(target, kill_fn):
+                # kill requested during sleep → exit cleanly (D11 semantics)
+                code = 2 if (self._runtime_safe or not entries_enabled) else 0
+                self.audit.append(
+                    time.time(),
+                    EventType.SHUTDOWN,
+                    self._symbol,
+                    {"reason": "kill_switch_during_sleep", "exit": code},
+                )
+                self.shutdown(exit_code=code, reason="kill_switch_during_sleep")
+                return code

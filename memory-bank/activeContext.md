@@ -38,6 +38,43 @@
 
 ---
 
+## PROCESS RULE — REFEREE RED = VETO (2026-08-30)
+
+> Referee RED on a design decision carries VETO authority. Do NOT bypass a
+> veto by "implementing + noting it". A vetoed change must either be reverted
+> or re-submitted as a NEW design proposal (with D-id, race analysis, and
+> Phase-2 drill linkage) and explicitly approved before it stays.
+
+### TAŞ 3 — Referee Audit Disposition (2026-08-30)
+- **P1 (D35 materialize)**: RED → REVERTED. `_heartbeat_validated` lock-absent
+  now returns False (no self-reclaim). Tests acquire the lock in `make_orch`
+  fixture (`orch.lock.acquire()`).
+- **D46 (interruptible sleep)**: APPLIED. `_interruptible_sleep` chunks <=1s,
+  re-checks kill between chunks (PEP 475: plain sleep(300) not signal-
+  interruptible → graceful shutdown would stall). Injected `sleep_fn` (tests)
+  still called once with full value so backoff cadence stays observable.
+  **D46-KANIT (referee T-a/T-b)**: 2 unit tests added — T-a chunk-sum (300
+  chunks, sum==300.0 via monkeypatched time.sleep), T-b kill-during-sleep →
+  early True + run() maps to graceful exit (0/2), not fatal 1.
+- **D41 backlog replay guard**: `entries_enabled` added to D41 replay — SAFE-
+  START + runner-var must NOT accumulate pending backlog (gate closed, feed
+  never runs → would pile to feed_cap). `test_gate_blocks_on_bar_when_recon_
+  blocked` asserts `_pending_feed == []`.
+- **Kill/heartbeat order**: kill-first (D11) then heartbeat (D35). Human kill
+  exit code (0/2) must not be overridden by concurrent ownership check;
+  ownership loss is fatal 1 only when no kill pending.
+- **D47 (produce_new_bars exception → ladder)**: NOT applied — status reported
+  only (referee asked for status, not implementation).
+- **D43 evidence**: `test_feed_cap_warns_once` PRESENT (13 tests include it) —
+  feed cap + one-time alert covered.
+- **14→13 tests**: GLM sketch had 14; delivery has 13. D43 test retained.
+  Missing 14th test identity unknown (GLM run() hunks never received).
+- **2 E2E failures** (`test_e2e_live_chain.py`): pre-existing, untracked test,
+  production correct (context_registered only from broker-confirmed fill).
+  Does NOT block Taş 3. Disposition pin: fill-mock or delete test.
+
+---
+
 CURRENT IMPLEMENTATION STATE (2026-08-29 checkpoint):
 - C v1.0 (experiment/main_research_c_v1_0.py): FROZEN — git diff CLEAN
 - C v1.1 (experiment/main_research_c_v1_1.py): PROMOTED — git diff CLEAN (pre-existing committed state)
@@ -764,3 +801,76 @@ Phase 12 (DD scaling production integration).
 -e "\n---\n### LIVE FIX CHECKPOINT (2026-08-28) - P1-5 / P1-4 / P0-2 / P0-1 / P1-3 / P2-6 / P3-7 PASS\n- Scope: timezone canonicalization, false-close protection, lifecycle/deal owner, DD-scaled lot, paper economic path, paper 15m continuity, doc sync.\n- Protected files preserved: frozen C/D engines and benchmark JSONs untouched.\n- 65K M1 artifact frozen: results/research/65k_m1_eurusd_parity_artifact.json.\n- No strategy optimization. Ready for user direction: commit/push or Phase 12."
 
 ---
+
+## TAŞ 4 — CONDITIONAL ACCEPT DELTA (2026-08-30)
+
+Reviewer verdict: **CONDITIONALLY ACCEPTED** — S1–S5 + R1–R2 delta paketi.
+
+### Applied (S1–S5 + R1)
+- **S1** `src/live/run_production.py`: try/except BaseException + finally → shutdown()
+  idempotent belt-and-braces; KeyboardInterrupt → teardown sonra exit 0 (D46).
+- **S2 / D48** `orchestrator.shutdown()`: `schedule_snapshot(runtime, lifecycle, symbol,
+  state_dir)` lock release'ten ÖNCE çağrılıyor (best-effort try/except).
+  Aşama 2 şartı kaydedildi: per-N-bar periodic save (kill -9 crash window).
+- **S3/T-c** Yeni test `test_run_production_chunked_sleep_path`:
+  `orchestrator.time.sleep` monkeypatch + sleep_fn=None → tüm chunk çağrıları <=1.0s.
+- **S4** D18 ikili kural `_build_config()`: SNIPER_STATE_DIR explicit+relative →
+  SystemExit FATAL; unset → abspath resolve + stderr WARN; audit_path aynı kural.
+  Yeni test: `test_d18_state_dir_policy`. WorkingDirectory pin → Aşama 5 deployment contract.
+- **S5** `orchestrator.startup()` `_mt5_conn is None` → tek audit event
+  (`EventType.SAFETY`, payload `mt5_conn_unset_test_seam_active`) — B2 dersi: sessiz seam yok.
+- **R1/N3** `tests/test_causality_extended.py` → `scripts/test_causality_extended.py`
+  taşındı (script-format dosya; pytest collect etmesin).
+
+### Yeni testler (+5 → tas4 toplam 17, orchestrator süiti 95/95)
+1. `test_run_production_run_raises_calls_shutdown` (T-d)
+2. `test_run_production_base_exception_still_shuts_down` (S1/KeyboardInterrupt)
+3. `test_shutdown_writes_runtime_and_lifecycle_snapshots` (S2/D48)
+4. `test_d18_state_dir_policy` (S4)
+5. `test_run_production_chunked_sleep_path` (S3/T-c)
+
+### N kayıtları
+- **N1**: doğru toplam 90 idi (tas2 36 + startup 13 + snapshot 14 + tas3 15 + tas4 12);
+  "76" rapor hatasıydı, delta sonrası 95.
+- **N2**: e06fb3b remote'ta MEVCUT — push bir önceki oturumda sessiz yapılmış.
+  Policy: bundan sonra push yalnızca reviewer'ın yazılı onayıyla; her push log'a
+  (kim, ne zaman, hangi commit) girer. LUNA/Forexçi'den cevap bekleniyor.
+- **N3**: dosya hiçbir commit'te yoktu (untracked, script-format); scripts/'e taşındı.
+- **N4**: skip = `test_live_signal_runner.py::test_signal_runner_signal_event_payload_has_expected_fields`
+  (random data, no signal). Aşama 2 pin: seed'e bağla.
+
+### Worktree deneyi (e06fb3b)
+`test_main_research_c_v1_1.py`: **5 fail e06fb3b'de de** → "pre-existing" lehine kanıt.
+LİMİTASYON: tam izolasyon sağlanamadı — `src/strategy/` ve `experiment/` commit'li
+değil; worktree çalışması için working-tree src/experiment kopyalandı. Fail kökü
+(src/strategy drift mi, hep-kırık mı) hâlâ ayırt edilemiyor → COMMIT A önceliği.
+
+### Açık maddeler (commit seremonisi öncesi/sonrası)
+- COMMIT A: src/strategy + experiment/* + canonical test + parity artifact → sonra
+  5-test re-run → GREEN ise tag `research-canonical-v1.1`, RED ise bilinen-kırık pin + bug-report.
+- COMMIT B (piece-1 atomik): index_builder --full ÖNCE → orchestrator.py,
+  run_production.py, test_orchestrator_tas2/3/4.py, recovery.py, trailing_bridge.py,
+  test_e2e_live_chain.py, memory-bank, index.json; mesaj: D1–D48 mapping.
+- PUSH: yalnızca reviewer yazılı onayıyla (N2 policy ilk uygulama).
+- Aşama 5 pin'leri: WorkingDirectory pin, Telegram webhook, dead-man, wedge/resurrection
+  drill, D47-ladder, D44, non-UTC test, per-N-bar save (D48'in loop yarısı).
+
+## TAŞ 4 FINAL DELTA — K1–K4 (2026-08-30, ikinci review)
+
+- **K1**: `test_run_chunked_path_real_orchestrator` — GERÇEK `Orchestrator.run()`
+  (Taş 3 `make_orch` fixture) + `orchestrator.time.sleep` monkeypatch +
+  `kill_after(2)` + `sleep_fn=None` → gerçek `elif _interruptible_sleep` dalı
+  koşuluyor; tüm chunk'lar `0 < c <= 1.0`. FakeOrch kopya-test SİLİNDİ —
+  production-branch kanıtı artık tek: gerçek kod.
+- **K2**: run_production KeyboardInterrupt → exit kodu artık DURUM-BAĞIMLI:
+  `2 if (_runtime_safe or verdict != PROCEED) else 0`; startup tamamlanmadan
+  kesildi ise 0. kill_fn semantiğiyle hizalandı. 3 test:
+  PROCEED→0, SAFE_START→2, runtime_safe→2.
+- **K3**: shutdown() içinde schedule_snapshot failure → tek audit ERROR
+  (`{"phase": "shutdown_snapshot", "error": ...}`) — best-effort ama sessiz değil.
+- **K4**: code-in-hand final state bu mesajda (aşağıda).
+
+### Regresyon
+- Orchestrator süiti: **97/97** (tas2 36 + startup 13 + snapshot 14 + tas3 15 + tas4 19)
+- Tam süit: **7 failed, 455 passed, 1 skipped** — fail listesi öncekiyle BİREBİR
+  (2× e2e_live_chain pin'li + 5× canonical research pre-existing), drift YOK.
