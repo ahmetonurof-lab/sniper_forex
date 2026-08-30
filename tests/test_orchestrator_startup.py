@@ -15,6 +15,7 @@ from src.live.orchestrator import (
     LockData,
     LockError,
     Orchestrator,
+    OrchestratorConfig,
     StartupPhase,
     StartupVerdict,
 )
@@ -271,6 +272,11 @@ class TestStartupProceed:
         orch = Orchestrator(
             state_dir=str(tmp_state),
             configured_symbols=["EURUSD"],
+            config_obj=OrchestratorConfig(
+                symbols=["EURUSD"],
+                state_dir=str(tmp_state),
+                expected_login="53012914",  # D12 Taş 2: identity set + match → PROCEED
+            ),
         )
         result = orch.startup()
         assert result.verdict == StartupVerdict.PROCEED
@@ -378,6 +384,11 @@ class TestStartupProceed:
         orch = Orchestrator(
             state_dir=str(tmp_state),
             configured_symbols=["EURUSD"],
+            config_obj=OrchestratorConfig(
+                symbols=["EURUSD"],
+                state_dir=str(tmp_state),
+                expected_login="53012914",  # D12 Taş 2: identity set + match → PROCEED
+            ),
         )
         result = orch.startup()
         assert result.verdict == StartupVerdict.PROCEED

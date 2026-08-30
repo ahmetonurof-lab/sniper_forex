@@ -1,15 +1,26 @@
 #!/usr/bin/env python
-"""TAŞ-1 — ORCHESTRATOR: startup, lock, identity, fail taxonomy.
+"""TAŞ-1/2 — ORCHESTRATOR: startup, lock, identity, bar pipeline, fail taxonomy.
 
 S0  Config validation
 S1  MT5 connection (initialize + login)
 S2  Account info + broker identity + startup snapshot
+S3  ContractSpec (D3: stops_level×point; D30: trade_mode != FULL → safe_reason)
+S4  Margin level check
+S5  Broker snapshot (LiveRunner inject: contract=, lifecycle=, runtime=,
+                     sizer=, risk_manager=)
+S6  SL/TP audit
+S7  Local state recovery (D33: load_lifecycle + load)
+S8  Reconciliation gate
+S9  Warmup + real-terminal smoke (D28). D33: if restored → skip warmup,
+                                  seed index base + slot set.
+S11 READY
 
-Lock contract:
+Lock contract (Taş 1, hardened Taş 2 — Windows-safe PID liveness + heartbeat):
   PROCEED     → lock held   → released by shutdown (Taş 4)
   SAFE-START  → lock held   → process continues
   FATAL       → startup releases its own lock
-  CRASH       → stale-lock takeover (backup only)
+  CRASH       → dead-PID OR stale-time takeover
+  STALE-ALIVE → alive PID but quiet (heartbeat missing) → takeover
 """
 
 from __future__ import annotations
@@ -27,11 +38,67 @@ import pandas as pd
 from src.config.mt5_config import get_mt5_config
 from src.live.audit import AuditChain, EventType
 from src.live.clock import _utcnow_naive, server_to_utc_historical
-from src.live.candle_feed import M1CandleFeed, resample_15m
+from src.live.candle_feed import M1CandleFeed, _15M_MS, resample_15m
 from src.live.recovery import RuntimeRecovery
-from src.live.sizing import ContractSpec
+from src.live.risk import RiskManager
+from src.live.sizing import ContractSpec, PositionSizer
 from src.live.strategy_runtime import StrategyRuntime
+from src.live.trade_lifecycle import TradeLifecycle
 from src.strategy.models import Bar
+
+
+# ── Slot helpers (D19/D20 — 15m grid alignment) ─────────────────────
+
+
+def _slot_floor_ms(label_ms: int) -> int:
+    """Floor a millisecond label to its 15-minute grid slot (D19/D20)."""
+    return (label_ms // _15M_MS) * _15M_MS
+
+
+def _pid_alive(pid: int) -> bool:
+    """Windows-safe PID liveness check (Taş 2 lock hardening).
+
+    Primitive (primary) liveness layer — Taş 1 restore:
+      - Windows (os.name == "nt"): uses ``OpenProcess`` with
+        ``PROCESS_QUERY_LIMITED_INFORMATION`` + ``GetExitCodeProcess``,
+        requiring an exit code of ``STILL_ACTIVE (259)`` for a live pid.
+        A pid we cannot open (no handle) is treated as dead.
+      - POSIX/macOS: ``os.kill(pid, 0)`` — ``ProcessLookupError`` => dead,
+        ``PermissionError`` => alive but no permission.
+
+    The age-based stale window (``LOCK_STALE_SEC``) is the SECOND,
+    independent safety layer: a process that is ALIVE per this check is
+    never marked stale on age alone; it can only become stale if the lock
+    file's ``created_at`` exceeds ``LOCK_STALE_SEC`` AND the PID is dead,
+    OR (for a live-but-quiet process) the heartbeat is absent past the
+    staleness window. See ``Lock._is_stale``.
+    """
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        import ctypes
+
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h:
+            return False
+        try:
+            ec = ctypes.c_ulong()
+            return (
+                bool(k32.GetExitCodeProcess(h, ctypes.byref(ec)))
+                and ec.value == STILL_ACTIVE
+            )
+        finally:
+            k32.CloseHandle(h)
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
 
 
 # ── Fail taxonomy ─────────────────────────────────────────────────
@@ -124,10 +191,17 @@ class LockError(Exception):
 
 
 class Lock:
-    """File-based single-instance lock.
+    """File-based single-instance lock with PID liveness + heartbeat.
+
+    Taş 2 hardening:
+      - Windows-safe PID liveness (``_pid_alive``) so a CRASHED process
+        is detected even when its lock file is still fresh on disk.
+      - ``heartbeat()`` refreshes ``created_at`` so a long-running but
+        quiet process is not misclassified as stale.
 
     acquire()  → raises LockError on conflict (existing live lock)
     release()  → no-op if we don't own the lock (pid mismatch)
+    heartbeat() → refresh mtime (call from long-running healthy loops)
     """
 
     def __init__(self, lock_path: Path):
@@ -160,6 +234,15 @@ class Lock:
                 pass
         self._owned = False
 
+    def heartbeat(self) -> None:
+        """Refresh lock mtime to prevent false-stale on long healthy runs.
+
+        No-op if we do not own the lock. Safe to call from any tick.
+        """
+        if not self._owned:
+            return
+        self._write()
+
     def _read(self) -> Optional[LockData]:
         try:
             raw = json.loads(self.lock_path.read_text(encoding="utf-8"))
@@ -176,6 +259,10 @@ class Lock:
 
     @staticmethod
     def _is_stale(data: LockData) -> bool:
+        # Two failure modes: process crashed (dead PID) or process
+        # wedged quietly past the staleness window (no heartbeat).
+        if not _pid_alive(data.pid):
+            return True
         return (time.time() - data.created_at) > LOCK_STALE_SEC
 
     @property
@@ -209,6 +296,7 @@ class Orchestrator:
         audit: Optional[AuditChain] = None,
         config_obj: Optional[OrchestratorConfig] = None,
         mt5: Any = None,
+        mt5_conn: Any = None,
     ):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -221,14 +309,33 @@ class Orchestrator:
         self.audit = audit or AuditChain()
         self.lock = Lock(self.state_dir / "orchestrator.lock")
         self._mt5: Any = mt5
+        # MT5Connection (production fetch path) — injectable for tests.
+        self._mt5_conn: Any = mt5_conn
         self._symbol: str = ""
         self._contract: Optional[ContractSpec] = None
+        # S5 injection: orchestrator OWNS these, hands them to LiveRunner.
         self._runtime: Optional[StrategyRuntime] = None
+        self._lifecycle: Optional[TradeLifecycle] = None
+        self._sizer: Optional[PositionSizer] = None
+        self._risk_manager: Optional[RiskManager] = None
         self._recovery: Optional[RuntimeRecovery] = None
-        # Bar pipeline state (D19/D20)
+        # D30: builder flags trade_mode != FULL for S3 to surface.
+        self._trade_mode_ok: bool = True
+        # D33: set True in S7 when any state restored from disk.
+        # Per-state flags let S9 correctly distinguish "runtime is a warm
+        # continuation" (runtime._warmed) from "lifecycle alone restored".
+        self._restored: bool = False
+        self._runtime_restored: bool = False
+        self._lifecycle_restored: bool = False
+        # D9 tri-state: consecutive fetch errors (None/[]) → ERROR counter.
+        self._fetch_error_count: int = 0
+        # Bar pipeline state (D19/D20).
+        # _seen_bar_ids holds 15m SLOT millisecond ints (not identity tuples).
         self._last_15m_ts: Optional[pd.Timestamp] = None
         self._global_bar_index: int = 0
-        self._seen_bar_ids: set = set()
+        self._seen_bar_slots: set = set()
+        # Persisted safe-mode (read once at startup, consumed by S11).
+        self._persisted_safe_reason: Optional[str] = None
 
     def startup(self) -> StartupResult:
         """Run S0→S11 startup sequence with lock ownership contract.
@@ -237,6 +344,10 @@ class Orchestrator:
           PROCEED    → clean startup, lock held
           SAFE-START → degraded but survivable, lock held
           FATAL      → lock released by this method
+
+        D24 (Taş 2): when a persisted safe-mode file exists from a prior
+        run, phases STILL execute (operator sees current state via audit);
+        verdict is forced to SAFE_START with the persisted reason included.
         """
         # ── Acquire lock ──────────────────────────────────────────
         try:
@@ -248,16 +359,10 @@ class Orchestrator:
                 reason=f"lock_conflict: {e}",
             )
 
-        # ── Check persisted safe-mode from previous run ───────────
+        # ── Read persisted safe-mode (D24: do NOT short-circuit) ──
         safe = self._read_safe_mode()
         if safe is not None:
-            # Safe mode persists from prior run — must be explicitly cleared.
-            return StartupResult(
-                verdict=StartupVerdict.SAFE_START,
-                phase=StartupPhase.S0_CONFIG,
-                reason=f"safe_mode_persisted: {safe['reason']}",
-                account=None,
-            )
+            self._persisted_safe_reason = str(safe.get("reason", "unknown"))
 
         try:
             return self._run_phases()
@@ -293,6 +398,16 @@ class Orchestrator:
                 phase=StartupPhase.S1_CONNECT,
                 reason="mt5_import_failed",
             )
+
+        # Construct MT5Connection (production fetch path) if injected.
+        # Taş 2 test seam: MT5Connection is NOT auto-constructed here
+        # because it binds MetaTrader5 at import time and cannot be
+        # redirected via sys.modules patching in tests. Production
+        # wires this in `run_production.py` (future Taş) by passing
+        # `mt5_conn=MT5Connection()` to the Orchestrator constructor.
+        # When unset, _fetch_m1_tri_state falls back to self._mt5.
+        if self._mt5_conn is None:
+            self._mt5_conn = None  # explicit
 
         terminal_path = config.get("terminal_path", "")
         try:
@@ -388,8 +503,13 @@ class Orchestrator:
             {"account": account_dict, "terminal": terminal_dict},
         )
 
-        # ── S2 identity check (D12) ─────────────────────────────
+        # ── S2 identity check (D12, Taş 2 hardened) ────────────
+        # Empty/unset expected_login → warn + SAFE-START (not FATAL).
+        # Set + mismatch → FATAL. Set + match → clean.
+        # NEW-1 (redelivery 4): terminal_info.trade_allowed == 0 →
+        # SAFE_START (terminal present but trading disabled).
         expected_login = self.config.expected_login or os.getenv("MT5_EXPECTED_LOGIN")
+        d12_safe_pending: List[str] = []
         if expected_login:
             actual_login = account_dict["login"]
             if actual_login != str(expected_login):
@@ -400,9 +520,14 @@ class Orchestrator:
                     phase=StartupPhase.S2_IDENTITY,
                     reason=f"identity_mismatch: expected={expected_login} actual={actual_login}",
                 )
-        # If expected_login is empty/unset → warn + SAFE-START.
+        else:
+            d12_safe_pending.append("expected_login_unset")
 
-        safe_reasons: List[str] = []
+        # NEW-1: trade_allowed == 0 -> SAFE_START.
+        if terminal_dict is not None and not terminal_dict.get("trade_allowed", True):
+            d12_safe_pending.append("trade_allowed_disabled")
+
+        safe_reasons: List[str] = list(d12_safe_pending)
 
         # ── S3: ContractSpec ────────────────────────────────────
         if not self.configured_symbols:
@@ -414,11 +539,24 @@ class Orchestrator:
             )
         self._symbol = self.configured_symbols[0]
 
+        # D33: construct lifecycle + recovery + runtime EARLY so S5 can
+        # inject them into the LiveRunner. Restoration happens in S7
+        # (mutates the same object the runner already holds by reference).
+        self._recovery = RuntimeRecovery(str(self.state_dir))
+        self._runtime = StrategyRuntime(self._symbol)
+        self._lifecycle = TradeLifecycle()
+        self._sizer = PositionSizer()
+        self._risk_manager = RiskManager()
+
         contract = self._build_contract(self._symbol)
         if contract is None:
             safe_reasons.append("contract_build_failed")
         else:
             self._contract = contract
+            # D30: surface trade_mode != FULL as a safe_reason (builder
+            # must NOT return None here — it returns the spec + flag).
+            if not self._trade_mode_ok:
+                safe_reasons.append("trade_mode_not_full")
         contract_dict = contract.__dict__ if contract else None
 
         # ── S4: Margin level ────────────────────────────────────
@@ -429,7 +567,10 @@ class Orchestrator:
                 f"margin_level_low: {margin_level:.1f}% < {self.config.margin_level_min_pct:.0f}%"
             )
 
-        # ── S5: Broker snapshot ─────────────────────────────────
+        # ── S5: Broker snapshot (Taş 2 — INJECTION) ────────────
+        # Orchestrator OWNS contract / lifecycle / runtime / sizer / risk_manager
+        # and hands them to the LiveRunner by reference. The live_runner
+        # constructor is NOT edited.
         from src.live.live_runner import LiveRunner
 
         snapshot: Dict[str, Any] = {
@@ -450,6 +591,11 @@ class Orchestrator:
                 audit=self.audit,
                 magic=self.magic,
                 signal_only=True,
+                contract=self._contract,
+                lifecycle=self._lifecycle,
+                runtime=self._runtime,
+                sizer=self._sizer,
+                risk_manager=self._risk_manager,
             )
             snapshot = runner.startup_snapshot(
                 configured_symbols=self.configured_symbols
@@ -472,13 +618,32 @@ class Orchestrator:
                 {"phase": "S6", "issues": sltp_issues},
             )
 
-        # ── S7: Local state recovery ───────────────────────────
-        self._recovery = RuntimeRecovery(str(self.state_dir))
-        self._runtime = StrategyRuntime(self._symbol)
+        # ── S7: Local state recovery (D33, redelivery 2) ──────────
+        # load() restores the runtime (bars buffer + FVG state);
+        # load_lifecycle() restores the journal + DD from disk.
+        # Partial restore: lifecycle OK + runtime cold → NOT a warm
+        # continuation → fall through to full warmup, but keep the
+        # restore-seeded slot/index seeds, and surface a safe_reason.
+        self._runtime_restored = False
+        self._lifecycle_restored = False
         try:
-            self._recovery.load(self._runtime, self._symbol)
+            self._runtime_restored = bool(
+                self._recovery.load(self._runtime, self._symbol)
+            )
         except Exception as e:
             safe_reasons.append(f"recovery_failed: {type(e).__name__}")
+        if self._lifecycle is not None:
+            try:
+                if self._recovery.load_lifecycle(self._lifecycle, self._symbol):
+                    self._lifecycle_restored = True
+            except Exception as e:
+                safe_reasons.append(f"lifecycle_recovery_failed: {type(e).__name__}")
+        runtime_warmed_at_s7 = bool(getattr(self._runtime, "_warmed", False))
+        if self._lifecycle_restored and not runtime_warmed_at_s7:
+            # Lifecycle state survived but the runtime did not warm ->
+            # degraded continuation; explicit safe_reason (redelivery 2).
+            safe_reasons.append("restore_partial_cold_runtime")
+        self._restored = bool(self._runtime_restored or self._lifecycle_restored)
 
         # ── S8: Recon gate ──────────────────────────────────────
         recon = snapshot.get("reconciliation", {})
@@ -487,7 +652,7 @@ class Orchestrator:
             if recon.get("block_trading", False):
                 safe_reasons.append(f"recon_blocked: {recon_status}")
 
-        # ── S9: Warmup + real-terminal smoke ───────────────────
+        # ── S9: Warmup + real-terminal smoke (D28/D33) ─────────
         warmup_count = getattr(self.config, "m1_warmup_count", 65000)
         warmup_ok = False
         warmup_bars = 0
@@ -499,6 +664,16 @@ class Orchestrator:
         if not warmup_ok:
             safe_reasons.append(
                 f"warmup_failed: {smoke_result.get('reason', 'unknown')}"
+            )
+
+        # Heartbeat (Taş 2): healthy S9 completion touches the lock so a
+        # long healthy process is not misclassified as stale.
+        self.lock.heartbeat()
+
+        # D24: prepend persisted safe-mode reason if present.
+        if self._persisted_safe_reason is not None:
+            safe_reasons.insert(
+                0, f"safe_mode_persisted: {self._persisted_safe_reason}"
             )
 
         # ── S11: READY ──────────────────────────────────────────
@@ -513,6 +688,7 @@ class Orchestrator:
                     "verdict": "SAFE_START",
                     "safe_reasons": safe_reasons,
                     "warmup_bars": warmup_bars,
+                    "restored": self._restored,
                 },
             )
             return StartupResult(
@@ -536,6 +712,7 @@ class Orchestrator:
                 "verdict": "PROCEED",
                 "warmup_bars": warmup_bars,
                 "contract": contract_dict.get("symbol") if contract_dict else None,
+                "restored": self._restored,
             },
         )
         return StartupResult(
@@ -590,17 +767,23 @@ class Orchestrator:
     # ── S3: ContractSpec builder ────────────────────────────────
 
     def _build_contract(self, symbol: str) -> Optional[ContractSpec]:
-        """Build a ContractSpec from live MT5 symbol_info (D3).
+        """Build a ContractSpec from live MT5 symbol_info (D3 / D30).
 
         D3: stops_level = trade_stops_level × point; tick_size/tick_value/
-        volume_min-step-max from symbol_info; trade_mode != FULL → SAFE MODE.
+        volume_min-step-max from symbol_info.
+        D30: trade_mode != FULL → safe_reason. The builder returns the
+        ContractSpec (does NOT return None for this) and sets
+        self._trade_mode_ok = False so the caller can append a
+        safe_reason in S3.
         """
         if self._mt5 is None or not hasattr(self._mt5, "symbol_info"):
+            self._trade_mode_ok = True  # unknown — don't falsely flag
             return None
         try:
             self._mt5.symbol_select(symbol, True)
             si = self._mt5.symbol_info(symbol)
             if si is None:
+                self._trade_mode_ok = True
                 return None
             point = float(getattr(si, "point", 0.00001))
             stops_level = int(getattr(si, "trade_stops_level", 0))
@@ -610,10 +793,9 @@ class Orchestrator:
             volume_max = float(getattr(si, "volume_max", 100.0))
             volume_step = float(getattr(si, "volume_step", 0.01))
             trade_mode = getattr(si, "trade_mode", 0)
-            # trade_mode: 0=FULL, 1=LONG, 2=SHORT, 3=CLOSE (only FULL is ok for new)
-            if trade_mode != 0:
-                # Not FULL — will be flagged as safe-mode reason by caller
-                pass
+            # D30: trade_mode 0=FULL, 1=LONG-only, 2=SHORT-only, 3=CLOSE-only.
+            # Only FULL permits new entries. Flag, do not return None.
+            self._trade_mode_ok = trade_mode == 0
             return ContractSpec(
                 symbol=symbol,
                 volume_min=volume_min,
@@ -634,47 +816,66 @@ class Orchestrator:
             )
             return None
 
-    # ── S9: Warmup + real-terminal smoke (D15/D28) ─────────────
+    # ── S9: Warmup + real-terminal smoke (D15/D28/D33) ─────────────
 
     def _warmup(self, m1_count: int) -> Tuple[bool, int, dict]:
         """S9: real-terminal smoke + StrategyRuntime warmup.
 
-        D28 smoke (one-shot, before warmup):
+        D28 smoke (one-shot, ALWAYS runs — restored or fresh):
             (a) 100 M1 çek → _rates_to_bars → timestamps grid-aligned + UTC
             (b) son kapalı M1 ≈ now − 1min (toleranslı)
             (c) 15m slot alignment D19 ile tutarlı.
 
         D15: uses _rates_to_bars + is_closed_m1 + resample_15m (import, not copy).
+        D19 (redelivery): warmup output is filtered to buckets whose slot+15m is
+        closed at `now`; their slot-ms is seeded into _seen_bar_slots and
+        _global_bar_index is bumped past them. Restore-seeded slots are NEVER
+        re-emitted / re-indexed during a cold fall-through warmup.
+        D33 (redelivery 2): `self._restored` (any state on disk) is distinct
+        from `runtime._warmed` (a valid warm continuation). A lifecycle-only
+        restore with a cold runtime is NOT a warm continuation — we fall
+        through to full warmup while preserving the restore-seeded slot set
+        and index base. The partial-restore safe_reason is emitted in S7.
+        D33 (redelivery 3): the D28 100-M1 broker-edge smoke runs EVEN on a
+        restored runtime; a smoke failure propagates as warmup failure →
+        SAFE-START from `_run_phases` S11.
+        D24: no automatic clear_safe_mode() — cleared only by runbook.
+
         Returns (ok, warmup_bars, smoke_result).
         """
         smoke_result: dict = {"errors": [], "reason": ""}
 
-        # ── D28 smoke: fetch 100 M1 bars ────────────────────────
+        # ── D33 (redelivery 2): seed restored slots + index always, so a
+        # cold fall-through warmup never re-emits restored buckets.
+        if self._runtime is not None:
+            self._seed_restore_state()
+
+        # Is the runtime a VALID warm continuation? (runtime restore +
+        # previously warmed) vs. merely "some state on disk".
+        warm_skip = bool(
+            self._runtime is not None and getattr(self._runtime, "_warmed", False)
+        )
+
         if self._mt5 is None:
+            if warm_skip:
+                smoke_result["reason"] = "restored_warm_no_mt5"
+                return True, self._warm_bar_count(), smoke_result
             smoke_result["reason"] = "no_mt5_connection"
             return False, 0, smoke_result
 
-        try:
-            rates = self._mt5.copy_rates_from_pos(
-                self._symbol, getattr(self._mt5, "TIMEFRAME_M1", 1), 0, 100
-            )
-        except Exception as e:
-            smoke_result["reason"] = f"copy_rates_exception: {e}"
-            smoke_result["errors"].append(str(e))
+        # ── D28 smoke: fetch 100 M1 bars (redelivery 3 — always runs) ──
+        status, payload = self._fetch_m1_tri_state(count=100)
+        if status != "OK":
+            smoke_result["reason"] = f"smoke_{status.lower()}: {payload}"
             return False, 0, smoke_result
-
-        if rates is None or len(rates) == 0:
-            smoke_result["reason"] = "no_m1_rates"
-            return False, 0, smoke_result
+        rates = payload
 
         m1_bars_all = self._rates_to_bars(rates)
         if not m1_bars_all:
             smoke_result["reason"] = "rates_to_bars_empty"
             return False, 0, smoke_result
 
-        # (a) timestamps grid-aligned + UTC — they are Bar objects with
-        # UTC timestamps by construction (server_to_utc conversion in
-        # _rates_to_bars). Verify grid alignment.
+        # (a) timestamps grid-aligned + UTC.
         for b in m1_bars_all:
             ts_ms = int(b.timestamp.timestamp() * 1000)
             if ts_ms % (60 * 1000) != 0:
@@ -689,51 +890,46 @@ class Orchestrator:
         closed_m1 = M1CandleFeed.is_closed_m1(m1_bars_all, now=now)
         if closed_m1:
             last_closed = closed_m1[-1].timestamp
-            age = (
-                (now - last_closed).total_seconds() if hasattr(now, "timestamp") else 0
-            )
-            if hasattr(last_closed, "timestamp"):
-                last_ts_naive = (
-                    last_closed.to_pydatetime()
-                    if hasattr(last_closed, "to_pydatetime")
-                    else last_closed
-                )
-                age = (now - last_ts_naive).total_seconds()
-            # Tolerate up to 3 min (clock + network skew)
+            if hasattr(last_closed, "to_pydatetime"):
+                last_closed = last_closed.to_pydatetime()
+            age = (now - last_closed).total_seconds()
             if age < 0 or age > 3 * 60:
                 smoke_result["reason"] = f"stale_last_closed_m1: age={age:.0f}s"
                 smoke_result["errors"].append(f"last closed M1 age={age:.0f}s")
-                # Not fatal — proceed to warmup but record
 
-        # (c) 15m slot alignment D19 — resample and verify bucket alignment
-        m15 = resample_15m(closed_m1)
-        if not m15:
+        # (c) 15m slot alignment — verify at least one closed bucket exists
+        m15_smoke = resample_15m(closed_m1)
+        if not m15_smoke:
             smoke_result["reason"] = "no_15m_after_resample"
             return False, 0, smoke_result
 
-        # ── Full warmup fetch ───────────────────────────────────
-        try:
-            full_rates = self._mt5.copy_rates_from_pos(
-                self._symbol, getattr(self._mt5, "TIMEFRAME_M1", 1), 0, m1_count
-            )
-        except Exception:
-            full_rates = rates  # fall back to smoke data
+        # If the runtime is a warm continuation, skip the heavy full fetch.
+        if warm_skip:
+            smoke_result["reason"] = "restored_warm"
+            return True, self._warm_bar_count(), smoke_result
 
-        if full_rates is None or len(full_rates) == 0:
-            smoke_result["reason"] = "warmup_no_rates"
+        # ── Full warmup fetch (cold / partial-restore fall-through) ──
+        status, payload = self._fetch_m1_tri_state(count=m1_count)
+        if status != "OK":
+            smoke_result["reason"] = f"warmup_{status.lower()}: {payload}"
             return False, 0, smoke_result
+        full_rates = payload
 
         m1_bars_full = self._rates_to_bars(full_rates)
         closed_full = M1CandleFeed.is_closed_m1(m1_bars_full, now=now)
         m15_full = resample_15m(closed_full)
 
-        # D20: index continuity — reindex from global counter
-        if self._runtime is None:
-            self._runtime = StrategyRuntime(self._symbol)
-
-        # D20: assign global monotonic indices, continuing from where we left
+        # D19 (redelivery 2): skip restore-seeded slots, close-filter the rest.
+        now_ms = int(now.timestamp() * 1000)
         reindexed: List[Bar] = []
         for b in m15_full:
+            ts_ms = int(b.timestamp.timestamp() * 1000)
+            slot = _slot_floor_ms(ts_ms)
+            if slot in self._seen_bar_slots:
+                continue  # restored — never re-emit / re-index
+            if now_ms < slot + _15M_MS:
+                continue  # bucket not yet closed at `now` — drop
+            self._seen_bar_slots.add(slot)
             reindexed.append(
                 Bar(
                     index=self._global_bar_index,
@@ -747,7 +943,13 @@ class Orchestrator:
             )
             self._global_bar_index += 1
 
-        # Track last 15m timestamp for premature-emit detection (D19)
+        if self._runtime is None:
+            self._runtime = StrategyRuntime(self._symbol)
+
+        if not reindexed:
+            smoke_result["reason"] = "no_15m_after_close_filter"
+            return False, 0, smoke_result
+
         if reindexed:
             self._last_15m_ts = reindexed[-1].timestamp
 
@@ -757,10 +959,46 @@ class Orchestrator:
             smoke_result["reason"] = "runtime_warmup_failed"
             return False, 0, smoke_result
 
-        # Clear any persisted safe_mode after successful warmup
-        self.clear_safe_mode()
-
         return True, len(reindexed), smoke_result
+
+    # ── D33 restore seeding helpers (redelivery 2) ──────────────────
+
+    def _seed_restore_state(self) -> None:
+        """Seed `_global_bar_index` + `_seen_bar_slots` from restored
+        runtime.bars so a cold fall-through warmup never re-emits /
+        re-indexes buckets that were already restored."""
+        if self._runtime is None:
+            return
+        try:
+            bars = list(getattr(self._runtime, "bars", []) or [])
+        except Exception:
+            return
+        now = _utcnow_naive()
+        now_ms = int(now.timestamp() * 1000)
+        for b in bars:
+            if not hasattr(b, "timestamp"):
+                continue
+            ts_ms = int(b.timestamp.timestamp() * 1000)
+            slot = _slot_floor_ms(ts_ms)
+            if now_ms >= slot + _15M_MS:
+                self._seen_bar_slots.add(slot)
+        max_idx = -1
+        for b in bars:
+            if hasattr(b, "index"):
+                max_idx = max(max_idx, int(b.index))
+        if max_idx >= 0:
+            self._global_bar_index = max(self._global_bar_index, max_idx + 1)
+        if bars and hasattr(bars[-1], "timestamp"):
+            self._last_15m_ts = bars[-1].timestamp
+
+    def _warm_bar_count(self) -> int:
+        """Number of 15m bars currently buffered in the runtime."""
+        if self._runtime is None:
+            return 0
+        try:
+            return len(list(getattr(self._runtime, "bars", []) or []))
+        except Exception:
+            return 0
 
     # ── D15/D19/D20: Bar pipeline (runtime loop) ────────────────
 
@@ -812,33 +1050,39 @@ class Orchestrator:
     def produce_new_bars(self) -> List[Bar]:
         """Fetch latest M1, produce new closed 15m candles (D15/D19/D20).
 
-        Implements premature-emit protection:
-        - D19: Bar identity = (symbol, bar_open_time UTC). Same identity
-          never emits twice (trailing edge: emit bucket B only when next
-          bucket's M1 closes).
+        Implements premature-emit protection (Taş 2 — D19 slot floor):
+        - Bar identity is the 15m SLOT (epoch ms floored to 15m grid).
+          Same slot never emits twice — tracked in `_seen_bar_slots`.
+        - A slot emits only when the FULL 15m bucket has closed at
+          `now`, i.e. `now >= slot + 15m`. This is the trailing-edge
+          emit rule: a bucket that hasn't fully elapsed is dropped here
+          even if it slipped past `is_closed_m1`.
         - D20: Global monotonic index continuity across fetches.
 
         Returns newly completed 15m bars with proper indices (may be empty).
+        On fetch error, increments `_fetch_error_count` and returns [].
         """
-        if self._mt5 is None:
+        if self._mt5 is None and self._mt5_conn is None:
             return []
 
-        try:
-            rates = self._mt5.copy_rates_from_pos(
-                self._symbol, getattr(self._mt5, "TIMEFRAME_M1", 1), 0, 20
-            )
-        except Exception as e:
+        status, payload = self._fetch_m1_tri_state(count=20)
+        if status != "OK":
+            self._fetch_error_count += 1
             self.audit.append(
                 time.time(),
                 EventType.ERROR,
                 self._symbol,
-                {"phase": "bar_pipeline", "error": str(e)},
+                {
+                    "phase": "bar_pipeline",
+                    "error": f"fetch_{status.lower()}: {payload}",
+                    "consecutive_errors": self._fetch_error_count,
+                },
             )
             return []
+        # Reset error counter on a healthy fetch.
+        self._fetch_error_count = 0
 
-        if rates is None or len(rates) == 0:
-            return []
-
+        rates = payload
         m1_bars_all = self._rates_to_bars(rates)
         now = _utcnow_naive()
         closed_m1 = M1CandleFeed.is_closed_m1(m1_bars_all, now=now)
@@ -855,27 +1099,22 @@ class Orchestrator:
 
         m15 = resample_15m(closed_m1)
 
+        now_ms = int(now.timestamp() * 1000)
         new_bars: List[Bar] = []
         for c in m15:
-            # D19: identity = (symbol, open_time UTC)
-            bar_id = (self._symbol, str(c.timestamp))
-            if bar_id in self._seen_bar_ids:
+            ts_ms = int(c.timestamp.timestamp() * 1000)
+            slot = _slot_floor_ms(ts_ms)
+            # D19 (Taş 2): slot-floor identity (NOT a tuple).
+            if slot in self._seen_bar_slots:
                 continue
-            # D19 trailing edge: only emit if we've seen a later bucket
-            # (i.e., this bucket's 15m window is fully closed). The
-            # resample_15m + is_closed_m1 pipeline guarantees this:
-            # is_closed_m1 drops the forming M1, so any 15m bucket containing
-            # a forming bar's slot is withheld until that M1 closes and the
-            # next bucket appears. We additionally guard with _last_15m_ts:
-            # only emit bars strictly after the last emitted.
-            if self._last_15m_ts is not None:
-                c_ts = c.timestamp
-                if hasattr(c_ts, "to_pydatetime"):
-                    c_ts = c_ts.to_pydatetime()
-                if c_ts <= self._last_15m_ts:
-                    continue
+            # D19 trailing edge: only emit when the full 15m bucket has
+            # closed at `now`. This is the authoritative emit rule —
+            # resample_15m + is_closed_m1 can leak a forming bucket
+            # (e.g. when count < 16 forces a 1-bar bucket drop), and
+            # this check is the final gate.
+            if now_ms < slot + _15M_MS:
+                continue
 
-            # D20: global monotonic index
             bar = Bar(
                 index=self._global_bar_index,
                 timestamp=c.timestamp,
@@ -886,13 +1125,59 @@ class Orchestrator:
                 volume=c.volume,
             )
             self._global_bar_index += 1
-            self._seen_bar_ids.add(bar_id)
+            self._seen_bar_slots.add(slot)
             new_bars.append(bar)
 
         if new_bars:
             self._last_15m_ts = new_bars[-1].timestamp
 
         return new_bars
+
+    # ── D9 tri-state fetch helper (Blocker 4) ──────────────────────
+
+    def _fetch_m1_tri_state(self, count: int) -> Tuple[str, Any]:
+        """Fetch M1 rates with tri-state semantics (D9 / Blocker 4).
+
+        Production path (Taş 2): ``MT5Connection.get_rates(symbol, "M1", count)``
+        is the canonical fetch. None or [] both map to ``"ERROR"`` and
+        increment the consecutive-error counter; the payload is the
+        underlying reason for the audit log.
+
+        Test seam: if ``self._mt5_conn`` is not set (tests inject
+        ``self._mt5`` directly), fall back to
+        ``self._mt5.copy_rates_from_pos`` so the existing FakeMT5-based
+        tests keep working without a global MT5Connection patch.
+
+        Returns:
+            ("OK", rates) on success.
+            ("ERROR", reason_str) on None/empty/exception.
+        """
+        try:
+            if self._mt5_conn is not None and hasattr(self._mt5_conn, "get_rates"):
+                rates = self._mt5_conn.get_rates(self._symbol, "M1", count)
+                if rates is None:
+                    err = getattr(self._mt5_conn, "last_error", "rates_unavailable")
+                    return "ERROR", f"mt5conn_get_rates_none: {err}"
+                if len(rates) == 0:
+                    return "ERROR", "mt5conn_get_rates_empty"
+                return "OK", rates
+        except Exception as e:
+            return "ERROR", f"mt5conn_get_rates_exception: {e}"
+
+        # Test seam: injected mt5 module with copy_rates_from_pos.
+        if self._mt5 is None:
+            return "ERROR", "no_mt5"
+        try:
+            rates = self._mt5.copy_rates_from_pos(
+                self._symbol, getattr(self._mt5, "TIMEFRAME_M1", 1), 0, count
+            )
+        except Exception as e:
+            return "ERROR", f"copy_rates_exception: {e}"
+        if rates is None:
+            return "ERROR", "copy_rates_none"
+        if len(rates) == 0:
+            return "ERROR", "copy_rates_empty"
+        return "OK", rates
 
     # ── _safe() heuristic (D3/D12/D20 mapping) ────────────────────
 
