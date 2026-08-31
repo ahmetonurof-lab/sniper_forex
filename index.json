@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-31T21:00:33",
+  "generated_at": "2026-08-31T21:36:30",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -6286,76 +6286,82 @@
           "line_end": 142,
           "signature": "def _recent_naive() -> datetime:"
         },
-        "tests.test_orchestrator_d49._bar_at": {
+        "tests.test_orchestrator_d49._aligned_history_anchor": {
           "file": "tests\\test_orchestrator_d49.py",
           "line_start": 145,
-          "line_end": 154,
+          "line_end": 166,
+          "signature": "def _aligned_history_anchor(minutes_back: int) -> datetime:"
+        },
+        "tests.test_orchestrator_d49._bar_at": {
+          "file": "tests\\test_orchestrator_d49.py",
+          "line_start": 169,
+          "line_end": 178,
           "signature": "def _bar_at(naive_utc: datetime, index: int=0) -> Bar:"
         },
         "tests.test_orchestrator_d49.tmp_state": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 158,
-          "line_end": 159,
+          "line_start": 182,
+          "line_end": 183,
           "signature": "@pytest.fixture"
         },
         "tests.test_orchestrator_d49._assert_no_slot_gaps": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 162,
-          "line_end": 175,
+          "line_start": 186,
+          "line_end": 199,
           "signature": "def _assert_no_slot_gaps(runtime_bars: List[Bar]) -> None:"
         },
         "tests.test_orchestrator_d49._warmed_runtime_with_last_bar_at": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 178,
-          "line_end": 190,
+          "line_start": 202,
+          "line_end": 214,
           "signature": "def _warmed_runtime_with_last_bar_at(stale_slots: int) -> StrategyRuntime:"
         },
         "tests.test_orchestrator_d49.TestStaleRestoreTriggersColdRebuild.test_stale_restore_triggers_cold_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 206,
-          "line_end": 258,
+          "line_start": 230,
+          "line_end": 282,
           "signature": "def test_stale_restore_triggers_cold_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestFreshRestoreKeepsWarmSkip.test_fresh_restore_keeps_warm_skip": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 269,
-          "line_end": 307,
+          "line_start": 293,
+          "line_end": 331,
           "signature": "def test_fresh_restore_keeps_warm_skip(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestLifecycleSurvivesColdRebuild.test_lifecycle_survives_cold_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 319,
-          "line_end": 387,
+          "line_start": 343,
+          "line_end": 411,
           "signature": "def test_lifecycle_survives_cold_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestReplayEstablishesYesterdaysWindow.test_replay_establishes_yesterdays_window_fresh_boot": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 399,
-          "line_end": 455,
+          "line_start": 423,
+          "line_end": 485,
           "signature": "def test_replay_establishes_yesterdays_window_fresh_boot(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestStalenessBoundary.test_boundary_2_keep_3_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 464,
-          "line_end": 505,
+          "line_start": 494,
+          "line_end": 535,
           "signature": "def test_boundary_2_keep_3_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestC1DoubleDeliveryBacklogEmpty.test_c1_double_delivery_backlog_empty": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 518,
-          "line_end": 548,
+          "line_start": 548,
+          "line_end": 578,
           "signature": "def test_c1_double_delivery_backlog_empty(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestC2EndStateReport.test_c2_end_state_report": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 559,
-          "line_end": 603,
+          "line_start": 589,
+          "line_end": 633,
           "signature": "def test_c2_end_state_report(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestC3ProceedSemanticsAfterRebuild.test_c3_proceed_semantics_after_successful_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 616,
-          "line_end": 683,
+          "line_start": 646,
+          "line_end": 713,
           "signature": "def test_c3_proceed_semantics_after_successful_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d53_alerting._clean_telegram_env": {
@@ -9775,8 +9781,8 @@
           "hash": "sha256:71443482579cbd25"
         },
         "tests\\test_orchestrator_d49.py": {
-          "last_modified": "2026-08-31T11:37:21",
-          "hash": "sha256:494be93043381123"
+          "last_modified": "2026-08-31T21:33:15",
+          "hash": "sha256:b937aa88bc2ba046"
         },
         "tests\\test_orchestrator_d53_alerting.py": {
           "last_modified": "2026-08-31T16:19:41",
@@ -9887,7 +9893,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-08-31T21:00:33"
+      "last_full_scan": "2026-08-31T21:36:30"
     }
   }
 }

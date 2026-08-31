@@ -1579,3 +1579,62 @@ görünür olur.
   form + Windows-checkout reproduksiyon notu eklendi (ayrı doc commit).
   Koşum anındaki baytlar = form (i); bu, §8.1 "exact code" iddiasının
   doğru-nesne hâlidir.
+
+### KURAL-ŞABLO (Hakem, N2 #8 hükmü — deftere tek satır)
+
+> **sha256 provenance: line-ending formu + checkout-reproduksiyon notu
+> zorunlu** (D53-öncesi vaka şablonu). Her working-tree-hash iki formda
+> verilir: (i) koşum-anı baytları (Windows CRLF checkout), (ii) commit
+> blob'u (LF-normalize); eşdeğerlik `sha256(wt.replace(CRLF,LF)) == blob`
+> olarak doğrulanır ve Windows-checkout reproduksiyon notu düşülür.
+
+### FLAKE-FIX — COMMIT 7 (N2 #8 hükmü, push ÖNCESİ — D54 hükmü revize)
+
+- **HÜKÜM (§12.1 — Hakem kendi timeline'ını revize etti):** D54'teki
+  "soak-sonrası ilk kod penceresinde now_fn rewrite ZORUNLU" hükmü
+  **"push ÖNCESİ commit-7"** olarak değiştirildi. Gerekçeler: (1) kök
+  neden test-only çıktı (production korkusu yok → fix ucuz); (2) push=
+  freeze pratiğinde flake'i ertelemek = soak sırasında tests/ mutasyonu
+  = §17 breach protokolü (en pahalı yol). FALLBACK (derin çıkarsa):
+  6-hash push + ayrı task — KULLANILMADI, fix sığ kaldı.
+- **Sınıflandırma (Hakem):** DEFECTIVE TEST (üretim-değil, test-anchor
+  hatası). İlke deftere: *"bilinen-beklenen fail freeze'de kabul edilir;
+  bilinen-kusurlu test edilmez."* 2× E2E = pin'li pre-existing
+  (non-blocking); 1S `test_parity_6majors` = documented slow-skip
+  (push/soak non-blocking, **TAG-zamanı kapanış şartı**: ③ kapanırken
+  ya bir kez explicit koşulur ya skip-gerekçesi provenance paketine
+  satır olarak girilir — skip'li parity, tag kanıt-zincirinde açık soru
+  olarak kalamaz).
+- **KÖK NEDEN (koşum-kanıtı + mekanizma-kanıtı, tahmin değil):**
+  `resample_15m` bir bucket'ı `<3` M1 barı varsa düşürür. T4'ün
+  full-coverage guard'ı `first_slot == feed_first_slot` assert eder.
+  `history_anchor = _recent_naive() − 1700dk` ve `1700 % 15 = 5` →
+  anchor'ın slot-içi fazı koşulduğu dakikaya bağlı. Faz analizi
+  (deterministik script): ham anchor dakikaların
+  **{3,4,18,19,33,34,48,49}**'ında ilk bucket'ı 1-2 bara düşürüyor →
+  en-eski 15m bar sessizce siliniyor → `bars[0]` TAM 1 slot kayıyor
+  (gözlenen `1788096600000 − 1788095700000 = 900000 ms = 15dk`).
+  İzole koşum (~2 sn) o fazlara nadir denk gelir; ~10 dk'lık tam süit
+  denk gelir → 3. tekrar deseni. Kanıt: saat bad-phase dakikasına
+  sabitlendi (monkeypatch clock) → raw=1-bar DROP, aligned=15-bar OK;
+  8/8 bad-phase'de doğrulandı.
+- **FIX (test-only):** `_aligned_history_anchor(minutes_back)` helper'ı
+  — anchor'ı 15m slot sınırına floor eder → ilk bucket HER zaman 15 bar
+  taşır → guard'ın güçlü eşitlik assert'i KORUNUR (hâlâ tam coverage
+  kanıtlıyor) ve faz-bağımsız olur. `now_fn`-enjeksiyonuna gerek
+  kalmadı: kök, production `now` kullanımı değil, fixture anchor fazıydı
+  (production `_warmup` aynı `now`'u close-filter için kullanıyor; o
+  filtre en-UC bucket'ı etkiliyor, en-ESKİ'yi değil — bu yüzden hizalama
+  tek başına yeterli ve doğru). KARDEŞ taraması: `first_slot==
+  feed_first_slot` guard'ı YALNIZ T4'te; diğer −1700dk anchor'ları
+  (224/285/364/532/571) en-eski-slot assert'i yok → immün, dokunulmadı
+  (testte not olarak disclosure).
+- **KOŞUMLAR:** d49 8/8 PASS · orchestrator grubu (d49+d53_alerting+
+  startup+tas2+tas3+tas4) **103/103 PASS** deterministik (Hakem beklentisi
+  "~104" — exact sayım 103, disclosed) · index FINAL ağaçtan regen
+  (§10.2): 1545 fn (+1 = `_aligned_history_anchor`), `logs` sızıntısı 0,
+  watcher ölü (0 python process, §10.1) · freeze-rutini: `src/`+frozen
+  engine diff temiz · commit-7 kapsamı = `tests/test_orchestrator_d49.py`
+  + `index.json` + bu ledger (executable-code kapsamı TEST-ONLY; memory-
+  bank §17-izinli chore). Set 7-hash'te KALIYOR (ledger ayrı commit
+  yapılmadı — §9.5 set-büyütme yok).

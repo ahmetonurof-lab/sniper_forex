@@ -142,6 +142,30 @@ def _recent_naive() -> datetime:
     return _utcnow_naive().replace(second=0, microsecond=0)
 
 
+def _aligned_history_anchor(minutes_back: int) -> datetime:
+    """`_recent_naive() - minutes_back`, floored to the 15m slot boundary.
+
+    Flake root cause (disclosed, arbitration N2 #8 commit-7): the full-
+    coverage guard asserts `first_slot == feed_first_slot`, i.e. that the
+    OLDEST rebuilt 15m bar equals the fake feed's oldest deliverable slot.
+    `resample_15m` drops any bucket holding `< 3` M1 bars. A raw anchor at
+    `now - 1700min` lands mid-slot (1700 % 15 == 5), so the FIRST bucket
+    holds only `15 - (anchor mod 15)` bars — which is < 3 whenever
+    `now.mod(15) in {3, 4}` (minutes 3,4,18,19,33,34,48,49). In those
+    phases the leading bucket is silently dropped and `bars[0]` shifts by
+    exactly one slot (the observed 900000 ms drift). Isolated runs almost
+    never land on those minutes; a ~10-minute full suite does — the
+    documented time-boundary flake.
+
+    Flooring the anchor to the slot boundary makes the first bucket always
+    hold a full 15 bars, so the strong equality assertion is preserved
+    (it still proves full coverage) and becomes phase-independent. This is
+    a fixture-side determinism fix; production code is untouched.
+    """
+    anchor = _recent_naive() - timedelta(minutes=minutes_back)
+    return anchor.replace(minute=(anchor.minute // 15) * 15)
+
+
 def _bar_at(naive_utc: datetime, index: int = 0) -> Bar:
     return Bar(
         index=index,
@@ -401,7 +425,13 @@ class TestReplayEstablishesYesterdaysWindow:
     ) -> None:
         monkeypatch.delenv("MT5_EXPECTED_LOGIN", raising=False)
 
-        history_anchor = _recent_naive() - timedelta(minutes=1700)
+        # Slot-aligned anchor: guarantees the oldest 15m bucket is never
+        # dropped by resample_15m's <3-bar rule, so the full-coverage guard
+        # below is deterministic at every minute phase (see
+        # _aligned_history_anchor). Sibling tests using a raw -1700 anchor
+        # do NOT assert oldest-slot equality, so they are immune to this
+        # flake and are intentionally left unchanged.
+        history_anchor = _aligned_history_anchor(1700)
         orch = Orchestrator(
             state_dir=str(tmp_state),
             configured_symbols=["EURUSD"],
