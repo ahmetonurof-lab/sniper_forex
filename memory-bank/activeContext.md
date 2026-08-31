@@ -1638,3 +1638,50 @@ görünür olur.
   + `index.json` + bu ledger (executable-code kapsamı TEST-ONLY; memory-
   bank §17-izinli chore). Set 7-hash'te KALIYOR (ledger ayrı commit
   yapılmadı — §9.5 set-büyütme yok).
+
+## N2 #8 PUSH KAYDI — 7-hash set, FREEZE HEAD `5ecbf0c`
+
+- **Who/What:** Luna (icra) · Hakem (yetki: N2 #8 flake-kök-neden hükmü,
+  aşamalı kural: "BEKLENEN eşleşirse → commit-7 → spot-check → 7-hash
+  push — BU MESAJDA YETKİLİ").
+- **When:** 2026-08-31 · **Remote:** origin/main
+  (https://github.com/ahmetonurof-lab/sniper_forex.git)
+- **Set-büyüme tarihi (§9.5):** 4 → 6 (flake-fix hükmüyle) → 7
+  (commit-7). Her büyüme ayrı hakem yetkisi aldı; nihai yetki 7-hash
+  seti için koşullu verildi ve koşullar sağlandı.
+- **Set (7/7, ride-along yok — tam hash'ler):**
+  `28ad9d5b40fd6f07afb704f33bca644bd93051d5` ledger N2 #7 push kaydı
+  `d4830cc554c952e5338f305dea4f7e6f1b6b9959` P0 diagnosis (gate 2)
+  `f906e7dbf7599e770a11cb8bbf80504da2de2b86` parity probe gate 3 — DIFFERENCE FOUND
+  `34232a16b607e072e90910fb54ad3faa7a7d6131` arbitration (b) canonical + dataset SHA256
+  `c66888a3db8ea9618a3b92e6743802e801d882be` (b) single-curve hardening (P0 FIX, 8 dosya)
+  `0f133c0145f30ff51369a68c0c7348364de141f8` sha256 dual-form disclosure
+  `5ecbf0c4aa21d0246d59076c2348c61a60751a92` commit-7: d49 flake fix (test-only)
+- **Push öncesi koşutluk (hüküm BEKLENEN satırı):** final-ağaç tam süit
+  **2 failed, 487 passed, 1 skipped, 0 error** (848.99 s) — kırmızılar
+  yalnız parity-pinned `test_e2e_live_chain` çifti; d49 dalı temiz.
+  Commit-7 blob'unda ek determinizm kanıtı: clock-pinned faz-matrisi
+  8 kötü dakika + 2 iyi dakika = **10/10 PASS** (pre-fix 8/8 FAIL).
+- **Gate spot-check (a-d):** blob'dan form-teyidi — (a) `MAX_DROPPED_
+  SIGNALS: int = 0` (satır 257), (b) `entry_float > exit_float` →
+  `raise ValueError` invariant (437→446), (c) `_enforce_dropped_signal_
+  policy` çağrısı (546), (d) commit-7 `src/`+`experiment/`-dokunmaz
+  (3 dosya: test+index+ledger).
+- **Commit-7 hook olayı (§10.3 kaydı):** ilk commit denemesi hook
+  düzeltmeleriyle abort oldu; Windows stash/restore turu staged index'i
+  boşalttı (içerik worktree'da hook-düzeltmiş halde kaldı). Yeniden
+  stage + commit: hook'lar **Passed** (blob = doğrulanmış ağaç). Blob
+  ≡ worktree teyit edildi (`git diff HEAD` test+index = boş).
+- **Push:** `2a0d5b3..5ecbf0c main -> main`
+- **Verification (§9.2):** `origin/main..HEAD` → **BOŞ** ·
+  `git ls-remote origin main` → `5ecbf0c4aa21d0246d59076c2348c61a60751a92`
+  = local HEAD · working tree temiz (tracked).
+- **FREEZE: AKTİF — HEAD `5ecbf0c`** (commit-7 dahil; src/ + tests/ tam
+  donmuş). P0 borcu (fail-fast single-curve invariant) remote'da.
+- **KALAN (TAG öncesi):** ③ closure = parity-skip koşulu (1S ya bir kez
+  açıkça koşacak ya skip-reasonu provenance paketini girecek) + TAG
+  paketi: (b)-fix hash + benchmark 2302T/+2593.26R/5.00R/PF 4.97/
+  paused=0 + dataset SHA256 manifest + single-curve semantik beyanı.
+  Gate ④ (soak) ve Gate ⑤ (Forexçi ticari paket: risk profili + çarpan
+  dağılımı kaydı 2186/99/15→1994/278/30, scaled 114→308=%13.4, t1/t2/t3
+  recalibration sahibi) — insan kapıları.
