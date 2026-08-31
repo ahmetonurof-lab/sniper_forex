@@ -1712,3 +1712,45 @@ görünür olur.
   deterministik olduğundan test fiilen hiçbir süitte assert-etmiyor.
   Aday açık-kalem: real-data varyantı veya seed-taraması (N2 #9+ işi,
   freeze altındayken dokunulmaz).
+
+## KARAR-1 + KARAR-2 KABULÜ ve C2 WIRE (2026-09-01)
+
+- **KARAR-1 (Hakem, OK):** Risk profili kabul: 2302T / +2593.26R /
+  MaxDD 5.00R (2.24%) / PF 4.97. DD-scaling eşikleri 2R/4R/6R **kalır**
+  (kod-default DEFAULT_T1/T2/T3 zaten bu değerlerde → config no-op;
+  config tarafı motor production'da ayağa kalktıktan sonra ayrıca).
+- **KARAR-2 (Hakem, verbatim kural):** GLOBAL ENTRY LOCK YOK.
+  Sembol/parite bazında: bir paritede açık trade varsa aynı paritede
+  yeni trade açılmaz; diğer pariteler etkilenmez; her sembol için aynı
+  anda maks. 1 açık trade. `end_state=active_trade → entries_enabled=
+  False` global olarak UYGULANMAYACAK; sembol-bazlı uygulanacak.
+  → "Bunu C2 policy olarak bu semantik üzerinden wire et."
+- **WIRE (bu commit):** `LiveRunner._symbol_entry_locked()` —
+  broker-authoritative: bot-magic filtreli canlı pozisyonlar
+  (`poll_deals` ile AYNI konvansiyon, §2.2 tek-kaynak) + dolgu-view
+  `_position_to_ctx` birleşimi (lag/çift-entry koruması). Broker truth
+  alınamazsa fail-safe KİLİTLİ (`_positions_get` "assume open"
+  konvansiyonuyla tutarlı, §7). Guard `on_bar` başında
+  `runtime.on_bar()`dan ÖNCE yakalanır — `_fill_pending` atomik
+  create+signal tuzağı (entry kendi fill'iyle kendini bloklamaz).
+  Kilitli sinyal: gönderilmez, `blocked_reason=
+  c2_symbol_entry_lock_active_trade` + RISK audit (görünür, §19).
+  §7.2 üç-yarılma korunur: state advancement (runtime.on_bar) ve
+  pozisyon yönetimi (poll_deals/sync_trailing) kilitten ETKİLENMEZ.
+  Boot `end_state=active_trade` global kapıyı kapatmaz (regresyon testi
+  var). `_begin_cold_rebuild` docstring'indeki "C2 policy decision
+  remains pending" notu ratify-politikaya bağlandı.
+- **TEST KANITI:** +8 yeni geçen test (7 runner-level `test_p0_2_
+  lifecycle_wiring.py` 9→16: block/allow-other-symbol/non-bot-magic/
+  own-fill-second-block/release-after-close/no-broker-truth-fail-safe/
+  management-continues; 1 orchestrator-level KARAR-2 regresyon
+  `test_orchestrator_tas3.py` 15→16; d49 C2-report testleri mevcut
+  haliyle yeşil). Tam süit: **2F / 495P / 1S / 0E (598.71 s)** —
+  baseline 2F/487P/1S + 8 yeni = 495P (sayım tutarlı).
+  2F = pinned pre-existing (stash-differential: donmuş HEAD'de aynı
+  satır/aynı neden `order_sent=False` — E2EBroker.order_check retcode
+  uyumsuzluğu; guard'dan bağımsız). 1S = signal_runner:201 (kimlik
+  §13.5 düzeltmesiyle doğrulanmış).
+- **KARAR-2 semantik not:** Çok-sembollü dağıtım zaten process-bazlı
+  (1 Orchestrator = configured_symbols[0]); guard `self.symbol`
+  eşleşmesine bağlı → diğer pariteler yapısal olarak bağımsız.

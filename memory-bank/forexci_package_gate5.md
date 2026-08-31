@@ -58,6 +58,35 @@ maruziyet üretebilir). Retoneliği: soğuk-boot sonrası ilk saatlerde
 sinyal-körlüğü yaratabilir — ikisi de savunulabilir; **yazılı
 kabul/reddin N2 kaydına girecek.**
 
+### 4a. KARAR — RATIFIED (Hakem, 2026-08-31)
+
+**GLOBAL ENTRY LOCK YOK.** Kural sembol/parite bazındır: bir paritede
+açık trade varsa yalnız **aynı paritede** yeni trade açılmaz; diğer
+pariteler etkilenmez, sinyal geldikçe işlem açabilir. Her sembol için
+aynı anda en çok 1 açık trade. `end_state=active_trade → entries_enabled
+∧= False` **global portfolio lock olarak UYGULANMAYACAK**; sembol-bazlı
+uygulanacak.
+
+**KARAR-1 (risk profili):** 2302T / +2593.26R / MaxDD 5.00R (2.24%) /
+PF 4.97 kabul. DD-scaling eşikleri **2R/4R/6R kalır** (config-code zaten
+bu değerlerde — no-op). Config tarafı motor production'da kaldıktan sonra
+ayrıca ele alınacak.
+
+### 4b. WIRE DURUMU (LUNA — bu commit serisi)
+
+Sembol-bazlı C2 girişi `LiveRunner.on_bar` içine **broker-authoritative**
+guard olarak bağlandı: `_symbol_entry_locked()` — bot-magic ile filtreli
+canlı broker pozisyonları (`poll_deals` ile aynı konvansiyon, §2.2) +
+dolgu-view `_position_to_ctx` birleşimi; kilit durumu `runtime.on_bar`
+**öncesinde** yakalanır (atomicity tuzağı). Broker truth yoksa fail-safe
+KİLİTLİ. Yalnız **entry gönderimi** bastırılır; state advancement +
+`poll_deals`/`sync_trailing` (§7.2) çalışmaya devam eder. Bu process tek
+sembol taşıdığından diğer semboller yapısal olarak etkilenmez. Boot
+`end_state=active_trade` artık global kapıyı kapatmıyor (regresyon testi
+`test_c2_active_trade_boot_never_globally_closes_gate`). `_begin_cold_rebuild`
+docstring'indeki "C2 policy decision remains pending" notu ratify edilmiş
+politikaya bağlandı.
+
 ## 5. PROVENANS REFERANSI (TAG `research-canonical-v1.1` — hazır-koşullu)
 
 Paket içeriği (TAG atılmadan önce kapanan ③ listesi):

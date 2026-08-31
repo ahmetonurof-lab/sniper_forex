@@ -137,6 +137,45 @@ class LiveRunner:
             return True  # transient failure -> do NOT treat as stale
         return len(positions) > 0
 
+    # ── C2 entry lock (KARAR-2: symbol-based, never global) ──────
+    def _symbol_entry_locked(self) -> bool:
+        """True when THIS symbol already carries a bot-owned open trade.
+
+        KARAR-2 policy: an open trade on a pair blocks new entries on the
+        SAME pair only. Other pairs are unaffected (each symbol runs in its
+        own process/runner — there is no portfolio-wide entry lock).
+
+        Broker truth first: live positions filtered by bot magic, using the
+        SAME convention as ``poll_deals`` (no parallel source of truth).
+        The in-process fill view (``_position_to_ctx``) is unioned so a
+        broker snapshot that lags a fresh fill — or a position whose exit
+        the next poll has not recorded yet — cannot admit a second entry.
+        Unknown broker state (no mt5 / no ``positions_get`` / exception) is
+        treated as LOCKED: fail-safe, mirroring ``_positions_get``'s
+        "assume open" convention. Positions without a ``symbol`` attribute
+        (test seams) are attributed to this runner's symbol; positions
+        without the bot magic are never bot-owned.
+        """
+        if self.mt5 is None or not hasattr(self.mt5, "positions_get"):
+            return True  # no broker truth available -> conservative lock
+        try:
+            positions = self.mt5.positions_get() or []
+        except Exception:
+            return True  # transient failure -> do NOT admit a new entry
+        for p in positions:
+            if int(getattr(p, "magic", 0) or 0) != self.magic:
+                continue
+            sym = getattr(p, "symbol", None)
+            if sym is not None and str(sym) != self.symbol:
+                continue
+            return True
+        for ctx in self._position_to_ctx.values():
+            if getattr(ctx, "symbol", self.symbol) != self.symbol:
+                continue
+            if float(getattr(ctx, "remaining_volume", 0.0) or 0.0) > 0:
+                return True
+        return False
+
     # ── Startup snapshot (S5 broker state + S8 recon gate) ────────────
 
     def startup_snapshot(
@@ -363,11 +402,30 @@ class LiveRunner:
 
     # ── Entry path ─────────────────────────────────────────────────
     def on_bar(self, bar, account: Account) -> LiveRunnerStepResult:
-        """Process one closed 15m bar: strategy -> risk -> execution -> context."""
+        """Process one closed 15m bar: strategy -> risk -> execution -> context.
+
+        C2 entry lock (KARAR-2): while this symbol carries a bot-owned open
+        trade, no NEW entry is sent on this symbol. The lock state is
+        captured BEFORE ``runtime.on_bar`` because ``_fill_pending`` creates
+        ``active_trade`` and emits the Signal in the same call — a post-hoc
+        check would let an entry block itself. State advancement and
+        position management are NOT gated (§7.2): the runtime still runs,
+        ``poll_deals``/``sync_trailing`` keep managing the open position.
+        A signal produced under lock is discarded visibly (RISK audit),
+        never silently.
+        """
         res = LiveRunnerStepResult()
+        entry_locked = self._symbol_entry_locked()  # pre-capture (atomicity trap)
         sig = self.runtime.on_bar(bar)
         res.signal = sig
         if sig is None:
+            return res
+        if entry_locked:
+            res.blocked_reason = "c2_symbol_entry_lock_active_trade"
+            self._audit(
+                EventType.RISK,
+                {"approved": False, "reason": res.blocked_reason, "symbol": self.symbol},
+            )
             return res
 
         contract = self.contract or default_contract(self.symbol)

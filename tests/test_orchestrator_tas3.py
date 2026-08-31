@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.live.audit import AuditChain
+from src.live.audit import AuditChain, EventType
 from src.live.orchestrator import (
     Orchestrator,
     OrchestratorConfig,
@@ -227,6 +227,29 @@ def test_gate_blocks_on_bar_when_recon_blocked(tmp_path):
     # SAFE-START + runner-var: D41 backlog replay is entries_enabled-guarded
     # → no pending backlog accumulates (gate stays closed, feed never runs)
     assert orch._pending_feed == []
+
+
+def test_c2_active_trade_boot_never_globally_closes_gate(tmp_path):
+    """KARAR-2 regression: an open trade at boot (replay end_state=
+    active_trade) must NOT disable entries globally. The gate stays OPEN
+    and bars keep feeding; the one-trade-per-symbol lock is enforced
+    broker-authoritatively inside LiveRunner.on_bar for THIS symbol only.
+    Other symbols (their own processes) are unaffected by construction."""
+    r = FakeRunner()
+    orch = make_orch(tmp_path, runner=r, runtime_bars=[])
+    # Boot state: the restored/replayed runtime carries an open sim trade.
+    orch._runtime.active_trade = {"side": "long", "sl": 1.0990, "tp": 1.1018, "closed": False}
+    orch.run(kill_switch_fn=kill_after(1), sleep_fn=lambda s: None)
+    assert orch._gate_was_allowed is True  # no global C2 lock (KARAR-2)
+    assert len(r.on_bar_calls) >= 1  # feed still runs — entries not globally closed
+    assert r.poll_calls >= 2 and r.trailing_calls >= 1  # §7.2: management runs anyway
+    # The SAFETY audit records the gate OPEN — never a C2 global closure.
+    gate_events = [
+        e.payload
+        for e in orch.audit.events
+        if e.event_type == EventType.SAFETY and e.payload.get("gate") in ("open", "closed")
+    ]
+    assert gate_events and gate_events[-1]["gate"] == "open"
 
 
 def test_proceed_feeds_backlog_and_new_bars_with_fresh_account(tmp_path):

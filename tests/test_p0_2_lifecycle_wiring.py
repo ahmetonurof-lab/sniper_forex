@@ -270,3 +270,126 @@ def test_trailing_sync_sends_modify_then_no_duplicate():
     n = len(fake.requests)
     assert runner.sync_trailing()[0].action == "no_change"
     assert len(fake.requests) == n
+
+
+# ── C2 entry lock (KARAR-2: symbol-based, never global) ──────────────
+#
+# Rule under test: an open bot trade on a pair blocks NEW entries on the
+# SAME pair only; other pairs are unaffected. Broker truth is authoritative
+# (magic-filtered live positions), fail-safe to LOCKED when the broker
+# snapshot is unavailable, and management (trailing/poll) is never gated.
+
+
+def _bot_position(ticket, symbol, magic=9007001):
+    return SimpleNamespace(ticket=ticket, symbol=symbol, magic=magic)
+
+
+def test_c2_blocks_entry_when_same_symbol_open():
+    """A live bot position on EURUSD blocks a new EURUSD entry."""
+    runner, fake = _runner()
+    fake.open_positions[5001] = _bot_position(5001, "EURUSD")
+    res = runner.on_bar(_bar(), ACCOUNT)
+    assert res.blocked_reason == "c2_symbol_entry_lock_active_trade"
+    assert not res.approved
+    assert fake.requests == [], "locked entry must not reach the broker"
+
+
+def test_c2_allows_entry_for_other_symbol():
+    """A live bot position on GBPUSD does NOT block the EURUSD runner."""
+    runner, fake = _runner()
+    fake.open_positions[5002] = _bot_position(5002, "GBPUSD")
+    res = runner.on_bar(_bar(), ACCOUNT)
+    assert res.approved and res.context_registered is not None
+    assert res.blocked_reason != "c2_symbol_entry_lock_active_trade"
+
+
+def test_c2_ignores_non_bot_magic():
+    """A manual/other-magic position on the same symbol is not bot-owned."""
+    runner, fake = _runner()
+    fake.open_positions[5003] = _bot_position(5003, "EURUSD", magic=12345)
+    res = runner.on_bar(_bar(), ACCOUNT)
+    assert res.approved  # not a bot position -> no lock
+
+
+def test_c2_second_entry_blocked_after_own_fill():
+    """Production scenario: after a real fill, the next bar's signal is
+    blocked by the now-open position (1 trade per symbol at a time)."""
+    runner, fake = _runner()
+    first = runner.on_bar(_bar(), ACCOUNT)
+    assert first.approved and first.context_registered is not None
+    # The fill created a live bot position on EURUSD (FakeMT5 keys it by pid).
+    fake.open_positions[first.context_registered.position_id] = _bot_position(
+        first.context_registered.position_id, "EURUSD"
+    )
+    second = runner.on_bar(_bar(), ACCOUNT)
+    assert second.blocked_reason == "c2_symbol_entry_lock_active_trade"
+    assert not second.approved
+
+
+def test_c2_lock_releases_after_position_closes():
+    """Once the broker no longer reports the position, entries resume."""
+    runner, fake = _runner()
+    fake.open_positions[5004] = _bot_position(5004, "EURUSD")
+    assert runner.on_bar(_bar(), ACCOUNT).blocked_reason == "c2_symbol_entry_lock_active_trade"
+    del fake.open_positions[5004]  # broker closed it
+    res = runner.on_bar(_bar(), ACCOUNT)
+    assert res.approved and res.context_registered is not None
+
+
+def test_c2_fail_safe_locks_without_broker_truth():
+    """No positions_get on the mt5 seam -> conservative LOCK (fail-safe)."""
+
+    class NoPositions:
+        TRADE_ACTION_DEAL = 1
+        TRADE_ACTION_SLTP = 2
+        ORDER_TYPE_BUY = 0
+        ORDER_TYPE_SELL = 1
+        ORDER_TIME_GTC = 1
+        ORDER_FILLING_IOC = 1
+        TRADE_RETCODE_DONE = 10009
+        CHECK_RETCODE_OK = 0
+
+        def __init__(self):
+            self.requests = []
+
+        def order_check(self, request):
+            return SimpleNamespace(retcode=self.CHECK_RETCODE_OK)
+
+        def order_send(self, request):
+            self.requests.append(dict(request))
+            return SimpleNamespace(retcode=self.TRADE_RETCODE_DONE)
+
+        # NOTE: no positions_get attribute at all.
+
+    fake = NoPositions()
+    runner = LiveRunner(
+        symbol="EURUSD",
+        mt5=fake,
+        signal_only=False,
+        contract=CONTRACT,
+        lifecycle=TradeLifecycle(portfolio_dd=PortfolioDD(starting_balance_r=100.0)),
+    )
+    sig = _signal()
+    runner.runtime.on_bar = lambda bar: sig
+    assert runner._symbol_entry_locked() is True
+    res = runner.on_bar(_bar(), ACCOUNT)
+    assert res.blocked_reason == "c2_symbol_entry_lock_active_trade"
+    assert fake.requests == []
+
+
+def test_c2_lock_does_not_gate_management():
+    """§7.2: the lock suppresses ENTRY sends only. The runtime still
+    advances (on_bar is called), and trailing/poll stay independent of the
+    guard — they are not invoked from on_bar's entry path at all."""
+    runner, fake = _runner()
+    runner.on_bar(_bar(), ACCOUNT)  # real fill -> position 999 live
+    fake.open_positions[999] = _bot_position(999, "EURUSD")
+    # Management still runs while the entry is locked.
+    runner.runtime.active_trade = {"side": "long", "sl": 1.0995, "tp": 1.1023, "closed": False}
+    events = runner.sync_trailing()
+    assert events and events[0].confirmed
+    # And the locked entry does not send a new order.
+    n = len(fake.requests)
+    res = runner.on_bar(_bar(), ACCOUNT)
+    assert res.blocked_reason == "c2_symbol_entry_lock_active_trade"
+    assert len(fake.requests) == n

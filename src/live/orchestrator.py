@@ -1389,8 +1389,11 @@ class Orchestrator:
         restored slots (the seen-skip guard exists for the cold
         fall-through path, not for a full rebuild). Fresh StrategyRuntime
         also drops any stale restored active_trade / pending_entry so the
-        singlet-lock phantom cannot leak into the live session (C2 policy
-        decision remains pending; determinism is preserved regardless).
+        singlet-lock phantom cannot leak into the live session. C2 is now
+        settled (KARAR-2, symbol-based): the entry lock is enforced
+        broker-authoritatively in LiveRunner.on_bar/_symbol_entry_locked —
+        a live bot position on this symbol blocks new entries on THIS
+        symbol only, never globally; determinism is preserved regardless.
         Lifecycle is untouched (D6 — invalidation only on broker-side
         anomalies, never on orchestrator-side restart)."""
         self._seen_bar_slots.clear()
