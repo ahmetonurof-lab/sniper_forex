@@ -1263,3 +1263,55 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
     → Aşama 5'te **tek tek karar**.
 - NEDEN şimdi değil: freeze disiplini + minimal scope; akıbetleri Aşama 5
   kararında gerçek ihtiyaçla belirlenir, bugün tahmin olmaz.
+
+## P0 TEŞHİS (gate ②) — 5 canonical causality fail — KÖK NEDEN İZOLE (§8.2)
+
+**Yöntem:** hakem ADIM-1 yönlendirmesi — differential worktree'lar
+(dispose: repo-dışı, freeze bozulmadı; tümü temizlendi). Graft =
+yalnız collection-icin eksik dep (src/strategy, gemini_detector), motor
+davranışına dokunmadı.
+
+**Ölçümler (test dosyası × motor revizyonu matrisi):**
+
+| Commit | Motor revizyonu | Koşum sonucu |
+|---|---|---|
+| HEAD `2a0d5b3` | event-stream (409fc17) | **5F**/33P (isim-isim: same_bar, A_later_exit, B_self_excl, E_brute, tie_break) |
+| `2bff15b` baseline 08-30 | event-stream | **aynı 5F** — baseline'a bu hâlde taşındı |
+| `409fc17` 08-28 14:41 (yazım) | event-stream | **UNCOLLECTABLE** — `experiment/gemini_detector.py` o commit'te YOK (ilk kez 2bff15b), `src/strategy` ağaçta YOK → test dosyası kendi motoruna karşı HİÇ KOŞAMADI |
+| `797d946` 08-28 11:19 (bisect) | bisect/prefix | **30P/1S YEŞİL** — bisect-era testleri bisect-era motoruna karşı yeşildi |
+| `0899b38` 08-28 10:15 (promotion) | pre-bisect | kendi test dosyası kendi motoruna karşı **5F** (farklı isimler: x05/x025/peak/same_bar/pnl_differs) |
+
+**Kök neden (izole):** `409fc17`'deki event-stream rewrite, `apply_dd_scaling`
+semantiğini değiştirdi: ENTRY/EXIT olayları `(ts, priority)` sıralı yürünür,
+multiplier ENTRY'de kilitlenir (`mult_lock`). Fixture'lardaki **backdated
+exit (exit_ts < entry_ts)** durumunda EXIT olayı ENTRY'den ÖNCE işlenir →
+`mult_lock.get()` → None → **`continue` = trade SESSİZ DÜŞÜRÜLÜR**
+(n1 sayılmaz, paused sayılmaz, equity'ye girmez). 5 fail'in 4'ü bu
+mekanizma; E_brute ayrıca ref'in exit-order-walk'ı ile prod'un entry-lock
+aynı-timestamp penceresinde ayrışıyor (`prod mult 0.0 != ref 1.0 (dd=0.0)`).
+Test docstring'leri hâlâ bisect-era sözleşmesini anlatıyor
+("j = min(bisect_left(EX, entry), pos)") — testler bisect semantiğinin
+kontratı, motor event-stream'in davranışı.
+
+**Sınıflandırma (§8.2):** `introduced` — 409fc17'de üretildi ve YAZIM
+ANINDA KOŞULAMADIĞI için hiç yeşil olmadan baseline'a miras kaldı.
+"test bug" değil tek başına, "engine bug" değil tek başına: **kontrat
+(bisect-semantik testler) ile davranış (event-stream motor) ayrışması +
+sessiz-düşürme savunma dalı.** Gerçek veride exit<entry imkânsız
+(entry_bar ≤ exit_bar) → canonical benchmark sayıları (2300T) bu
+yoldan etkilenmemiş OLABİLİR — kanıtlanmadı; ③ parity işte bu
+ayrışmanın gerçek-veride sıfır-olup-olmadığını ölçecek.
+
+**Açık kalan soru (hakem kararına):** disposition üç seçenek —
+(a) bisect semantiğine dönüş = canonical benchmark değişimi = araştırma
+protokolü (izolate→benchmark→promote-onay);
+(b) event-stream semantiği canonical ilan + 5 testin gerçek-veri
+fixture'larıyla yeniden yazımı (exit≥entry) + sessiz-düşürmenin
+fail-fast'a çevrilmesi (benim önerim: (b)+fail-fast — §19 sessiz-skip
+deseninin bu ailesi de kodla kapanmalı);
+(c) yalnız fail-fast + test skip = hidden-red'e kaçar, uygun değil.
+**Kod değişikliği freeze-sonrası pencere bekler — bu tur yalnız teşhis.**
+
+**Ders (kural-a-dayanak):** koleksiyonu-bile-olmayan-test = sıfır-kanıt;
+"synthetic validation" iddiası taşıyan 409fc17 mesajı, koşulamayan dosya
+için level-0 iddiaydı. Koşulmamış test, yazılmamış testtir.
