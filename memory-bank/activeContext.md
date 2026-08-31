@@ -1568,3 +1568,14 @@ görünür olur.
     Bu commit'in süit iddiası: "full suite within tests/ = 3F/486P/1S,
     bundan 2'si pre-existing disclosed + 1'i documented time-boundary
     flake (repeat, differential evidence above)".
+- **COMMIT 2 = `c66888a`** (8 dosya; hook'lar: ruff-format 2 satırı
+  birleştirdi → hook-blob 43/43 PASS yeniden doğrulandı → index FINAL
+  ağaçtan 2. regen (§10.3: commit = validate edilen blob); vulture/mypy/
+  json/EoF temiz).
+- **PROVENANCE sha256 mutabakatı (post-commit, disclosed):** provenance
+  paketi engine sha256'sını working-tree CRLF baytlarından hesaplamıştı
+  (773e01b1…); commit blob'u LF-normalize (78a4bce5…) — içerik aynı
+  (doğrulandı: sha256(wt.replace(CRLF,LF)) == blob). Provenance'a her iki
+  form + Windows-checkout reproduksiyon notu eklendi (ayrı doc commit).
+  Koşum anındaki baytlar = form (i); bu, §8.1 "exact code" iddiasının
+  doğru-nesne hâlidir.

@@ -9,9 +9,23 @@
 
 ```
 benchmark commit      : <PARENT=34232a1 + UNCOMMITTED WORKING TREE>
+                        (run-time truth, kept verbatim; the identical tree
+                        was committed afterwards as c66888a — engine bytes
+                        at c66888a == engine bytes at run time, modulo
+                        line endings, see engine sha256 note)
 parent commit         : 34232a16b607e072e90910fb54ad3faa7a7d6131
 engine file           : experiment/main_research_c_v1_1.py
 engine sha256         : 773e01b1d599b09fee9b1f220bbdfd5d601284917eb91d477a21dc6986372f5d
+                        ^ form (i): working-tree bytes (CRLF; Windows
+                        checkout, core.autocrlf=true) — the exact bytes the
+                        benchmark process imported and executed.
+                        form (ii): committed-blob bytes (LF-normalized by
+                        git): 78a4bce58c34905000e9a5d0793535c346ca77f22c4e80786b193ae6ca2fa3f5
+                        Content-identical modulo line endings (verified:
+                        sha256(worktree.replace(CRLF,LF)) == blob sha256).
+                        Reproduction: check out c66888a on Windows
+                        (autocrlf=true) -> form (i) bytes -> exact-match
+                        re-run expected.
 frozen engines        : main_research_c_v1_0.py / main_research_d_v1_0.py UNTOUCHED (git diff clean)
 python                : 3.12.2 (MSC v.1937 64 bit)
 command               : python experiment/main_research_c_v1_1.py   (6 majors, no args = FULL 2.7Y)
