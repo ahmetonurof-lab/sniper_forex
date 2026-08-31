@@ -1315,3 +1315,104 @@ deseninin bu ailesi de kodla kapanmalı);
 **Ders (kural-a-dayanak):** koleksiyonu-bile-olmayan-test = sıfır-kanıt;
 "synthetic validation" iddiası taşıyan 409fc17 mesajı, koşulamayan dosya
 için level-0 iddiaydı. Koşulmamış test, yazılmamış testtir.
+
+## PARITY PROBE SONUCU (gate ③) — FARKLILIK VAR — KANONİK SAYILAR KARANTİNADA (2026-08-31)
+
+**Hakem onaylı tasarım (§2/§6):** aynı akış → iki motor karşılaştırması.
+Uygulamada genişletildi: salt-HEAD-stream testi yerine **her motor kendi
+main() üretim yolunu tam koştu** (dört tam üretim: HEAD, 797d946,
+0899b38, 409fc17; worktree'lar repo-dışı, graft = collection-dep yalnız,
+feather verisi 08-23 mtime — tüm koşumlarda aynı dosyalar, version-control
+dışı ama değişmemiş).
+
+**Q5-ön-şartı ölçüldü (mult_lock get-path tetikleyicisi):** gerçek 6-major
+stream'de (2302 tamamlanmış trade) **exit_ts < entry_ts = 0 adet** →
+sessiz-düşürme dalı gerçek veride HİÇ tetiklenmiyor; yalnız sentetik
+fixture'larda. Bu, fixture teşhisini doğrular — AMA parity sorusunu
+kapatmıyor, çünkü fark başka bir yerde çıktı.
+
+**FARK TABLOSU (aynı veri, dört motor tam-üretim):**
+
+| Metrik | 0899b38 (PROMOTED) | 797d946 (bisect-fix) | 409fc17 = HEAD (event) |
+|---|---:|---:|---:|
+| surviving | **2300** | 2299 | 2302 |
+| paused | **2** | 3 | **0** |
+| x1 / x05 / x025 | **2186 / 99 / 15** | 2132 / 145 / 22 | 1994 / 278 / 30 |
+| TotalR | **+2766.905** | +2646.92 | +2593.26 |
+| MaxDD(R) | **4.7096** | 6.2866 | 5.0 |
+| MaxDD% | **2.19** | 2.38 | 2.24 |
+| PF | **5.13** | 4.90 | 4.97 |
+| pause-set | **{GBPJPY#96, USDJPY#82}** | +EURUSD#101 | {} (boş) |
+
+**Mutabakat:** 0899b38 tam-üretim, progress.md'deki PROMOTED tabloyu
+**hane-hane yeniden üretti** (2300/2/2186/99/15/+2766.91/4.71/2.19/5.13,
+pause-set dahil) → defter kaydı sahte değil; ama **HEAD motoru o sayıları
+ARTIK üretmiyor.** Üç haneli drift: 243 trade'ün mult-dizisi farklı
+(HEAD vs 0899), 115 trade (797 vs 0899).
+
+**Drift zamançizgisi (mekanizma izole):**
+1. `0899b38` (promosyon): ÇİFT-eğri — DD, BASE pnl'lerden kurulan
+   pre-scale eğriden ölçülür (paused trade DD'ye katkı verir); walk exit-sıralı.
+2. `797d946` ("strict causality + deterministic ordering"): çift-eğri
+   korunur, exit<entry strict + `_trade_order_key` eklenir → sayılar değişir
+   (2300→2299, paused 2→3, MaxDD 4.71→6.29). **Bu, PROMOTED sayıları
+   sessiz değiştiren İLK commit.**
+3. `409fc17` (event-stream rewrite): TEK-eğri canlı-yürüyüş — equity yalnız
+   KABUL EDİLMİŞ trade'lerin SCALED pnl'iyle ilerler; paused DD'ye sıfır
+   katkı; mult ENTRY'de kilitlenir → sayılar tekrar değişir
+   (2299→2302, paused 3→0, MaxDD 6.29→5.0). Testler bu commit'te
+   koşulamadi (P0 TEŞHİS).
+4. `409fc17→HEAD`: davranış-nötr format (diff yalnız satır-sarma; probe
+   409fc17 tam-üretimi HEAD sayılarıyla birebir = kanıt).
+
+**Tahkim kanıtı (hangi semantik "production"?):** `src/live/portfolio_dd.py`
+(Phase 11, freeze- dışı canlı modül): `record_realized(pnl_r)` yalnız
+kapalı pozisyonlardan çağrılır; paused trade entry-öncesi bloklanır →
+hiç kapanmaz → DD-eğrisine sıfır katkı. Bu, **409fc17/HEAD tek-eğri
+semantiğiyle uyumlu**; 0899b38 çift-eğri semantiğiyle DEĞİL. Yani HEAD'in
+docstring iddiası ("exact behavior of production portfolio_dd.py")
+modül-anlamında destekli — ancak bu, PROMOTED benchmark sayılarını
+otomatik olarak doğrulamaz: **canlı runtime semantiği ile araştırma
+benchmark semantiği aynı olmak ZORUNDA mı — hakem kararı.**
+
+**65k parity iddiası kapsam notu (abartma yok, gizleme yok):**
+`65k_m1_eurusd_parity_artifact.json` BASE-sinyal paritesidir
+(signal_count=23, head_sha=409fc17, M1→M15→sinyal katmanı) — DD-scaling
+katmanından bağımsız; scaling drift'i base akışı DEĞİŞTİRMEDİ (dört
+üretimin tümü aynı 2302 base stream). Phase-8 feather paritesi (2302/2302)
+de base-katman iddiası. → **Karantina kapsamı: C v1.1 SCALING kanonik
+sayıları (2300T/+2766.91/MaxDD 4.71/2.19/PF 5.13 + PROMOTED etiketi).
+Base-sinyal/65k/Phase-8 parite iddiaları bu drift'ten ETKİLENMEZ.**
+
+**§2 hükmü gereği:** FARKLIYSA → kanonik sayılar + PROMOTED etiketi
+karantinada; A/B/C masaya döner. (b)-paketi (test rewrite + fail-fast)
+tek başına yeterli DEĞİL — önce semantik tahkim kararı gerekiyor:
+(a) 0899b38 çift-eğri'ye dönüş = PROMOTED sayılar geri gelir, ama
+    production-uyumu iddiası düşer;
+(b) HEAD tek-eğri canonical ilan = production-uyumlu, ama PROMOTED
+    benchmark yeniden-koşumla değişir (yeni sayılar: 2302/0/1994-278-30/
+    +2593.26/5.0/2.24/4.97) ve testler bu semantiğe göre yazılır;
+(c) üçüncü yol: 797d946'nın çift-eğri+strict hâli (ne defterde ne kodda
+    sahiplenilmiş ara semantik — elenebilir).
+Luna öneri güncellemesi: teşhis turunda (b)+fail-fast demiştim; probe
+showed (b)'nin "test-rewrite yeterli" varsayımı ÇÖKTÜ — artık (b) bir
+benchmark-değişimi kararıdır, etiket karantinasıyla birlikte hakem
+tahkimini gerektirir.
+
+**Never-green dersi (hakem §5 resmi satırı):** her commit'in kendi
+test-seti, o commit'te koşum çıktısıyla mutabakata tabidir — commit
+mesajındaki validation iddiası koşum çıktısız kanıt sayılmaz.
+
+**Silent-drop ailesi (hakem §5 resmi satırı):** silent-drop = sessiz-fail
+ailesinin engine-içi tipi; sayaç-görünürlüğü gereksinimi (dropped_signals
+audit'e) tüm engine-path'lerinde gözden geçirilir.
+
+**KURAL (§13 kanadı, hakem onaylı):** "Koşulmamış test, yazılmamış
+testtir." Commit-şablonu yeni sorusu: "bu değişikliğin kapsadığı testler
+bu commit'te GERÇEKTEN koşulabildiler mi?"
+
+**Probe artefaktları:** `C:/Users/Administrator/p0probe/`
+(stream_head.json, result_head.json, result_bisect.json,
+result_bisect_full.json, result_promote_0899.json, result_event_409.json,
+gen_head.py, run_bisect.py, gen_bisect_full.py) — repo-dışı, worktree'lar
+temizlendi, freeze dokunulmadı (src/tests zero-delta).
