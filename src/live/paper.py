@@ -32,9 +32,9 @@ import pandas as pd
 from src.live.audit import AuditChain, EventType
 from src.live.candle_feed import M1CandleFeed, resample_15m
 from src.live.clock import _utcnow_naive, server_to_utc_historical
+from src.live.portfolio_dd import PortfolioDD
 from src.live.position_manager import Position
 from src.live.risk import Account, RiskManager
-from src.live.portfolio_dd import PortfolioDD
 from src.live.sizing import ContractSpec, PositionSizer
 from src.live.strategy_runtime import Signal, StrategyRuntime
 from src.strategy.models import Bar
@@ -330,22 +330,16 @@ class PaperSession:
         bars_15m = resample_15m(m1_bars)
         self.runtime.warmup(bars_15m)
         self._warmed = self.runtime._warmed
-        self._last_processed_m1_ts = (
-            float(m1_bars[-1].timestamp.timestamp()) if m1_bars else None
-        )
+        self._last_processed_m1_ts = float(m1_bars[-1].timestamp.timestamp()) if m1_bars else None
         # P1 — 15m emission progress starts at the last warmup bucket so the
         # first run_step emits only NEW buckets (no duplicate, no type crash).
-        self._last_emitted_m15_ts = (
-            bars_15m[-1].timestamp if bars_15m else None
-        )
+        self._last_emitted_m15_ts = bars_15m[-1].timestamp if bars_15m else None
         # Initialize partial tail with any unclosed M1 after the last full bucket
         # (for P2-6 incremental 15m continuity).
         if m1_bars:
             # Keep the tail that doesn't complete a 15m bucket at the end.
             # Minimal approach: keep up to 14 bars (one full 15m missing one) as partial.
-            self._partial_m1_tail = (
-                m1_bars[-14:] if len(m1_bars) >= 14 else list(m1_bars)
-            )
+            self._partial_m1_tail = m1_bars[-14:] if len(m1_bars) >= 14 else list(m1_bars)
         else:
             self._partial_m1_tail = []
         return len(bars_15m)
@@ -386,9 +380,7 @@ class PaperSession:
         # 1) Tick-based SL/TP check across each M1 in the step.
         if ticks is not None:
             for tick in ticks:
-                closed = self.broker.on_tick(
-                    self.symbol, float(tick["bid"]), float(tick["ask"])
-                )
+                closed = self.broker.on_tick(self.symbol, float(tick["bid"]), float(tick["ask"]))
                 result.new_closed.extend(closed)
                 # Patch PnL + record realized R using the AUTHORITATIVE
                 # contract: the per-ticket entry contract, falling back to
@@ -397,17 +389,13 @@ class PaperSession:
                 for c in closed:
                     context = self._paper_context.get(c.ticket, {})
                     contract_c = (
-                        context.get("contract")
-                        or self.contract
-                        or self._default_contract()
+                        context.get("contract") or self.contract or self._default_contract()
                     )
                     self.broker.update_pnl(c.ticket, contract_c, c.exit_price)
                     if c.pnl != 0.0:
                         # R conversion uses the TRADE RISK CASH locked at
                         # entry (never account equity).
-                        initial_risk_total = context.get(
-                            "initial_risk_cash_total", 0.0
-                        )
+                        initial_risk_total = context.get("initial_risk_cash_total", 0.0)
                         if initial_risk_total > 0:
                             pnl_r = c.pnl / initial_risk_total
                             self._paper_dd.record_realized(pnl_r)
@@ -442,18 +430,13 @@ class PaperSession:
         # comparison — M1 progress stays in the M1 domain).
         emitted_15m: List[Bar] = []
         for c in new_15m:
-            if (
-                self._last_emitted_m15_ts is None
-                or c.timestamp > self._last_emitted_m15_ts
-            ):
+            if self._last_emitted_m15_ts is None or c.timestamp > self._last_emitted_m15_ts:
                 emitted_15m.append(c)
         if emitted_15m:
             self._last_emitted_m15_ts = emitted_15m[-1].timestamp
         # M1 progress tracking (epoch float domain, independent of 15m).
         if combined_m1:
-            self._last_processed_m1_ts = float(
-                combined_m1[-1].timestamp.timestamp()
-            )
+            self._last_processed_m1_ts = float(combined_m1[-1].timestamp.timestamp())
 
         # 2) Run strategy on emitted 15m candles (not on the raw M1 tail directly)
         # We pass emitted_15m to the strategy replay logic.
@@ -482,9 +465,7 @@ class PaperSession:
                 elif last_emitted_slot is None:
                     new_tail.append(b)
             # Limit tail size to avoid unbounded growth (max 14 M1 bars = ~1 15m gap)
-            self._partial_m1_tail = (
-                new_tail[-14:] if len(new_tail) > 14 else list(new_tail)
-            )
+            self._partial_m1_tail = new_tail[-14:] if len(new_tail) > 14 else list(new_tail)
         else:
             self._partial_m1_tail = []
         return result

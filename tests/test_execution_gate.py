@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Unit tests for Execution.send() order_check fix."""
 
-from unittest.mock import MagicMock
 import sys
+from unittest.mock import MagicMock
 
 sys.path.insert(0, r"C:\Users\Administrator\Desktop\sniper_forex")
 

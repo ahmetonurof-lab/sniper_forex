@@ -32,9 +32,9 @@ from src.strategy.models import Bar  # noqa: E402
 def _load_eurusd_15m(window_start: str, window_end: str):
     df = pd.read_feather(_REPO / "data" / "icmarket_feather" / "EURUSD_15m.feather")
     df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df = df[
-        (df["timestamp"] >= window_start) & (df["timestamp"] <= window_end)
-    ].reset_index(drop=True)
+    df = df[(df["timestamp"] >= window_start) & (df["timestamp"] <= window_end)].reset_index(
+        drop=True
+    )
     return [
         Bar(
             index=i,

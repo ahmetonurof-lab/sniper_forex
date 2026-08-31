@@ -49,8 +49,7 @@ class _SensitiveFilter(logging.Filter):
         record.msg = _mask_sensitive(str(record.msg))
         if record.args:
             record.args = tuple(
-                _mask_sensitive(str(a)) if isinstance(a, str) else a
-                for a in record.args
+                _mask_sensitive(str(a)) if isinstance(a, str) else a for a in record.args
             )
         return True
 

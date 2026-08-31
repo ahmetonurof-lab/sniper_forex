@@ -34,7 +34,6 @@ from src.live.risk import Account, RiskManager
 from src.live.sizing import ContractSpec
 from src.live.strategy_runtime import Signal
 
-
 # ── Helpers ──────────────────────────────────────────────────────
 
 

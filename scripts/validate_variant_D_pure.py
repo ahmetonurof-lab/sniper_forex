@@ -77,8 +77,7 @@ def main():
     # It must NOT call _canon.run_test_a (Frozen EQ baked in).
     # Acceptable references: imports, docstrings, comments.
     has_run_test_a_call = bool(
-        re.search(r"_canon\.run_test_a\s*\(", src)
-        or re.search(r"_canon_run_test_a\s*\(", src)
+        re.search(r"_canon\.run_test_a\s*\(", src) or re.search(r"_canon_run_test_a\s*\(", src)
     )
     check("No _canon.run_test_a() call", not has_run_test_a_call)
 
@@ -153,8 +152,7 @@ def main():
     has_body_proxy = re.search(r"def\s+body_low\s*\(", src) is not None
     has_sm_patch = "_D_EQ_SessionManager" in src
     has_run_test_a_call = bool(
-        re.search(r"_canon\.run_test_a\s*\(", src)
-        or re.search(r"_canon_run_test_a\s*\(", src)
+        re.search(r"_canon\.run_test_a\s*\(", src) or re.search(r"_canon_run_test_a\s*\(", src)
     )
     check("No _CbdrInjector", not has_injector)
     check("No body_low property proxy", not has_body_proxy)

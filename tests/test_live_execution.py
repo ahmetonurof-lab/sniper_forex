@@ -29,7 +29,6 @@ from src.live.execution import (
 from src.live.sizing import ContractSpec
 from src.live.strategy_runtime import Signal
 
-
 # ── Fake MT5 ──────────────────────────────────────────────────────
 
 
@@ -103,8 +102,7 @@ class FakeMT5:
             retcode=rc,
             order=12345 + idx,
             deal=67890 + idx,
-            price=request.get("price", 0.0)
-            + (0.00010 if rc == self.TRADE_RETCODE_DONE else 0.0),
+            price=request.get("price", 0.0) + (0.00010 if rc == self.TRADE_RETCODE_DONE else 0.0),
             comment=f"fake {rc}",
         )
 
@@ -315,9 +313,7 @@ def test_lot_zero_does_not_send():
 def test_short_signal_uses_sell_order_type():
     mt5 = FakeMT5()
     ex = Execution(mt5=mt5, signal_only=True)
-    res = ex.send(
-        _request(signal=_signal(direction="bearish", side="short", entry_price=1.10000))
-    )
+    res = ex.send(_request(signal=_signal(direction="bearish", side="short", entry_price=1.10000)))
     assert res.dry_run is True
     assert res.request["type"] == mt5.ORDER_TYPE_SELL
 

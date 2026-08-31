@@ -200,10 +200,7 @@ class TradeLifecycle:
         True ONLY when the deal was accepted and PortfolioDD updated.
         Unknown/unmapped exits return False (and are quarantined).
         """
-        return (
-            self.record_exit_deal(deal_id, position_id, _net_realized_cash, pnl_r)
-            == "recorded"
-        )
+        return self.record_exit_deal(deal_id, position_id, _net_realized_cash, pnl_r) == "recorded"
 
     def recover_quarantined(
         self,
@@ -315,9 +312,7 @@ class TradeLifecycle:
                     "remaining_volume": c.remaining_volume,
                     "lot_multiplier": c.lot_multiplier,
                     "initial_risk_cash_total": c.initial_risk_cash_total,
-                    "initial_risk_cash_per_lot_or_unit": (
-                        c.initial_risk_cash_per_lot_or_unit
-                    ),
+                    "initial_risk_cash_per_lot_or_unit": (c.initial_risk_cash_per_lot_or_unit),
                     "realized_r_accumulated": c.realized_r_accumulated,
                     "processed_deal_ids": sorted(c.processed_deal_ids),
                 }

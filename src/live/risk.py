@@ -166,7 +166,7 @@ class RiskManager:
             checks.append("portfolio_dd_pause")
             return RiskDecision(
                 approved=False,
-                reason=(f"portfolio DD {portfolio_dd_r:.2f}R > t3 " f"(PAUSE)"),
+                reason=(f"portfolio DD {portfolio_dd_r:.2f}R > t3 (PAUSE)"),
                 blocked=True,
                 checks=checks,
                 lot_multiplier=0.0,
@@ -184,9 +184,7 @@ class RiskManager:
 
     # -- helpers ---------------------------------------------------------
 
-    def _risk_pct(
-        self, signal: Signal, account: Account, contract, lot: float
-    ) -> float:
+    def _risk_pct(self, signal: Signal, account: Account, contract, lot: float) -> float:
         """Risk as a fraction of balance for the proposed `lot` size."""
         stop_distance = abs(signal.entry_price - signal.sl)
         if contract.digits > 0:

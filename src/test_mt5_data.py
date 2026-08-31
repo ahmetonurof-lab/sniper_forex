@@ -15,14 +15,14 @@ Does NOT:
 This phase: REAL MT5 DATA → UNDERSTAND THE DATA → VERIFY THE DATA
 """
 
-import sys
 import os
+import sys
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.trading.mt5_connection import MT5Connection
 from src.data.mt5_data import MT5DataLayer
+from src.trading.mt5_connection import MT5Connection
 
 
 def load_env_from_project_root():
@@ -76,8 +76,7 @@ def probe_symbol(data_layer, symbol_name):
                 rates[i]["time"] <= rates[i + 1]["time"] for i in range(len(rates) - 1)
             )
             ohlc_valid = all(
-                r["high"] >= max(r["open"], r["close"])
-                and r["low"] <= min(r["open"], r["close"])
+                r["high"] >= max(r["open"], r["close"]) and r["low"] <= min(r["open"], r["close"])
                 for r in rates
             )
 
@@ -212,9 +211,7 @@ def main():
     # OHLC data
     print("\n  OHLC")
     for tf in ["M1", "M5", "M15", "H1"]:
-        ohlc_data = (
-            probes[0]["ohlc"][tf] if probes and probes[0]["ohlc"] else {"count": 0}
-        )
+        ohlc_data = probes[0]["ohlc"][tf] if probes and probes[0]["ohlc"] else {"count": 0}
         count = ohlc_data.get("count", 0)
         if count > 0:
             first = ohlc_data.get("first_timestamp")

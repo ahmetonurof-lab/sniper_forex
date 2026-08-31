@@ -139,11 +139,7 @@ class RuntimeRecovery:
 
         runtime.nexus_bars_full = []
         for b in runtime.bars:
-            ts_ms = (
-                int(b.timestamp.timestamp() * 1000)
-                if hasattr(b.timestamp, "timestamp")
-                else 0
-            )
+            ts_ms = int(b.timestamp.timestamp() * 1000) if hasattr(b.timestamp, "timestamp") else 0
             runtime.nexus_bars_full.append(
                 NexusBar(
                     index=b.index,
@@ -163,9 +159,7 @@ class RuntimeRecovery:
         if state is None:
             return False
         bars = _bars_from_json(state.get("bars", []))
-        runtime.from_state(
-            {k: v for k, v in state.items() if k not in ("bars", "nexus_bars_full")}
-        )
+        runtime.from_state({k: v for k, v in state.items() if k not in ("bars", "nexus_bars_full")})
         runtime.bars = bars
         self._rebuild_nexus(runtime)
         pe = state.get("pending_entry")

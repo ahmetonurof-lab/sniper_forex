@@ -11,10 +11,9 @@ Covers:
 
 from __future__ import annotations
 
-
 from src.live.parity_gate import (
-    ParityReport,
     SIX_MAJORS,
+    ParityReport,
     can_enable_execution,
     check_all_six_majors,
     check_symbol,

@@ -22,11 +22,10 @@ from types import SimpleNamespace
 import pandas as pd
 
 from src.live.execution import Execution, OrderRequest
-from src.live.strategy_runtime import Signal, StrategyRuntime
 from src.live.sizing import ContractSpec
+from src.live.strategy_runtime import Signal, StrategyRuntime
 from src.live.trailing_bridge import TrailingBridge
 from src.strategy.models import Bar
-
 
 # ── Fakes ────────────────────────────────────────────────────────────
 
@@ -55,9 +54,7 @@ class FakeMT5:
         self.requests.append(dict(request))
         if request.get("action") == self.TRADE_ACTION_SLTP:
             if not self.modify_ok:
-                return SimpleNamespace(
-                    retcode=self.TRADE_RETCODE_INVALID, comment="invalid stops"
-                )
+                return SimpleNamespace(retcode=self.TRADE_RETCODE_INVALID, comment="invalid stops")
             return SimpleNamespace(
                 retcode=self.TRADE_RETCODE_DONE,
                 order=0,

@@ -32,8 +32,8 @@ from typing import List, Tuple
 import pandas as pd
 import pytest
 
-from src.strategy.models import Bar
 from src.live.strategy_runtime import StrategyRuntime
+from src.strategy.models import Bar
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 _FEATHER_DIR = _PROJECT_ROOT / "data" / "icmarket_feather"
@@ -100,9 +100,7 @@ def _diff_trades(symbol: str, canonical, signals) -> List[str]:
     """Return a list of human-readable diff strings (empty if identical)."""
     diffs: List[str] = []
     if len(signals) != len(canonical):
-        diffs.append(
-            f"{symbol}: trade count signal={len(signals)} canonical={len(canonical)}"
-        )
+        diffs.append(f"{symbol}: trade count signal={len(signals)} canonical={len(canonical)}")
     # Compare up to min length; extra entries are reported individually.
     n = min(len(signals), len(canonical))
     for k in range(n):
@@ -110,8 +108,7 @@ def _diff_trades(symbol: str, canonical, signals) -> List[str]:
         trade = canonical[k]
         if sig.direction != trade.direction:
             diffs.append(
-                f"{symbol} trade#{k}: direction signal={sig.direction} "
-                f"canonical={trade.direction}"
+                f"{symbol} trade#{k}: direction signal={sig.direction} canonical={trade.direction}"
             )
         if sig.entry_price != pytest.approx(trade.entry_price, rel=1e-9):
             diffs.append(
@@ -134,8 +131,7 @@ def _diff_trades(symbol: str, canonical, signals) -> List[str]:
             )
         if sig.zone_index != trade.zone_index:
             diffs.append(
-                f"{symbol} trade#{k}: zone signal={sig.zone_index} "
-                f"canonical={trade.zone_index}"
+                f"{symbol} trade#{k}: zone signal={sig.zone_index} canonical={trade.zone_index}"
             )
     return diffs
 
@@ -180,6 +176,4 @@ def test_parity_summary_all_six_majors():
     assert summary, "No symbols had sufficient data for parity"
     # Every per-symbol pair must be equal.
     for sym, n_can, n_sig in summary:
-        assert (
-            n_can == n_sig
-        ), f"{sym}: aggregate mismatch canonical={n_can} signal={n_sig}"
+        assert n_can == n_sig, f"{sym}: aggregate mismatch canonical={n_can} signal={n_sig}"

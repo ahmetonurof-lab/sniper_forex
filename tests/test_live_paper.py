@@ -34,7 +34,6 @@ from src.live.paper import (
 from src.live.sizing import ContractSpec
 from src.live.strategy_runtime import Signal
 
-
 # ── Helpers ──────────────────────────────────────────────────────
 
 

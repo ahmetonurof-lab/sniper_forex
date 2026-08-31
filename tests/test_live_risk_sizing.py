@@ -172,9 +172,7 @@ def test_risk_blocks_exposure_cap():
     rm = RiskManager(max_exposure_mult=0.05)
     # equity 10000 -> cap 500. notional = lot * contract_size * price
     # = 0.06 * 100000 * 1.1 = 6600 > 500 -> block.
-    dec = rm.evaluate(
-        _signal(), _account(), _contract(), spread=0.0001, exposure=0.0, lot=0.06
-    )
+    dec = rm.evaluate(_signal(), _account(), _contract(), spread=0.0001, exposure=0.0, lot=0.06)
     assert dec.approved is False
     assert dec.blocked is True
     assert "exposure_cap_exceeded" in dec.checks

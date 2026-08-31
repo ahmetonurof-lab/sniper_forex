@@ -69,20 +69,14 @@ class FakeMT5:
             return list(self.open_positions.values())
         return [self.open_positions[ticket]] if ticket in self.open_positions else []
 
-    def history_deals_get(
-        self, from_ts=None, to_ts=None, ticket=None, position=None, *a, **k
-    ):
+    def history_deals_get(self, from_ts=None, to_ts=None, ticket=None, position=None, *a, **k):
         """Support both time-range and position-based queries."""
         # Position-based query (production poll_deals uses this)
         if position is not None:
-            return [
-                d for d in self.deal_queue if getattr(d, "position_id", 0) == position
-            ] or None
+            return [d for d in self.deal_queue if getattr(d, "position_id", 0) == position] or None
         # Ticket-based query
         if ticket is not None:
-            return [
-                d for d in self.deal_queue if getattr(d, "ticket", 0) == ticket
-            ] or None
+            return [d for d in self.deal_queue if getattr(d, "ticket", 0) == ticket] or None
         # Time-range query (legacy)
         if from_ts is not None and to_ts is not None:
             due = [d for d in self.deal_queue if from_ts <= d.time <= to_ts]
@@ -185,9 +179,7 @@ def test_dd_pause_blocks_order():
     lc = TradeLifecycle(portfolio_dd=PortfolioDD(starting_balance_r=100.0))
     lc.rebuild_from_persisted(
         [],
-        realized_journal=[
-            RealizedDealRecord(deal_id=1, position_id=1, pnl_r=-8.0, timestamp=1.0)
-        ],
+        realized_journal=[RealizedDealRecord(deal_id=1, position_id=1, pnl_r=-8.0, timestamp=1.0)],
         starting_balance_r=100.0,
     )
     assert lc.portfolio_dd.current_dd_r() == 8.0  # > t3 -> pause
@@ -203,9 +195,7 @@ def test_minlot_reduction_block_prevents_order():
     lc = TradeLifecycle(portfolio_dd=PortfolioDD(starting_balance_r=100.0))
     lc.rebuild_from_persisted(
         [],
-        realized_journal=[
-            RealizedDealRecord(deal_id=1, position_id=1, pnl_r=-3.0, timestamp=1.0)
-        ],
+        realized_journal=[RealizedDealRecord(deal_id=1, position_id=1, pnl_r=-3.0, timestamp=1.0)],
         starting_balance_r=100.0,
     )
     runner, fake = _runner(lifecycle=lc)

@@ -15,8 +15,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from src.live.candle_feed import M1CandleFeed, resample_15m
 from src.live import clock
+from src.live.candle_feed import M1CandleFeed, resample_15m
 from src.strategy.models import Bar
 
 

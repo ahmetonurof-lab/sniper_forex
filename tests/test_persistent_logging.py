@@ -11,7 +11,7 @@ import time
 sys.path.insert(0, r"C:\Users\Administrator\Desktop\sniper_forex")
 
 from src.live.audit import AuditChain, EventType
-from src.live.persistent_log import setup_logging, _mask_sensitive, LOGGER_NAME
+from src.live.persistent_log import LOGGER_NAME, _mask_sensitive, setup_logging
 
 
 def _reset_logger():
@@ -160,9 +160,7 @@ def test_audit_chain_shutdown_flush():
     """AuditChain.shutdown() performs final flush."""
     with tempfile.TemporaryDirectory() as tmpdir:
         audit_path = os.path.join(tmpdir, "audit.jsonl")
-        audit = AuditChain(
-            auto_flush_path=audit_path, flush_threshold=100
-        )  # High threshold
+        audit = AuditChain(auto_flush_path=audit_path, flush_threshold=100)  # High threshold
 
         for i in range(10):
             audit.append(time.time(), EventType.ORDER, "GBPUSD", {"index": i})
@@ -185,17 +183,13 @@ def test_audit_chain_auto_flush_on_threshold():
     """AuditChain auto-flushes when event threshold is reached."""
     with tempfile.TemporaryDirectory() as tmpdir:
         audit_path = os.path.join(tmpdir, "audit.jsonl")
-        audit = AuditChain(
-            auto_flush_path=audit_path, flush_threshold=5, flush_interval_sec=60
-        )
+        audit = AuditChain(auto_flush_path=audit_path, flush_threshold=5, flush_interval_sec=60)
 
         for i in range(12):
             audit.append(time.time(), EventType.CANDLE, "EURUSD", {"index": i})
             if i == 4:
                 # After 5 events, file should exist
-                assert os.path.exists(audit_path), (
-                    "Auto-flush didn't trigger at threshold"
-                )
+                assert os.path.exists(audit_path), "Auto-flush didn't trigger at threshold"
 
         with open(audit_path, "r") as f:
             lines = f.readlines()
@@ -207,9 +201,7 @@ def test_audit_chain_auto_flush_on_interval():
     """AuditChain auto-flushes when time interval is reached."""
     with tempfile.TemporaryDirectory() as tmpdir:
         audit_path = os.path.join(tmpdir, "audit.jsonl")
-        audit = AuditChain(
-            auto_flush_path=audit_path, flush_threshold=100, flush_interval_sec=1
-        )
+        audit = AuditChain(auto_flush_path=audit_path, flush_threshold=100, flush_interval_sec=1)
 
         audit.append(time.time(), EventType.SIGNAL, "EURUSD", {"index": 0})
         time.sleep(1.5)  # Wait for interval

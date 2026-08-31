@@ -41,7 +41,6 @@ from src.live.sizing import ContractSpec
 from src.live.strategy_runtime import Signal, StrategyRuntime
 from src.strategy.models import Bar
 
-
 # Default M1 count to pull per symbol (matches the canonical universe
 # in data/icmarket_feather, ~65k M1 bars per symbol -> ~3 months).
 DEFAULT_M1_COUNT = 65000

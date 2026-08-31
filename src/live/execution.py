@@ -42,7 +42,6 @@ from typing import Any, Dict, Optional
 from src.live.sizing import ContractSpec
 from src.live.strategy_runtime import Signal
 
-
 # ── Constants ────────────────────────────────────────────────────
 # Default broker timezone is GMT+0..GMT+3; we use UTC for fill time
 # independence. Magic + comment defaults are bot-wide identifiers.
@@ -227,9 +226,7 @@ class Execution:
                 filled=False,
                 reason=check_error or "order_check_failed",
                 retcode=getattr(check, "retcode", None) if check else None,
-                retcode_name=self._retcode_name(
-                    getattr(check, "retcode", None) if check else None
-                ),
+                retcode_name=self._retcode_name(getattr(check, "retcode", None) if check else None),
                 request=payload,
                 response=self._normalize_result(check),
             )
@@ -450,9 +447,7 @@ class Execution:
         comment = request.comment or (
             f"SFX-{sig.symbol}-{side_char}{sig.zone_index}-{sig.sweep_bar_index}"
         )
-        order_type = (
-            self.mt5.ORDER_TYPE_BUY if sig.side == "long" else self.mt5.ORDER_TYPE_SELL
-        )
+        order_type = self.mt5.ORDER_TYPE_BUY if sig.side == "long" else self.mt5.ORDER_TYPE_SELL
         return {
             "action": self.mt5.TRADE_ACTION_DEAL,
             "symbol": sig.symbol,
@@ -517,12 +512,9 @@ class Execution:
         try:
             return {
                 "retcode": getattr(result, "retcode", None),
-                "order_id": getattr(result, "order", None)
-                or getattr(result, "order_id", None),
-                "deal_id": getattr(result, "deal", None)
-                or getattr(result, "deal_id", None),
-                "fill_price": getattr(result, "price", None)
-                or getattr(result, "fill_price", None),
+                "order_id": getattr(result, "order", None) or getattr(result, "order_id", None),
+                "deal_id": getattr(result, "deal", None) or getattr(result, "deal_id", None),
+                "fill_price": getattr(result, "price", None) or getattr(result, "fill_price", None),
                 "volume": getattr(result, "volume", None),
                 "position_id": getattr(result, "position", None)
                 or getattr(result, "position_id", None),

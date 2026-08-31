@@ -59,7 +59,6 @@ from src.live.signal_runner import (  # noqa: E402
 from src.live.strategy_runtime import StrategyRuntime  # noqa: E402
 from src.strategy.models import Bar  # noqa: E402
 
-
 # ── Fakes ────────────────────────────────────────────────────────
 
 
@@ -106,9 +105,7 @@ def _epoch_server(year, month, day, hour, minute=0):
     """
     SERVER_OFFSET_H = 3
     dt_server = datetime(year, month, day, hour, minute)
-    return (
-        int((dt_server - datetime(1970, 1, 1)).total_seconds()) - SERVER_OFFSET_H * 3600
-    )
+    return int((dt_server - datetime(1970, 1, 1)).total_seconds()) - SERVER_OFFSET_H * 3600
 
 
 def _bar_time(epoch_s: int) -> pd.Timestamp:
@@ -246,17 +243,11 @@ def test_f1_signal_runner_rates_to_bars_uses_server_to_utc():
     exactly — not `pd.Timestamp.utcfromtimestamp(epoch)`.
     """
     epoch_server = 1_780_000_000  # arbitrary epoch
-    rates = [
-        FakeRate(
-            time=epoch_server, open=1.0, high=1.0, low=1.0, close=1.0, tick_volume=0.0
-        )
-    ]
+    rates = [FakeRate(time=epoch_server, open=1.0, high=1.0, low=1.0, close=1.0, tick_volume=0.0)]
     bars = SignalRunner._rates_to_bars(rates)
     assert len(bars) == 1
     # Expected timestamp = server_to_utc(epoch).
-    expected = pd.Timestamp(
-        server_to_utc(pd.Timestamp(epoch_server, unit="s").to_pydatetime())
-    )
+    expected = pd.Timestamp(server_to_utc(pd.Timestamp(epoch_server, unit="s").to_pydatetime()))
     assert bars[0].timestamp == expected
     # Linearity: a 3-hour forward shift in the epoch must produce a
     # 3-hour forward shift in the bar timestamp (any consistent
@@ -289,16 +280,10 @@ def test_f1_paper_rates_to_bars_uses_server_to_utc():
     """`PaperSession._rates_to_bars` must convert MT5 server-time
     `time` to UTC via `clock.server_to_utc`."""
     epoch_server = 1_780_000_000
-    rates = [
-        FakeRate(
-            time=epoch_server, open=1.0, high=1.0, low=1.0, close=1.0, tick_volume=0.0
-        )
-    ]
+    rates = [FakeRate(time=epoch_server, open=1.0, high=1.0, low=1.0, close=1.0, tick_volume=0.0)]
     bars = paper_rates_to_bars(rates)
     assert len(bars) == 1
-    expected = pd.Timestamp(
-        server_to_utc(pd.Timestamp(epoch_server, unit="s").to_pydatetime())
-    )
+    expected = pd.Timestamp(server_to_utc(pd.Timestamp(epoch_server, unit="s").to_pydatetime()))
     assert bars[0].timestamp == expected
     rates_shifted = [
         FakeRate(
@@ -370,13 +355,9 @@ def test_f2_signal_runner_drops_forming_m1_before_resample():
     audit_a = AuditChain()
     audit_b = AuditChain()
     runner = SignalRunner(mt5=mt5_clean, risk_manager=RiskManager())
-    res_a = runner.run_session(
-        RunnerConfig(symbols=["EURUSD"], m1_count=999999), audit_a
-    )
+    res_a = runner.run_session(RunnerConfig(symbols=["EURUSD"], m1_count=999999), audit_a)
     runner2 = SignalRunner(mt5=mt5_with_forming, risk_manager=RiskManager())
-    res_b = runner2.run_session(
-        RunnerConfig(symbols=["EURUSD"], m1_count=999999), audit_b
-    )
+    res_b = runner2.run_session(RunnerConfig(symbols=["EURUSD"], m1_count=999999), audit_b)
     # Signal count must be identical → forming bar was dropped.
     assert res_a.per_symbol == res_b.per_symbol
     assert len(res_a.signals) == len(res_b.signals)
@@ -417,9 +398,7 @@ def test_f3_m1_to_15m_resample_parity_with_engine():
     m1_bars = [
         Bar(
             index=i,
-            timestamp=pd.Timestamp(
-                server_to_utc(pd.Timestamp(r.time, unit="s").to_pydatetime())
-            ),
+            timestamp=pd.Timestamp(server_to_utc(pd.Timestamp(r.time, unit="s").to_pydatetime())),
             open=r.open,
             high=r.high,
             low=r.low,
@@ -494,10 +473,9 @@ def test_f3_signal_runner_via_m1_parity_with_canonical():
     n_live = result.per_symbol.get("EURUSD", 0)
     canonical = _run_canonical(_fixture_15m(start, n_minutes=60 * 24 * 3))
     n_can = len(canonical)
-    assert n_live == n_can, (
-        f"SignalRunner via M1 parity FAILED: live signals={n_live}, "
-        f"canonical trades={n_can}"
-    )
+    assert (
+        n_live == n_can
+    ), f"SignalRunner via M1 parity FAILED: live signals={n_live}, canonical trades={n_can}"
 
 
 def test_f3_no_lookahead_artifact_under_replay():

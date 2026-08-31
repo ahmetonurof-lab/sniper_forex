@@ -18,8 +18,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.strategy.models import Bar
 from src.live.strategy_runtime import StrategyRuntime
+from src.strategy.models import Bar
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 _FEATHER_DIR = _PROJECT_ROOT / "data" / "icmarket_feather"
@@ -93,12 +93,8 @@ def _assert_parity(symbol: str, bars_15m: list[Bar]):
         assert sig.entry_price == pytest.approx(
             trade.entry_price, rel=1e-9
         ), f"{symbol}: entry {sig.entry_price} != {trade.entry_price}"
-        assert sig.sl == pytest.approx(
-            trade.sl, rel=1e-9
-        ), f"{symbol}: sl {sig.sl} != {trade.sl}"
-        assert sig.tp == pytest.approx(
-            trade.tp, rel=1e-9
-        ), f"{symbol}: tp {sig.tp} != {trade.tp}"
+        assert sig.sl == pytest.approx(trade.sl, rel=1e-9), f"{symbol}: sl {sig.sl} != {trade.sl}"
+        assert sig.tp == pytest.approx(trade.tp, rel=1e-9), f"{symbol}: tp {sig.tp} != {trade.tp}"
         assert (
             sig.entry_bar_index == trade.entry_bar_index
         ), f"{symbol}: entry_bar {sig.entry_bar_index} != {trade.entry_bar_index}"

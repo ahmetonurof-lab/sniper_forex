@@ -33,7 +33,6 @@ from src.live.reconciliation import (
     ReconcileStatus,
 )
 
-
 # ── Fakes ────────────────────────────────────────────────────────
 
 
@@ -141,9 +140,7 @@ def test_position_manager_normalizes_side_numeric_and_string():
     mt5 = FakeMT5()
     mt5.positions = [
         FakePos(1, "EURUSD", 0, 0.06, 1.10, 1.095, 1.109, magic=DEFAULT_MAGIC),  # 0=buy
-        FakePos(
-            2, "GBPUSD", 1, 0.10, 1.30, 1.295, 1.309, magic=DEFAULT_MAGIC
-        ),  # 1=sell
+        FakePos(2, "GBPUSD", 1, 0.10, 1.30, 1.295, 1.309, magic=DEFAULT_MAGIC),  # 1=sell
     ]
     pm = PositionManager(mt5=mt5)
     update = pm.update()
@@ -420,7 +417,5 @@ def test_reconciler_block_trading_on_any_non_ok():
     d2 = rec.reconcile({}, {1: _make_pos(ticket=1)})
     assert d2.block_trading is True
     # MISMATCH only
-    d3 = rec.reconcile(
-        {1: _make_pos(ticket=1, sl=1.09)}, {1: _make_pos(ticket=1, sl=1.10)}
-    )
+    d3 = rec.reconcile({1: _make_pos(ticket=1, sl=1.09)}, {1: _make_pos(ticket=1, sl=1.10)})
     assert d3.block_trading is True

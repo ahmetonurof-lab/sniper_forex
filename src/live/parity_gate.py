@@ -113,17 +113,14 @@ def _diff_trades(symbol: str, canonical, signals) -> List[str]:
     """Per-trade diff helper (mirrors test_parity_6majors)."""
     diffs: List[str] = []
     if len(signals) != len(canonical):
-        diffs.append(
-            f"{symbol}: trade count signal={len(signals)} canonical={len(canonical)}"
-        )
+        diffs.append(f"{symbol}: trade count signal={len(signals)} canonical={len(canonical)}")
     n = min(len(signals), len(canonical))
     for k in range(n):
         sig = signals[k]
         trade = canonical[k]
         if sig.direction != trade.direction:
             diffs.append(
-                f"{symbol} trade#{k}: direction signal={sig.direction} "
-                f"canonical={trade.direction}"
+                f"{symbol} trade#{k}: direction signal={sig.direction} canonical={trade.direction}"
             )
         if sig.entry_price != trade.entry_price:
             diffs.append(
@@ -146,8 +143,7 @@ def _diff_trades(symbol: str, canonical, signals) -> List[str]:
             )
         if sig.zone_index != trade.zone_index:
             diffs.append(
-                f"{symbol} trade#{k}: zone signal={sig.zone_index} "
-                f"canonical={trade.zone_index}"
+                f"{symbol} trade#{k}: zone signal={sig.zone_index} canonical={trade.zone_index}"
             )
     return diffs
 

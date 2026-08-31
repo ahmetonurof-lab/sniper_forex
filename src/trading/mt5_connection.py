@@ -14,6 +14,7 @@ PHASE 1 hardening (2026-08-27):
 """
 
 import MetaTrader5 as mt5
+
 from src.config.mt5_config import get_mt5_config
 
 
@@ -75,9 +76,7 @@ class MT5Connection:
         # Terminal availability check
         self.terminal_info = mt5.terminal_info()
         if self.terminal_info is None:
-            print(
-                f"[WARN] Terminal info unavailable: {self._capture_error('terminal_info')}"
-            )
+            print(f"[WARN] Terminal info unavailable: {self._capture_error('terminal_info')}")
         else:
             print(
                 f"[OK] Terminal connected: {self.terminal_info.path} (build {self.terminal_info.build})"
@@ -114,9 +113,7 @@ class MT5Connection:
             print(f"   Balance: {self.account_info.balance}")
             print(f"   Equity: {self.account_info.equity}")
         else:
-            print(
-                f"[WARN] Could not retrieve account info: {self._capture_error('account_info')}"
-            )
+            print(f"[WARN] Could not retrieve account info: {self._capture_error('account_info')}")
 
         return True
 

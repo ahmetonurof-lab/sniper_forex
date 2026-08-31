@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
@@ -92,13 +92,9 @@ def test_connect_uses_terminal_path_when_provided():
         mock_mt5.initialize.return_value = True
         mock_mt5.terminal_info.return_value = MagicMock(path="C:/term", build=4000)
         mock_mt5.login.return_value = True
-        mock_mt5.account_info.return_value = MagicMock(
-            login=12345, server="s", balance=1, equity=1
-        )
+        mock_mt5.account_info.return_value = MagicMock(login=12345, server="s", balance=1, equity=1)
         conn.connect()
-    mock_mt5.initialize.assert_called_once_with(
-        path="C:/Program Files/MT5/terminal64.exe"
-    )
+    mock_mt5.initialize.assert_called_once_with(path="C:/Program Files/MT5/terminal64.exe")
 
 
 def test_reconnect_calls_connect_until_success():
@@ -109,9 +105,7 @@ def test_reconnect_calls_connect_until_success():
         mock_mt5.last_error.return_value = (1, "err")
         mock_mt5.terminal_info.return_value = MagicMock(path="p", build=1)
         mock_mt5.login.return_value = True
-        mock_mt5.account_info.return_value = MagicMock(
-            login=1, server="s", balance=1, equity=1
-        )
+        mock_mt5.account_info.return_value = MagicMock(login=1, server="s", balance=1, equity=1)
         result = conn.reconnect(max_attempts=3)
     assert result is True
     assert conn.connected is True

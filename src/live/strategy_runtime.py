@@ -24,16 +24,6 @@ from typing import List, Optional
 
 import pandas as pd
 
-from src.strategy.models import Bar, Direction, SweepEvent
-from src.strategy.session import SessionManager
-
-# ── Reuse trailing adapter (apply_trailing + check_exit) ──
-from experiment.trailing_adapter import (  # noqa: E402
-    apply_trailing,
-    check_exit,
-    _norm_side,
-)
-
 # ── Reuse config (same constants as frozen engine) ──
 from experiment.config import (  # noqa: E402
     ATR_PERIOD,
@@ -47,6 +37,15 @@ from experiment.config import (  # noqa: E402
     SL_ATR_MULT,
     TP_RR,
 )
+
+# ── Reuse trailing adapter (apply_trailing + check_exit) ──
+from experiment.trailing_adapter import (  # noqa: E402
+    _norm_side,
+    apply_trailing,
+    check_exit,
+)
+from src.strategy.models import Bar, Direction, SweepEvent
+from src.strategy.session import SessionManager
 
 # ── Nexus FVG (external dependency, same as frozen engine) ──
 _NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
@@ -267,9 +266,7 @@ class StrategyRuntime:
             self._next_idx = i + 1
             return None
 
-        sweep_direction = (
-            "bullish" if self.last_sweep.direction == Direction.BULLISH else "bearish"
-        )
+        sweep_direction = "bullish" if self.last_sweep.direction == Direction.BULLISH else "bearish"
         lb = min(100, i + 1)
         nexus_bars = self.nexus_bars_full[i + 1 - lb : i + 1]
 
@@ -312,14 +309,10 @@ class StrategyRuntime:
 
             # First-touch entry check
             if fvg.direction == "bullish":
-                if not (
-                    bar.low <= fvg.top and bar.low >= fvg.bottom - self.atr_val * 0.1
-                ):
+                if not (bar.low <= fvg.top and bar.low >= fvg.bottom - self.atr_val * 0.1):
                     continue
             else:
-                if not (
-                    bar.high >= fvg.bottom and bar.high <= fvg.top + self.atr_val * 0.1
-                ):
+                if not (bar.high >= fvg.bottom and bar.high <= fvg.top + self.atr_val * 0.1):
                     continue
 
             # NEXUS parity: next-bar-open execution. In live, the next bar's
@@ -393,25 +386,13 @@ class StrategyRuntime:
         direction = p["direction"]
 
         if fh <= 0:
-            sl = (
-                entry_price - rp2 * 2
-                if direction == "bullish"
-                else entry_price + rp2 * 2
-            )
+            sl = entry_price - rp2 * 2 if direction == "bullish" else entry_price + rp2 * 2
 
         rd = abs(entry_price - sl)
         if rd <= 0:
-            sl = (
-                entry_price - rp2 * 2
-                if direction == "bullish"
-                else entry_price + rp2 * 2
-            )
+            sl = entry_price - rp2 * 2 if direction == "bullish" else entry_price + rp2 * 2
             rd = abs(entry_price - sl)
-        tp = (
-            entry_price + rd * TP_RR
-            if direction == "bullish"
-            else entry_price - rd * TP_RR
-        )
+        tp = entry_price + rd * TP_RR if direction == "bullish" else entry_price - rd * TP_RR
 
         if rd < self.atr_val * MIN_RISK_DIST_ATR_MULT:
             # MIN_RISK_DIST failure: reject this pending but KEEP the sweep so
@@ -443,8 +424,7 @@ class StrategyRuntime:
             "zone_bottom": fvg.bottom,
             "zone_size": fvg.size,
             "zone_size_atr": fvg.size / self.atr_val if self.atr_val > 0 else 0,
-            "sweep_size_atr": abs(p["sweep_price"] - p["reference_level"])
-            / self.atr_val
+            "sweep_size_atr": abs(p["sweep_price"] - p["reference_level"]) / self.atr_val
             if self.atr_val > 0
             else 0,
             "bars_sweep_to_zone": fvg.real_index - p["sweep_bar_index"],
@@ -479,9 +459,7 @@ class StrategyRuntime:
         result = exit_info["result"]
         t = self.active_trade
         if _norm_side(t["side"]) == "long":
-            pnl_r = (exit_price - t["entry_price"]) / abs(
-                t["entry_price"] - t["initial_sl"]
-            )
+            pnl_r = (exit_price - t["entry_price"]) / abs(t["entry_price"] - t["initial_sl"])
         else:
             pnl_r = (t["entry_price"] - exit_price) / abs(t["sl"] - t["entry_price"])
         if result == "LOSS":

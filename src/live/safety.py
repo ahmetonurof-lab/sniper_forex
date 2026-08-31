@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
-from src.live.reconciliation import ReconciliationDecision, ReconcileStatus
+from src.live.reconciliation import ReconcileStatus, ReconciliationDecision
 
 
 class SafetyCheck(str, Enum):
@@ -127,9 +127,7 @@ class SafetyMonitor:
         else:
             age = now - float(last_candle_time)
             stale_ok = age <= self.stale_seconds
-            stale_reason = (
-                f"candle age {age:.0f}s > stale threshold {self.stale_seconds:.0f}s"
-            )
+            stale_reason = f"candle age {age:.0f}s > stale threshold {self.stale_seconds:.0f}s"
         results.append(stale_ok)
         if not stale_ok and failing is None:
             failing = SafetyCheck.STALE_DATA
@@ -147,9 +145,7 @@ class SafetyMonitor:
         results.append(spread_ok)
         if not spread_ok and failing is None:
             failing = SafetyCheck.SPREAD
-            reason = (
-                f"spread {spread_points:.1f} > max {self.max_spread_points:.1f} points"
-            )
+            reason = f"spread {spread_points:.1f} > max {self.max_spread_points:.1f} points"
 
         # 5) RECONCILIATION
         if reconciliation is None:

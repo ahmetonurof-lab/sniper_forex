@@ -33,7 +33,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # ── Default magic for Phase 5/6 (mirrors src/live/execution.py) ───
 DEFAULT_MAGIC = 9007001
 

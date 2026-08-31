@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-31T10:53:01",
+  "generated_at": "2026-08-31T12:23:24",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -1543,13 +1543,13 @@
         "src.test_mt5_data.probe_symbol": {
           "file": "src\\test_mt5_data.py",
           "line_start": 42,
-          "line_end": 126,
+          "line_end": 125,
           "signature": "def probe_symbol(data_layer, symbol_name):"
         },
         "src.test_mt5_data.main": {
           "file": "src\\test_mt5_data.py",
-          "line_start": 129,
-          "line_end": 245,
+          "line_start": 128,
+          "line_end": 242,
           "signature": "def main():"
         },
         "src.backtest.aggregator.aggregate_1m_to_15m": {
@@ -1579,25 +1579,25 @@
         "src.backtest.aggregator.aggregate_1m": {
           "file": "src\\backtest\\aggregator.py",
           "line_start": 113,
-          "line_end": 135,
+          "line_end": 133,
           "signature": "def aggregate_1m(df_1m: pd.DataFrame, timeframe: str) -> pd.DataFrame:"
         },
         "src.backtest.aggregator.Aggregator.__init__": {
           "file": "src\\backtest\\aggregator.py",
-          "line_start": 141,
-          "line_end": 148,
+          "line_start": 139,
+          "line_end": 146,
           "signature": "def __init__(self, data_store):"
         },
         "src.backtest.aggregator.Aggregator.get_aggregated": {
           "file": "src\\backtest\\aggregator.py",
-          "line_start": 150,
-          "line_end": 174,
+          "line_start": 148,
+          "line_end": 172,
           "signature": "def get_aggregated(self, symbol: str, timeframe: str) -> pd.DataFrame:"
         },
         "src.backtest.aggregator.main": {
           "file": "src\\backtest\\aggregator.py",
-          "line_start": 177,
-          "line_end": 238,
+          "line_start": 175,
+          "line_end": 236,
           "signature": "def main():"
         },
         "src.backtest.backtest_context.BacktestContext.__init__": {
@@ -1717,19 +1717,19 @@
         "src.backtest.data_validator.validate_all_feather_files": {
           "file": "src\\backtest\\data_validator.py",
           "line_start": 143,
-          "line_end": 175,
+          "line_end": 173,
           "signature": "def validate_all_feather_files(feather_dir: Path) -> List[Dict[str, Any]]:"
         },
         "src.backtest.data_validator.generate_validation_report": {
           "file": "src\\backtest\\data_validator.py",
-          "line_start": 178,
-          "line_end": 226,
+          "line_start": 176,
+          "line_end": 222,
           "signature": "def generate_validation_report(results: List[Dict[str, Any]], output_path: Path):"
         },
         "src.backtest.data_validator.main": {
           "file": "src\\backtest\\data_validator.py",
-          "line_start": 229,
-          "line_end": 272,
+          "line_start": 225,
+          "line_end": 268,
           "signature": "def main():"
         },
         "src.backtest.feather_converter.validate_csv_schema": {
@@ -3780,68 +3780,68 @@
         },
         "src.trading.mt5_connection.MT5Connection.__init__": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 23,
-          "line_end": 28,
+          "line_start": 24,
+          "line_end": 29,
           "signature": "def __init__(self):"
         },
         "src.trading.mt5_connection.MT5Connection._capture_error": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 31,
-          "line_end": 41,
+          "line_start": 32,
+          "line_end": 42,
           "signature": "def _capture_error(self, context: str) -> str:"
         },
         "src.trading.mt5_connection.MT5Connection.last_error": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 44,
-          "line_end": 46,
+          "line_start": 45,
+          "line_end": 47,
           "signature": "@property"
         },
         "src.trading.mt5_connection.MT5Connection.connect": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 49,
-          "line_end": 121,
+          "line_start": 50,
+          "line_end": 118,
           "signature": "def connect(self):"
         },
         "src.trading.mt5_connection.MT5Connection.is_connected": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 123,
-          "line_end": 131,
+          "line_start": 120,
+          "line_end": 128,
           "signature": "def is_connected(self) -> bool:"
         },
         "src.trading.mt5_connection.MT5Connection.reconnect": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 133,
-          "line_end": 155,
+          "line_start": 130,
+          "line_end": 152,
           "signature": "def reconnect(self, max_attempts: int=3) -> bool:"
         },
         "src.trading.mt5_connection.MT5Connection.ensure_connected": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 157,
-          "line_end": 165,
+          "line_start": 154,
+          "line_end": 162,
           "signature": "def ensure_connected(self, max_attempts: int=3) -> bool:"
         },
         "src.trading.mt5_connection.MT5Connection.get_symbol_info": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 167,
-          "line_end": 198,
+          "line_start": 164,
+          "line_end": 195,
           "signature": "def get_symbol_info(self, symbol_name):"
         },
         "src.trading.mt5_connection.MT5Connection.get_tick_data": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 200,
-          "line_end": 227,
+          "line_start": 197,
+          "line_end": 224,
           "signature": "def get_tick_data(self, symbol_name):"
         },
         "src.trading.mt5_connection.MT5Connection.get_rates": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 229,
-          "line_end": 263,
+          "line_start": 226,
+          "line_end": 260,
           "signature": "def get_rates(self, symbol_name, timeframe='M1', count=10):"
         },
         "src.trading.mt5_connection.MT5Connection.shutdown": {
           "file": "src\\trading\\mt5_connection.py",
-          "line_start": 265,
-          "line_end": 275,
+          "line_start": 262,
+          "line_end": 272,
           "signature": "def shutdown(self):"
         },
         "tests.conftest.FakeRunner.__init__": {
@@ -6138,146 +6138,146 @@
         },
         "tests.test_orchestrator_d49._make_m1_rates_utc": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 39,
-          "line_end": 58,
+          "line_start": 38,
+          "line_end": 57,
           "signature": "def _make_m1_rates_utc(start_utc: datetime, count: int, base: float=1.1) -> List[dict]:"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.__init__": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 97,
-          "line_end": 99,
+          "line_start": 96,
+          "line_end": 98,
           "signature": "def __init__(self, history_anchor: datetime, length_minutes: int=1600):"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.initialize": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 102,
-          "line_end": 103,
+          "line_start": 101,
+          "line_end": 102,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.login": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 106,
-          "line_end": 107,
+          "line_start": 105,
+          "line_end": 106,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.account_info": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 110,
-          "line_end": 111,
+          "line_start": 109,
+          "line_end": 110,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.terminal_info": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 114,
-          "line_end": 115,
+          "line_start": 113,
+          "line_end": 114,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.symbol_select": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 118,
-          "line_end": 119,
+          "line_start": 117,
+          "line_end": 118,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.symbol_info": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 122,
-          "line_end": 123,
+          "line_start": 121,
+          "line_end": 122,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.positions_get": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 126,
-          "line_end": 127,
+          "line_start": 125,
+          "line_end": 126,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.orders_get": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 130,
-          "line_end": 131,
+          "line_start": 129,
+          "line_end": 130,
           "signature": "@staticmethod"
         },
         "tests.test_orchestrator_d49.FakeMT5Full.copy_rates_from_pos": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 133,
-          "line_end": 135,
+          "line_start": 132,
+          "line_end": 134,
           "signature": "def copy_rates_from_pos(self, symbol, tf, start, count):"
         },
         "tests.test_orchestrator_d49._recent_naive": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 141,
-          "line_end": 143,
+          "line_start": 140,
+          "line_end": 142,
           "signature": "def _recent_naive() -> datetime:"
         },
         "tests.test_orchestrator_d49._bar_at": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 146,
-          "line_end": 155,
+          "line_start": 145,
+          "line_end": 154,
           "signature": "def _bar_at(naive_utc: datetime, index: int=0) -> Bar:"
         },
         "tests.test_orchestrator_d49.tmp_state": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 159,
-          "line_end": 160,
+          "line_start": 158,
+          "line_end": 159,
           "signature": "@pytest.fixture"
         },
         "tests.test_orchestrator_d49._assert_no_slot_gaps": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 163,
-          "line_end": 176,
+          "line_start": 162,
+          "line_end": 175,
           "signature": "def _assert_no_slot_gaps(runtime_bars: List[Bar]) -> None:"
         },
         "tests.test_orchestrator_d49._warmed_runtime_with_last_bar_at": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 179,
-          "line_end": 191,
+          "line_start": 178,
+          "line_end": 190,
           "signature": "def _warmed_runtime_with_last_bar_at(stale_slots: int) -> StrategyRuntime:"
         },
         "tests.test_orchestrator_d49.TestStaleRestoreTriggersColdRebuild.test_stale_restore_triggers_cold_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 207,
-          "line_end": 263,
+          "line_start": 206,
+          "line_end": 258,
           "signature": "def test_stale_restore_triggers_cold_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestFreshRestoreKeepsWarmSkip.test_fresh_restore_keeps_warm_skip": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 274,
-          "line_end": 314,
+          "line_start": 269,
+          "line_end": 307,
           "signature": "def test_fresh_restore_keeps_warm_skip(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestLifecycleSurvivesColdRebuild.test_lifecycle_survives_cold_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 326,
-          "line_end": 397,
+          "line_start": 319,
+          "line_end": 387,
           "signature": "def test_lifecycle_survives_cold_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestReplayEstablishesYesterdaysWindow.test_replay_establishes_yesterdays_window_fresh_boot": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 409,
-          "line_end": 468,
+          "line_start": 399,
+          "line_end": 455,
           "signature": "def test_replay_establishes_yesterdays_window_fresh_boot(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestStalenessBoundary.test_boundary_2_keep_3_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 477,
-          "line_end": 518,
+          "line_start": 464,
+          "line_end": 505,
           "signature": "def test_boundary_2_keep_3_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestC1DoubleDeliveryBacklogEmpty.test_c1_double_delivery_backlog_empty": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 531,
-          "line_end": 563,
+          "line_start": 518,
+          "line_end": 548,
           "signature": "def test_c1_double_delivery_backlog_empty(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestC2EndStateReport.test_c2_end_state_report": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 574,
-          "line_end": 616,
+          "line_start": 559,
+          "line_end": 603,
           "signature": "def test_c2_end_state_report(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_d49.TestC3ProceedSemanticsAfterRebuild.test_c3_proceed_semantics_after_successful_rebuild": {
           "file": "tests\\test_orchestrator_d49.py",
-          "line_start": 629,
-          "line_end": 696,
+          "line_start": 616,
+          "line_end": 683,
           "signature": "def test_c3_proceed_semantics_after_successful_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
         },
         "tests.test_orchestrator_startup.tmp_state": {
@@ -9225,11 +9225,11 @@
           "hash": "sha256:209b0111910d7a61"
         },
         "scripts\\validate_variant_D.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:a7b736fa4a55bf3c"
         },
         "scripts\\validate_variant_D_pure.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:a7e2206b0469c1d0"
         },
         "scripts\\verify_p0_1.py": {
@@ -9245,7 +9245,7 @@
           "hash": "sha256:b838bb1528cdb44c"
         },
         "scripts\\verify_phase11_parity_fix.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:c723a88ec65b1c80"
         },
         "src\\main.py": {
@@ -9257,12 +9257,12 @@
           "hash": "sha256:18d8fc88a7d2d2be"
         },
         "src\\test_mt5_data.py": {
-          "last_modified": "2026-08-25T19:59:08",
-          "hash": "sha256:62042d70f08b7436"
+          "last_modified": "2026-08-31T12:19:26",
+          "hash": "sha256:fe47a85bfcb59767"
         },
         "src\\backtest\\aggregator.py": {
-          "last_modified": "2026-08-30T02:42:52",
-          "hash": "sha256:46a95cacb42e54cf"
+          "last_modified": "2026-08-31T12:17:51",
+          "hash": "sha256:b90c52c0ec4fdafe"
         },
         "src\\backtest\\backtest_context.py": {
           "last_modified": "2026-08-30T02:42:52",
@@ -9277,8 +9277,8 @@
           "hash": "sha256:ecb06f156d882546"
         },
         "src\\backtest\\data_validator.py": {
-          "last_modified": "2026-08-30T02:42:52",
-          "hash": "sha256:7e0ad16b3f73820b"
+          "last_modified": "2026-08-31T12:17:51",
+          "hash": "sha256:6b9901e628d38b1f"
         },
         "src\\backtest\\feather_converter.py": {
           "last_modified": "2026-08-30T02:42:52",
@@ -9313,7 +9313,7 @@
           "hash": "sha256:04d0998d95c220e1"
         },
         "src\\live\\audit.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:d5d305935b92c580"
         },
         "src\\live\\candle_feed.py": {
@@ -9325,11 +9325,11 @@
           "hash": "sha256:e37e3d38cd9dd438"
         },
         "src\\live\\execution.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:e56e4017ec8c4666"
         },
         "src\\live\\live_runner.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:0cc3952f5475f644"
         },
         "src\\live\\orchestrator.py": {
@@ -9337,35 +9337,35 @@
           "hash": "sha256:26f13d9239762dca"
         },
         "src\\live\\paper.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:a4a45830411875ee"
         },
         "src\\live\\parity_gate.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:a7f99d7cdc9c8936"
         },
         "src\\live\\persistent_log.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:2b60c4d56121a866"
         },
         "src\\live\\portfolio_dd.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:cfddffb682b77f38"
         },
         "src\\live\\position_manager.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:7cd9210cd36103df"
         },
         "src\\live\\reconciliation.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:2001011120e19af2"
         },
         "src\\live\\recovery.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:34f5a0387ae641fc"
         },
         "src\\live\\risk.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:8c8b03ab645ee9db"
         },
         "src\\live\\run_production.py": {
@@ -9373,11 +9373,11 @@
           "hash": "sha256:823aa51fad0fbeff"
         },
         "src\\live\\safety.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:6a0cdb9a62eaf08d"
         },
         "src\\live\\signal_runner.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:e644740ddeb5e713"
         },
         "src\\live\\sizing.py": {
@@ -9389,11 +9389,11 @@
           "hash": "sha256:d33ba24022a86ca0"
         },
         "src\\live\\strategy_runtime.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:5428a2749d78981d"
         },
         "src\\live\\trade_lifecycle.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:1e3335891eed70fc"
         },
         "src\\live\\trailing_bridge.py": {
@@ -9449,8 +9449,8 @@
           "hash": "sha256:72f06039cda0e6dc"
         },
         "src\\trading\\mt5_connection.py": {
-          "last_modified": "2026-08-27T10:30:50",
-          "hash": "sha256:f2527764d64e4fcb"
+          "last_modified": "2026-08-31T12:19:26",
+          "hash": "sha256:5da7b86d6623fa37"
         },
         "tests\\conftest.py": {
           "last_modified": "2026-08-30T17:37:50",
@@ -9469,7 +9469,7 @@
           "hash": "sha256:65ae6da6a632fec7"
         },
         "tests\\test_execution_gate.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:b4ef59d0a32a5cfa"
         },
         "tests\\test_exp5b_research_eq.py": {
@@ -9501,63 +9501,63 @@
           "hash": "sha256:e0cadb7de367b0da"
         },
         "tests\\test_live_audit_safety.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:3ebe62133bf71630"
         },
         "tests\\test_live_candle_feed.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:3824c2b935b5c18e"
         },
         "tests\\test_live_execution.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:5ca781b489243a84"
         },
         "tests\\test_live_paper.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:c1f275a392ba1b1d"
         },
         "tests\\test_live_parity_gate.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:7e87e8d313ee696c"
         },
         "tests\\test_live_portfolio_dd.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:56288c3a7f7b8073"
         },
         "tests\\test_live_position_reconciliation.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:bc9febf0ce6c2dae"
         },
         "tests\\test_live_risk_sizing.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:80e44af1d2eac24d"
         },
         "tests\\test_live_signal_runner.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:c98a0ce9865dba48"
         },
         "tests\\test_live_strategy_runtime.py": {
-          "last_modified": "2026-08-30T19:30:43",
-          "hash": "sha256:b8404757d9c640f9"
+          "last_modified": "2026-08-31T12:17:51",
+          "hash": "sha256:cc33dc4d30156ddd"
         },
         "tests\\test_m1_ingestion_parity.py": {
-          "last_modified": "2026-08-30T19:30:43",
-          "hash": "sha256:7b5079a8d365a107"
+          "last_modified": "2026-08-31T12:17:51",
+          "hash": "sha256:a7cd0eabd8d8c6bb"
         },
         "tests\\test_main_research_c_v1_1.py": {
           "last_modified": "2026-08-30T17:37:50",
           "hash": "sha256:eb86fafb20b83450"
         },
         "tests\\test_mt5_connection_hardening.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:71443482579cbd25"
         },
         "tests\\test_orchestrator_d49.py": {
-          "last_modified": "2026-08-31T09:00:59",
-          "hash": "sha256:e0cb9401f879f9f5"
+          "last_modified": "2026-08-31T11:37:21",
+          "hash": "sha256:494be93043381123"
         },
         "tests\\test_orchestrator_startup.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:cb49611b5cd90f5e"
         },
         "tests\\test_orchestrator_tas2.py": {
@@ -9573,24 +9573,24 @@
           "hash": "sha256:9d36c2240536e3c1"
         },
         "tests\\test_p0_1_mt5_trailing.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:6a42d7a675927be3"
         },
         "tests\\test_p0_1_risk_sizing.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:e6911a26e0b08d46"
         },
         "tests\\test_p0_2_lifecycle_wiring.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:cd1559d9d39ad696"
         },
         "tests\\test_p0_2_trade_lifecycle.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:31a327b7b151e3c0"
         },
         "tests\\test_p1_5_timezone.py": {
-          "last_modified": "2026-08-30T19:30:43",
-          "hash": "sha256:0818a5bb45f92b8d"
+          "last_modified": "2026-08-31T12:17:51",
+          "hash": "sha256:c03611277c975f2d"
         },
         "tests\\test_p1_dd_rebuild_and_quarantine.py": {
           "last_modified": "2026-08-30T02:42:52",
@@ -9609,19 +9609,19 @@
           "hash": "sha256:8c2d2040d534efe7"
         },
         "tests\\test_p2_6_paper_continuity.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:378fc4a1c2ccd9a3"
         },
         "tests\\test_parity_6majors.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:034229d6793e5e17"
         },
         "tests\\test_persistent_logging.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:921bba82a79b449d"
         },
         "tests\\test_startup_snapshot.py": {
-          "last_modified": "2026-08-30T19:30:43",
+          "last_modified": "2026-08-31T12:09:22",
           "hash": "sha256:1675c15efbe23487"
         },
         "tools\\rollback_stageA.py": {
@@ -9657,7 +9657,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-08-31T10:53:01"
+      "last_full_scan": "2026-08-31T12:23:24"
     }
   }
 }

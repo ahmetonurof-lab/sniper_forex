@@ -32,7 +32,6 @@ from src.live.signal_runner import (
 from src.live.sizing import ContractSpec
 from src.strategy.models import Bar
 
-
 # ── Fakes ────────────────────────────────────────────────────────
 
 
@@ -145,9 +144,7 @@ def _make_fake_mt5(symbols: List[str], n_bars: int = 5000, seed: int = 1) -> Fak
     rates = {}
     for s in symbols:
         start = 1.10000 if s.startswith("EUR") else 1.30000
-        rates[s] = _bars_to_rates(
-            _make_m1_bars(s, n=n_bars, start_price=start, seed=seed)
-        )
+        rates[s] = _bars_to_rates(_make_m1_bars(s, n=n_bars, start_price=start, seed=seed))
     return FakeMT5(rates_by_symbol=rates)
 
 
@@ -165,9 +162,7 @@ def test_signal_runner_does_not_send_orders():
         RunnerConfig(symbols=["EURUSD"], m1_count=3000),
         audit,
     )
-    assert (
-        mt5.send_calls == 0
-    ), f"signal-only must not send orders, got {mt5.send_calls}"
+    assert mt5.send_calls == 0, f"signal-only must not send orders, got {mt5.send_calls}"
 
 
 # ── Audit chain populated ───────────────────────────────────────
@@ -276,9 +271,7 @@ def test_signal_runner_error_in_one_symbol_does_not_stop_others():
         assert in_per != in_err, f"{sym} must be in exactly one of per_symbol/errors"
     # Audit should contain an ERROR event for EURUSD
     err_events = [
-        e
-        for e in audit.events
-        if e.event_type == EventType.ERROR and e.symbol == "EURUSD"
+        e for e in audit.events if e.event_type == EventType.ERROR and e.symbol == "EURUSD"
     ]
     assert len(err_events) >= 1
 

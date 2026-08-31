@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """P0-2 — TradeLifecycle regression tests (minimal, no strategy change)."""
 
-from src.live.trade_lifecycle import OpenTradeContext, TradeLifecycle
 from src.live.portfolio_dd import PortfolioDD
+from src.live.trade_lifecycle import OpenTradeContext, TradeLifecycle
 
 
 def test_trade_lifecycle_register_and_process():

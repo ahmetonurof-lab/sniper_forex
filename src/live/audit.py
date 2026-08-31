@@ -135,10 +135,7 @@ class AuditChain:
             return False
         count_since = len(self._events) - self._last_flush_count
         time_since = time.time() - self._last_flush_time
-        return (
-            count_since >= self._flush_threshold
-            or time_since >= self._flush_interval_sec
-        )
+        return count_since >= self._flush_threshold or time_since >= self._flush_interval_sec
 
     def _maybe_flush(self) -> None:
         """Flush if conditions met."""

@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional
 from src.live.audit import AuditChain, EventType
 from src.live.execution import Execution, OrderRequest
 from src.live.portfolio_dd import PortfolioDD
+from src.live.reconciliation import Reconciler
 from src.live.risk import Account, RiskManager
 from src.live.sizing import ContractSpec, PositionSizer
 from src.live.strategy_runtime import Signal, StrategyRuntime
@@ -42,7 +43,6 @@ from src.live.trade_lifecycle import (
     build_open_context_from_fill,
 )
 from src.live.trailing_bridge import TrailingBridge, TrailingEvent
-from src.live.reconciliation import Reconciler
 
 
 @dataclass
@@ -350,11 +350,7 @@ class LiveRunner:
         if result.position_id:
             return int(result.position_id)
         # Fallback: resolve via deal history (broker-confirmed entry deal).
-        if (
-            self.mt5 is not None
-            and result.deal_id
-            and hasattr(self.mt5, "history_deals_get")
-        ):
+        if self.mt5 is not None and result.deal_id and hasattr(self.mt5, "history_deals_get"):
             try:
                 deals = self.mt5.history_deals_get(ticket=int(result.deal_id)) or []
                 for d in deals:
@@ -375,17 +371,13 @@ class LiveRunner:
             return res
 
         contract = self.contract or default_contract(self.symbol)
-        base_result = self.sizer.compute_lot(
-            sig, balance=account.balance, contract=contract
-        )
+        base_result = self.sizer.compute_lot(sig, balance=account.balance, contract=contract)
         res.base_lot = base_result.lot
 
         # Current DD — journal-authoritative; unreliable DD pauses scaling.
         if not self.lifecycle.dd_is_reliable():
             res.blocked_reason = "portfolio_dd_unreliable_pause"
-            self._audit(
-                EventType.RISK, {"approved": False, "reason": res.blocked_reason}
-            )
+            self._audit(EventType.RISK, {"approved": False, "reason": res.blocked_reason})
             return res
         current_dd_r = self.lifecycle.portfolio_dd.current_dd_r()
 
@@ -421,9 +413,7 @@ class LiveRunner:
         if final_lot <= 0:
             # Includes the min-lot BLOCK semantics (reduction unachievable).
             res.blocked_reason = "scaled_lot_zero_minlot_block"
-            self._audit(
-                EventType.RISK, {"approved": False, "reason": res.blocked_reason}
-            )
+            self._audit(EventType.RISK, {"approved": False, "reason": res.blocked_reason})
             return res
 
         res.approved = True
@@ -464,9 +454,7 @@ class LiveRunner:
             filled_volume=filled_volume,
             lot_multiplier=decision.lot_multiplier,
             initial_risk_cash_total=risk_cash,
-            initial_risk_cash_per_unit=(
-                risk_cash / filled_volume if filled_volume > 0 else 0.0
-            ),
+            initial_risk_cash_per_unit=(risk_cash / filled_volume if filled_volume > 0 else 0.0),
         )
         self.lifecycle.register_open_context(ctx)
         self._position_to_ctx[position_id] = ctx
@@ -542,9 +530,7 @@ class LiveRunner:
             try:
                 deals = self.mt5.history_deals_get(position=int(pid))
             except Exception as e:
-                processed.append(
-                    {"error": f"history_deals_get_failed: {e}", "position_id": pid}
-                )
+                processed.append({"error": f"history_deals_get_failed: {e}", "position_id": pid})
                 continue
 
             if not deals:

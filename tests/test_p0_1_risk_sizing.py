@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """P0-1 — Entry-time DD → scaled lot validation (minimal)."""
 
-from src.live.sizing import PositionSizer, ContractSpec, SizingResult
+from src.live.sizing import ContractSpec, PositionSizer, SizingResult
 
 
 def test_apply_scaling_quantizes_correctly():
@@ -53,8 +53,6 @@ def test_compute_lot_formula_unchanged():
         zone_size=0.02,
         timestamp=None,
     )
-    result = sizer.compute_lot(
-        sig, balance=10000.0, contract=ContractSpec(symbol="EURUSD")
-    )
+    result = sizer.compute_lot(sig, balance=10000.0, contract=ContractSpec(symbol="EURUSD"))
     assert isinstance(result, SizingResult)
     assert result.lot >= 0.0

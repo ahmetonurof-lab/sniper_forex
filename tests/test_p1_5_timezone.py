@@ -8,11 +8,12 @@ Verifies:
 """
 
 from datetime import datetime
+
 import pandas as pd
 
 from src.live import clock
-from src.live.signal_runner import SignalRunner
 from src.live.paper import _rates_to_bars as paper_rates_to_bars
+from src.live.signal_runner import SignalRunner
 
 
 class FakeRate:
@@ -79,7 +80,6 @@ def test_cross_path_parity_same_timestamp():
     bars_paper = paper_rates_to_bars([rate])
     ts_utc_paper = bars_paper[0].timestamp
 
-    assert ts_utc_feed == ts_utc_sig == ts_utc_paper, (
-        f"cross-path timestamp mismatch: feed={ts_utc_feed}, "
-        f"sig={ts_utc_sig}, paper={ts_utc_paper}"
-    )
+    assert (
+        ts_utc_feed == ts_utc_sig == ts_utc_paper
+    ), f"cross-path timestamp mismatch: feed={ts_utc_feed}, sig={ts_utc_sig}, paper={ts_utc_paper}"

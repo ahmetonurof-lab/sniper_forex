@@ -110,17 +110,13 @@ class Reconciler:
         # ORPHAN: local has, remote doesn't
         for t in sorted(local_tickets - remote_tickets):
             orphans.append(t)
-            details.append(
-                f"ORPHAN ticket={t} symbol={local[t].symbol} "
-                f"local=open remote=closed"
-            )
+            details.append(f"ORPHAN ticket={t} symbol={local[t].symbol} local=open remote=closed")
 
         # UNKNOWN_OPEN: remote has, local doesn't
         for t in sorted(remote_tickets - local_tickets):
             unknown_opens.append(t)
             details.append(
-                f"UNKNOWN_OPEN ticket={t} symbol={remote[t].symbol} "
-                f"local=missing remote=open"
+                f"UNKNOWN_OPEN ticket={t} symbol={remote[t].symbol} local=missing remote=open"
             )
 
         # MISMATCH: both have, but state differs
@@ -135,10 +131,7 @@ class Reconciler:
                     diffs.append(f"{field_name}: local={lv} remote={rv}")
             if diffs:
                 mismatches.append(t)
-                details.append(
-                    f"MISMATCH ticket={t} symbol={lp.symbol} "
-                    f"diffs=[{'; '.join(diffs)}]"
-                )
+                details.append(f"MISMATCH ticket={t} symbol={lp.symbol} diffs=[{'; '.join(diffs)}]")
 
         # Aggregate status (worst-of)
         status = ReconcileStatus.OK

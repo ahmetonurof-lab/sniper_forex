@@ -30,7 +30,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 # Default thresholds (mirror experiment/exp_maxdd_C_dd_risk_scaling.py).
 DEFAULT_T1 = 2.0  # >2R  -> 0.50 risk
 DEFAULT_T2 = 4.0  # >4R  -> 0.25 risk

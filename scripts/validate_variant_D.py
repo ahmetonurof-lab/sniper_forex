@@ -82,9 +82,7 @@ def main():
     # 4. No-lookahead guard
     print("\n[4] No-lookahead (4·(h+3) ≤ f)")
     has_lookahead_check = "confirm_15m > f" in src or "pivot_1h + PIVOT_RIGHT" in src
-    has_lookahead_doc = (
-        "4·(h+3) ≤ f" in src or "4*(h+3) <= f" in src or "4×(h+3)" in src
-    )
+    has_lookahead_doc = "4·(h+3) ≤ f" in src or "4*(h+3) <= f" in src or "4×(h+3)" in src
     check("future_pivot rejection present", has_lookahead_check)
     check("no-lookahead doc/audit present", has_lookahead_doc)
 

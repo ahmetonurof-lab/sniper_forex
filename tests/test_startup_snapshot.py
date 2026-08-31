@@ -12,9 +12,7 @@ def _make_terminal(build=6140, path="C:/MT5/terminal64.exe"):
     return SimpleNamespace(build=build, path=path)
 
 
-def _make_account(
-    login=53012914, server="ICMarketsSC-Demo", balance=10000.0, equity=10050.0
-):
+def _make_account(login=53012914, server="ICMarketsSC-Demo", balance=10000.0, equity=10050.0):
     return SimpleNamespace(
         login=login,
         server=server,
@@ -110,9 +108,7 @@ def test_startup_snapshot_connected_clean():
 def test_startup_snapshot_with_positions():
     """Open positions are captured with SL/TP protection info."""
     positions = [
-        _make_position(
-            1, "EURUSD", 0, 0.10, 1.1000, 1.0990, 1.1018, 9007001, profit=5.0
-        ),
+        _make_position(1, "EURUSD", 0, 0.10, 1.1000, 1.0990, 1.1018, 9007001, profit=5.0),
         _make_position(2, "GBPUSD", 1, 0.05, 1.2500, 0.0, 1.2550, 9007001, profit=-2.0),
     ]
     mt5 = FakeMT5(
@@ -136,9 +132,7 @@ def test_startup_snapshot_filters_other_magic():
     """Positions/orders with different magic are ignored."""
     positions = [
         _make_position(1, "EURUSD", 0, 0.10, 1.1000, 1.0990, 1.1018, 9007001),
-        _make_position(
-            99, "EURUSD", 0, 1.00, 1.1000, 1.0990, 1.1018, 123456
-        ),  # other magic
+        _make_position(99, "EURUSD", 0, 1.00, 1.1000, 1.0990, 1.1018, 123456),  # other magic
     ]
     orders = [
         _make_order(100, "EURUSD", 2, 0.05, 1.0980, 9007001),

@@ -20,7 +20,6 @@ from src.live.orchestrator import (
     StartupVerdict,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────
 
 
@@ -235,8 +234,9 @@ class TestStartupProceed:
                 # Return enough synthetic M1 bars for warmup to succeed.
                 # We need at least 100 * 15 + 30 = 1530 M1 bars for 100 15m candles.
                 # Create bars with timestamps on a 1-minute grid.
-                import pandas as pd
                 from datetime import datetime, timezone
+
+                import pandas as pd
 
                 base = datetime(2026, 8, 1, 0, 0, tzinfo=timezone.utc)
                 rows = []
@@ -350,8 +350,9 @@ class TestStartupProceed:
 
             @staticmethod
             def copy_rates_from_pos(symbol, tf, start, count):
-                import pandas as pd
                 from datetime import datetime, timezone
+
+                import pandas as pd
 
                 base = datetime(2026, 8, 1, 0, 0, tzinfo=timezone.utc)
                 rows = []
