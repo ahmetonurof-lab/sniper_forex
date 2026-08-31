@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-31T16:39:04",
+  "generated_at": "2026-08-31T17:06:24",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -9004,6 +9004,30 @@
           "line_end": 342,
           "signature": "def orders_get(self):"
         },
+        "tests.test_tools_gitignore_utils_d54._load_fresh": {
+          "file": "tests\\test_tools_gitignore_utils_d54.py",
+          "line_start": 24,
+          "line_end": 42,
+          "signature": "def _load_fresh(monkeypatch: pytest.MonkeyPatch, *, hide_pathspec: bool):"
+        },
+        "tests.test_tools_gitignore_utils_d54._load_fresh.fake_import": {
+          "file": "tests\\test_tools_gitignore_utils_d54.py",
+          "line_start": 28,
+          "line_end": 31,
+          "signature": "def fake_import(name, *args, **kwargs):"
+        },
+        "tests.test_tools_gitignore_utils_d54.test_missing_pathspec_raises_loud": {
+          "file": "tests\\test_tools_gitignore_utils_d54.py",
+          "line_start": 45,
+          "line_end": 48,
+          "signature": "def test_missing_pathspec_raises_loud(monkeypatch: pytest.MonkeyPatch) -> None:"
+        },
+        "tests.test_tools_gitignore_utils_d54.test_present_pathspec_ignores_gitignored_dir": {
+          "file": "tests\\test_tools_gitignore_utils_d54.py",
+          "line_start": 51,
+          "line_end": 66,
+          "signature": "def test_present_pathspec_ignores_gitignored_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:"
+        },
         "tools.ssh_audit.run": {
           "file": "tools\\ssh_audit.py",
           "line_start": 11,
@@ -9012,20 +9036,20 @@
         },
         "tools.code-index-system.gitignore_utils._load_gitignore_spec": {
           "file": "tools\\code-index-system\\gitignore_utils.py",
-          "line_start": 20,
-          "line_end": 36,
+          "line_start": 27,
+          "line_end": 42,
           "signature": "def _load_gitignore_spec(repo_root):"
         },
         "tools.code-index-system.gitignore_utils.is_ignored": {
           "file": "tools\\code-index-system\\gitignore_utils.py",
-          "line_start": 39,
-          "line_end": 51,
+          "line_start": 45,
+          "line_end": 54,
           "signature": "def is_ignored(repo_root, abs_path, always_ignored_dirs):"
         },
         "tools.code-index-system.gitignore_utils.clear_cache": {
           "file": "tools\\code-index-system\\gitignore_utils.py",
-          "line_start": 54,
-          "line_end": 58,
+          "line_start": 57,
+          "line_end": 61,
           "signature": "def clear_cache(repo_root=None):"
         },
         "tools.code-index-system.index_builder._signature_from_node": {
@@ -9778,6 +9802,10 @@
           "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:1675c15efbe23487"
         },
+        "tests\\test_tools_gitignore_utils_d54.py": {
+          "last_modified": "2026-08-31T17:05:12",
+          "hash": "sha256:c51b311dcffe4e98"
+        },
         "tools\\rollback_stageA.py": {
           "last_modified": "2026-08-30T02:42:52",
           "hash": "sha256:42ce92882acf6082"
@@ -9795,8 +9823,8 @@
           "hash": "sha256:e7532beff9a74ea3"
         },
         "tools\\code-index-system\\gitignore_utils.py": {
-          "last_modified": "2026-08-22T18:51:03",
-          "hash": "sha256:c3ff6e7028b497c1"
+          "last_modified": "2026-08-31T17:05:12",
+          "hash": "sha256:c0d5d5c5b793b7f9"
         },
         "tools\\code-index-system\\index_builder.py": {
           "last_modified": "2026-08-30T02:42:52",
@@ -9811,7 +9839,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-08-31T16:39:04"
+      "last_full_scan": "2026-08-31T17:06:24"
     }
   }
 }

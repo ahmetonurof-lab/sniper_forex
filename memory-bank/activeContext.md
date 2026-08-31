@@ -938,7 +938,7 @@ Onay: HAKEM — bu sohbet, final gate.
   `--check` moduna alınacak); commit-anı mutasyonu sıfır, stash koreografisi
   gereksizleşir.
 
-### SOAK START GATE (3 şart, sıra önemli) — D49 MERGE sonrası açık kalemler
+### SOAK START GATE (4 şart, sıra önemli) — D49 MERGE sonrası; D53/Hakem ile ④ eklendi
 
 1. **C2 end-state policy** — Forexçi YAZILI karar: simüle `active_trade`
    (O2 replay end-state) canlı girişleri bastırır mı? Mimari hazır:
@@ -946,6 +946,14 @@ Onay: HAKEM — bu sohbet, final gate.
 2. **P0 teşhis** — 5 canonical causality fail'i: differential + blame
    (paralel koşabilir).
 3. **Tag'li parity** — P0 çözülünce tag + artifact bağlama.
+4. **Telegram seviye-1 E2E (D53/Hakem)** — operatör bot'a START basar →
+   smoke `"ok":true` + gelen DM → raporla. Sahibi: operatör (insan adımı,
+   tek tık). Kanal kanıtsız soak BAŞLAMAZ (hidden-green yok).
+- **Known-flake pin (Hakem disposition, D53):** `d49 T4-fresh-boot` =
+  time-boundary flake (dakika-kırpımlı anchor + boundary aşması; mekanizma
+  güçlü, koşum kanıtı yok — 5+ koşumda yalnız 2 kez kırmızı, ikisi de
+  uzun-süit/uzun-grup bağlamında). Soak'ta tekrarlanırsa hidden-red DEĞİL,
+  pin'li flake. Aşama 2 backlog: `now_fn`-enjeksiyonlu deterministik rewrite.
 - Paralel: **S10 boot-replay ölçümü** (~4.330 on_bar/boot — soak ilk raporunda
   sayı gelsin) · runbook'a `restore_staleness_slots` semantiği (2-slot tolerans
   penceresi; 0 = her gap rebuild).
@@ -1118,3 +1126,34 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
   {2f26da9, b81308b, b50b3bb, a94ab4b, 8610951, <chore>} — önceki 4'lü sete
   2 üye eklendi. Gün-1 ledger bir SONRAKİ setin üyesidir. Push ancak Hakem
   yazılı onayıyla, hash-hash.
+
+## D54 — PATHSPEC DECLARED + LOUD-FAIL (2026-08-31, Hakem kararı: set 6→7)
+
+- **Hakem kararları (bu tur):** (1) d49 T4 = **known-flake pin** (yukarıki
+  gate bloğuna işlendi; soak'ta tekrarlanırsa hidden-red değil pin'li). (2)
+  pathspec = **ikisi birden, şimdi, sete eklenerek**: requirements'a declared
+  + `gitignore_utils` missing-import → LOUD fail. Gerekçe: index.json
+  provenance-critical; sessiz-skip §19 pattern'i İKİNCİ vaka (mt5_conn'den
+  sonra) → kural kodlanır; `tools/` freeze'te gri alan, son güvenli pencere
+  şimdi. (3) Ledger tool vaka-2 prosedür teyidi: *anchored replace +
+  verify-from-disk* protokol (iki vaka, iki kurtarma); §13.5 mesaj-sınırı,
+  bu tool-kanalı — ayrım notu.
+- **Kod:** `requirements.txt` += `pathspec` (declared). `gitignore_utils`:
+  `except ImportError: pathspec=None` → `raise ImportError("index regen
+  incomplete — install pathspec ...")`; ölü `spec=None`/`spec is not None`
+  dalları söküldü (§20 less code, tek gerçek kaynak). `is_ignored` artık
+  pathspec-varlığında `.gitignore`'u her zaman uygular.
+- **Test:** `tests/test_tools_gitignore_utils_d54.py` — 2 test: (a)
+  mock-missing (`builtins.__import__` patch, `pathspec` ImportError) →
+  module load **raises** (match "install pathspec"); (b) pozitif kontrol:
+  pathspec varken gitignored `logs/fix/` → `is_ignored=True`, `src/` →
+  False (sızma sınıfını doğrudan pin'ler). Fresh-importlib-load, cache-free.
+- **Koşum (Hakem: tam süit şart DEĞİL — core-live diff'siz, tek import):**
+  D54 2/2 ✓ · ruff (hook v0.4.4) format+check temiz ✓ · orchestrator grubu:
+  ilk koşumda T4 flake kırmızısı (1F/102P) → tek-test PASS → tekrar-PASS →
+  grup yeniden **103/103** ✓ (pin'li flake, öngörüyle tutarlı; D54 core-live
+  dokunmuyor). Index regen → 1536 fn, `grep -c '"logs'`=0, D54 sembolleri
+  içeride ✓.
+- **SET (N2 #6, §9.5 — 7 hash, Hakem onayı bu mesajla):**
+  {2f26da9, b81308b, b50b3bb, a94ab4b, 8610951, <chore>, <D54>}. Push →
+  §9.2 zinciri → defter N2 #6 → FREEZE push'lanmış HEAD'de → GATE 4 şart.

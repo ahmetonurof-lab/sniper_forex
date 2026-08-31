@@ -1,3 +1,7 @@
 MetaTrader5
 python-dotenv
 tqdm
+# D54: tools/code-index-system gitignore-awareness is provenance-critical;
+# a missing pathspec must fail LOUD (never a silent-partial index). Declared
+# here so a fresh venv cannot regress into the silent-skip trap.
+pathspec
