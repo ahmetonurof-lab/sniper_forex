@@ -1187,7 +1187,10 @@ class TestTas2Blockers:
         orch._runtime_restored = True
         orch.lock.acquire()
 
-        # Simulate a previously-warmed, successfully-restored runtime.
+        # Simulate a previously-warmed, recently-restored runtime. D49: the
+        # last bar must be < restore_staleness_slots (2) behind now, otherwise
+        # the staleness gate forces a cold rebuild. Anchor bars at `now`.
+        recent = _utcnow_naive().replace(second=0, microsecond=0)
         n = 5
         bars = []
         for i in range(n):
@@ -1196,7 +1199,7 @@ class TestTas2Blockers:
             bars.append(
                 Bar(
                     index=i,
-                    timestamp=synthetic_base_time + timedelta(minutes=15 * i),
+                    timestamp=recent - timedelta(minutes=15 * (n - 1 - i)),
                     open=1.0,
                     high=1.0,
                     low=1.0,
@@ -1208,6 +1211,9 @@ class TestTas2Blockers:
         orch._runtime._warmed = True
         orch._global_bar_index = 0
         orch._seen_bar_slots = set()
+
+        # Verify the restored state is FRESH (< two 15m slots old).
+        assert orch._restore_stale_slots() < orch.config.restore_staleness_slots
 
         ok, n_bars, result = orch._warmup(m1_count=1600)
         assert ok is True

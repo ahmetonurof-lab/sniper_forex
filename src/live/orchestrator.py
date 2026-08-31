@@ -181,6 +181,12 @@ class OrchestratorConfig:
     backoff_multiplier: float = 2.0
     backoff_max_sec: float = 300.0  # < LOCK_STALE_SEC(900) — heartbeat aralığı güvenli
     feed_cap: int = 1024
+    # ── D49: restore staleness threshold (in 15m slots) ───────────
+    # A restored runtime whose last processed bar is >= this many 15m
+    # slots behind `now` is STALE → cold rebuild (full fetch + warmup +
+    # O2 replay) instead of a warm resume. Weekend gap (Fri-close →
+    # Sun-boot ~190 slots) or any downtime gap >= 2 slots triggers rebuild.
+    restore_staleness_slots: int = 2
 
 
 # ── Lock ──────────────────────────────────────────────────────────
@@ -414,6 +420,12 @@ class Orchestrator:
         self._seen_bar_slots: set = set()
         # Persisted safe-mode (read once at startup, consumed by S11).
         self._persisted_safe_reason: Optional[str] = None
+        # D49 (O2): boot-time sync replay report (C2 single summary event).
+        self._replay_report: Optional[dict] = None
+        # D49 (C3): cold rebuild was required (stale/partial restore); used to
+        # emit WARN+alert (visible) while still allowing PROCEED when the
+        # rebuild succeeds.
+        self._cold_rebuild_needed: bool = False
         # ── Taş 3 runtime loop state ─────────────────────────────
         self._now_fn: Callable[[], datetime] = now_fn or _utcnow_naive
         self._startup_result: Optional[StartupResult] = None
@@ -741,9 +753,21 @@ class Orchestrator:
                 safe_reasons.append(f"lifecycle_recovery_failed: {type(e).__name__}")
         runtime_warmed_at_s7 = bool(getattr(self._runtime, "_warmed", False))
         if self._lifecycle_restored and not runtime_warmed_at_s7:
-            # Lifecycle state survived but the runtime did not warm ->
-            # degraded continuation; explicit safe_reason (redelivery 2).
-            safe_reasons.append("restore_partial_cold_runtime")
+            # D49 (C3): lifecycle state survived but the runtime did not warm
+            # -> a cold rebuild is REQUIRED. This is VISIBLE (WARN audit +
+            # alert) but NOT a SAFE_START reason: if the rebuild succeeds in
+            # S9, the verdict reverts to PROCEED. Forcing SAFE_START here
+            # would doom every weekend / partial-restore restart to safe mode.
+            self._cold_rebuild_needed = True
+            # D49 B-1: partial restore — invalidate restored pipeline state
+            # here so _seed_restore_state() later in _warmup seeds nothing.
+            self._begin_cold_rebuild()
+            self.audit.append(
+                time.time(),
+                EventType.ERROR,
+                self._symbol,
+                {"phase": "S7", "warning": "restore_partial_cold_runtime_rebuild_required"},
+            )
         self._restored = bool(self._runtime_restored or self._lifecycle_restored)
 
         # ── S8: Recon gate ──────────────────────────────────────
@@ -764,6 +788,26 @@ class Orchestrator:
             safe_reasons.append(f"warmup_exception: {type(e).__name__}: {e}")
         if not warmup_ok:
             safe_reasons.append(f"warmup_failed: {smoke_result.get('reason', 'unknown')}")
+
+        # C3: a cold rebuild (stale / partial restore) must be VISIBLE but not
+        # silently demote the verdict. If the rebuild succeeded, emit WARN +
+        # alert; PROCEED is unaffected (feed + sizing now use correct state).
+        if self._cold_rebuild_needed and warmup_ok:
+            replay = (self._replay_report or {}).get("replay_bars", 0)
+            self.alert.send(
+                "WARN",
+                f"cold rebuild OK — runtime restored from full history (replay_bars={replay})",
+            )
+            self.audit.append(
+                time.time(),
+                EventType.STARTUP,
+                self._symbol,
+                {
+                    "phase": "S9",
+                    "verdict": "COLD_REBUILD_OK",
+                    "replay_bars": replay,
+                },
+            )
 
         # Heartbeat (Taş 2): healthy S9 completion touches the lock so a
         # long healthy process is not misclassified as stale.
@@ -1032,9 +1076,28 @@ class Orchestrator:
         # Is the runtime a VALID warm continuation? (runtime restore +
         # previously warmed) vs. merely "some state on disk".
         warm_skip = bool(self._runtime is not None and getattr(self._runtime, "_warmed", False))
+        # D49: a warm-restored runtime whose last bar is STALE (downtime /
+        # weekend gap > restore_staleness_slots — "2 keep / 3 rebuild") is
+        # NOT a valid warm continuation — force a cold rebuild (full fetch +
+        # warmup + O2 replay) so CBDR/ATR/bias reflect the current window.
+        if warm_skip and self._restore_stale_slots() > self.config.restore_staleness_slots:
+            warm_skip = False
+            self._cold_rebuild_needed = True
+            # D49 B-1: clear restore-seeded slots / index + fresh runtime,
+            # so the rebuild replays the FULL history (no gap).
+            self._begin_cold_rebuild()
 
         if self._mt5 is None:
             if warm_skip:
+                # D49: warm-skip path records an empty replay report (no replay).
+                self._replay_report = {
+                    "replay_bars": 0,
+                    "signals_discarded": 0,
+                    "end_state": self._replay_end_state(),
+                    "next_idx": int(getattr(self._runtime, "_next_idx", 0) or 0),
+                    "session_key": self._cbdr_session_key(),
+                    "bias": self._cbdr_bias(),
+                }
                 smoke_result["reason"] = "restored_warm_no_mt5"
                 return True, self._warm_bar_count(), smoke_result
             smoke_result["reason"] = "no_mt5_connection"
@@ -1084,6 +1147,15 @@ class Orchestrator:
 
         # If the runtime is a warm continuation, skip the heavy full fetch.
         if warm_skip:
+            # D49: warm-skip path records an empty replay report (no replay).
+            self._replay_report = {
+                "replay_bars": 0,
+                "signals_discarded": 0,
+                "end_state": self._replay_end_state(),
+                "next_idx": int(getattr(self._runtime, "_next_idx", 0) or 0),
+                "session_key": self._cbdr_session_key(),
+                "bias": self._cbdr_bias(),
+            }
             smoke_result["reason"] = "restored_warm"
             return True, self._warm_bar_count(), smoke_result
 
@@ -1139,7 +1211,110 @@ class Orchestrator:
             smoke_result["reason"] = "runtime_warmup_failed"
             return False, 0, smoke_result
 
+        # D49 (O2): synchronous boot-time replay of the remaining history so
+        # the runtime reaches the TRUE end-state (CBDR/ATR/bias/session) BEFORE
+        # the live loop starts. This closes the "fresh-start CBDR not
+        # implemented in orchestration" hole: warmup() stores a PREFIX of
+        # reindexed; the rest must be replayed through on_bar (SignalRunner
+        # pattern). engine untouched; on_bar appends + advances _next_idx
+        # internally, so runtime.bars grows to the full set and the D41
+        # loop-backlog is naturally empty afterwards (C1). Replay start is
+        # rt._next_idx — hardcode forbidden (C4). Historical signals are
+        # counted as discarded (not sent — determinism, C2).
+        nxt = int(getattr(self._runtime, "_next_idx", 0) or 0)
+        replay_bars = 0
+        signals_discarded = 0
+        if 0 <= nxt < len(reindexed):
+            for bar in reindexed[nxt:]:
+                sig = self._runtime.on_bar(bar)
+                replay_bars += 1
+                if sig is not None:
+                    signals_discarded += 1
+        self._replay_report = {
+            "replay_bars": replay_bars,
+            "signals_discarded": signals_discarded,
+            "end_state": self._replay_end_state(),
+            "next_idx": int(getattr(self._runtime, "_next_idx", 0) or 0),
+            "session_key": self._cbdr_session_key(),
+            "bias": self._cbdr_bias(),
+        }
+        # C2: a SINGLE boot summary event — per-signal audit is SignalRunner's
+        # job and would spam at boot. Remote visible, not silent.
+        self.audit.append(
+            time.time(),
+            EventType.STARTUP,
+            self._symbol,
+            {"phase": "S9", "verdict": "REPLAY", "payload": self._replay_report},
+        )
+
         return True, len(reindexed), smoke_result
+
+    # ── D49 helpers ─────────────────────────────────────────────────
+
+    def _restore_stale_slots(self) -> int:
+        """Number of 15m slots the restored runtime's last bar is behind now.
+
+        Returns >= 0; a cold/fresh runtime with no bars returns a large
+        value (>= threshold) so it is treated as needing full warmup.
+        """
+        if self._runtime is None:
+            return 10**6
+        try:
+            bars = list(getattr(self._runtime, "bars", []) or [])
+        except Exception:
+            return 10**6
+        if not bars or not hasattr(bars[-1], "timestamp"):
+            return 10**6  # unknown state → force rebuild (> any threshold)
+        last_ts = bars[-1].timestamp
+        last_ms = int(_naive_utc_epoch(last_ts) * 1000)
+        slot_last = _slot_floor_ms(last_ms)
+        now = self._now_fn() if hasattr(self, "_now_fn") and self._now_fn else _utcnow_naive()
+        now_ms = int(_naive_utc_epoch(now) * 1000)
+        slot_now = _slot_floor_ms(now_ms)
+        return max(0, (slot_now - slot_last) // _15M_MS)
+
+    def _replay_end_state(self) -> str:
+        """C2 end-state policy: flat (no open sim trade) vs active_trade."""
+        if self._runtime is None:
+            return "unknown"
+        at = getattr(self._runtime, "active_trade", None)
+        if at is not None and not at.get("closed"):
+            return "active_trade"
+        return "flat"
+
+    def _cbdr_session_key(self) -> Optional[str]:
+        if self._runtime is None:
+            return None
+        try:
+            return self._runtime.session.current_cbdr_key
+        except Exception:
+            return None
+
+    def _cbdr_bias(self) -> Optional[str]:
+        if self._runtime is None:
+            return None
+        try:
+            return self._runtime.session.cbdr.daily_bias.value
+        except Exception:
+            return None
+
+    # ── D49 B-1: cold-rebuild state invalidation ────────────────────
+
+    def _begin_cold_rebuild(self) -> None:
+        """D49 B-1: a stale or partial restore invalidates ALL restored
+        pipeline state. A rebuild must see the FULL history — never skip
+        restored slots (the seen-skip guard exists for the cold
+        fall-through path, not for a full rebuild). Fresh StrategyRuntime
+        also drops any stale restored active_trade / pending_entry so the
+        singlet-lock phantom cannot leak into the live session (C2 policy
+        decision remains pending; determinism is preserved regardless).
+        Lifecycle is untouched (D6 — invalidation only on broker-side
+        anomalies, never on orchestrator-side restart)."""
+        self._seen_bar_slots.clear()
+        self._global_bar_index = 0
+        self._last_15m_ts = None
+        self._runtime = StrategyRuntime(self._symbol)
+        self._runtime_restored = False
 
     # ── D33 restore seeding helpers (redelivery 2) ──────────────────
 
