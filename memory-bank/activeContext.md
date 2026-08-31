@@ -1123,9 +1123,8 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
   "success" raporlayıp diske YAZMADI (bilinen mid-write failure modu —
   ikinci vaka); anchored replace ile yeniden yazıldı ve doğrulandı.
 - **PUSH SETİ (N2 #6, §9.5 — BÜYÜDÜ, re-authorization gerekir):**
-  {2f26da9, b81308b, b50b3bb, a94ab4b, 8610951, <chore>} — önceki 4'lü sete
-  2 üye eklendi. Gün-1 ledger bir SONRAKİ setin üyesidir. Push ancak Hakem
-  yazılı onayıyla, hash-hash.
+  {2f26da9, b81308b, b50b3bb, a94ab4b, 8610951, <chore>, <D54>}. Push →
+  §9.2 zinciri → defter N2 #6 → FREEZE push'lanmış HEAD'de → GATE 4 şart.
 
 ## D54 — PATHSPEC DECLARED + LOUD-FAIL (2026-08-31, Hakem kararı: set 6→7)
 
@@ -1285,7 +1284,7 @@ davranışına dokunmadı.
 semantiğini değiştirdi: ENTRY/EXIT olayları `(ts, priority)` sıralı yürünür,
 multiplier ENTRY'de kilitlenir (`mult_lock`). Fixture'lardaki **backdated
 exit (exit_ts < entry_ts)** durumunda EXIT olayı ENTRY'den ÖNCE işlenir →
-`mult_lock.get()` → None → **`continue` = trade SESSİZ DÜŞÜRÜLÜR**
+`mult_lock.get()` → None → **`continue` = trade SESSİZ DÜŞÜRÜLÜR`
 (n1 sayılmaz, paused sayılmaz, equity'ye girmez). 5 fail'in 4'ü bu
 mekanizma; E_brute ayrıca ref'in exit-order-walk'ı ile prod'un entry-lock
 aynı-timestamp penceresinde ayrışıyor (`prod mult 0.0 != ref 1.0 (dd=0.0)`).
@@ -1416,3 +1415,75 @@ bu commit'te GERÇEKTEN koşulabildiler mi?"
 result_bisect_full.json, result_promote_0899.json, result_event_409.json,
 gen_head.py, run_bisect.py, gen_bisect_full.py) — repo-dışı, worktree'lar
 temizlendi, freeze dokunulmadı (src/tests zero-delta).
+
+---
+
+## TAHKİM: (b) ONAY — TEK-EĞRİ CANONICAL (2026-08-31, hakem kararı)
+
+**Karar:** Parity probe'ün getirdiği kanıt üzerine hakem tahkimi (b)'yi
+onayladı: **tek-eğri (single-curve) semantik canonical ilan edildi.**
+paused trade = sıfır-katkı; canlı `portfolio_dd.py` semantiğiyle birebir
+mutabık. (c) elemenir (sahipliksiz semantik = ölü semantik). (a) elemenir
+(çift-eğriye dönüş ya portfolio_dd.py'yi değiştirir ya benchmark'ı
+production'dan koparır — canlı sistem zaten tek-eğriyi ticaret ediyor).
+
+**Yeni canonical sayılar (HEAD semantiği, tam üretim koşumu):**
+2302T / +2593.26R / MaxDD 5.0R (2.24%) / PF 4.97 / paused 0 /
+x1=1994 / x05=278 / x025=30. TotalR'ın düşmesi (+2767→+2593) "daha kötü
+strateji" değildir: DD'nin farklı ölçülmesi çarpan dağılımını değiştirir.
+
+### §12.1 SELF-CORRECTION — hakümün kendi önceki hükmü (silinmedi, buraya)
+
+- **ESKİ HÜKÜM:** "(b) test-rewrite yeterli, benchmark değişimi gerekmez."
+- **YENİ KANIT:** probe — fark fixture'larda değil SEMANTİKTE.
+- **REVİZE:** (b) yeniden tanımlandı — benchmark resmen yeniden-koşumla
+  değişir.
+- **KÖK HATA:** hakem "fark motor-mu yoksa fixture-mı" sorusunu koşumla
+  ayırt etmemişti. Kanıt katmanı kaydı: iddia < koşum < tam-üretim probe —
+  bu masada üçüncü kez yükseltildi.
+
+### §8.1 IFŞA — PROMOTION SONRASI İKİ SESSİZ SAYI-DEĞİŞİMİ
+
+Hiçbiri promotion anında ifşa edilmemiştir (defter kaydı — hakem §3):
+
+1. `797d946` "strict causality": 2300→2299, MaxDD 4.71→6.29.
+2. `409fc17` event-stream: 2299→2302, paused 3→0 (semantik geçiş:
+   çift-eğri→tek-eğri).
+
+Üstüne: event-stream testleri hiç yeşil olmadı (asla-yeşil-olmayan borç,
+KURAL'ın doğuş nedeni). **DEFTER KAYDI: §8.1 provenance zinciri
+promotion'dan itibaren fiilen kırıktı.** Karantina (önceki bölümde) bu
+kırığın resmî ilanıdır; bu tahkim kaydı karantinanın kapanış yönünü
+(→ tek-eğri canonical) tespit eder.
+
+### KARAR PAKETİ (teknik maddeler — uygulanıyor)
+
+1. **fail-fast:** `apply_dd_scaling` EXIT dalındaki sessiz-düşürme
+   (`mult is None → continue`) → `dropped_signals` sayacı + audit ERROR +
+   eşik-aşımında hard-fail (§19 kod-kapanışı).
+2. **invariant:** `entry_ts ≤ exit_ts` assert'i runtime-invariant olarak.
+3. **test-rewrite:** gerçek-veri-düzende fixture (exit≥entry) + 1-2
+   kasıtlı backdated-exit NEGATİF testi (fail-fast tetiklenmesi kanıtlanır).
+4. **YENİ BENCHMARK RE-RUN:** HEAD semantiğiyle tam üretim; provenance
+   paketi = engine commit + SEMANTİK BEYANI (tek-eğri, paused=sıfır-katkı)
+   + config + dataset hash'leri (aşağıdaki fiksyasyon).
+5. **TİCARİ ONAY (gate ⑤ — YENİ ŞART, hakem yetkisi dışı):** yeni sayılar
+   altında strateji risk-profil onayı Forexçi'den. Eşik-revizyonu
+   (t1/t2/t3 kalibrasyonu) ayrı sentez görevi.
+6. **DATASET-FİKSASYONU:** ✅ YAPILDI — `memory-bank/dataset_manifest_v1.1.md`
+   (18 feather + 6 RAW CSV, 24 SHA256 + satır sayıları). mtime kanıtı
+   bit-kanıtla değiştirildi.
+7. **TAG `research-canonical-v1.1` YENİDEN TANIMLANIR:** (b)-fix + yeni
+   benchmark + ticari onay + parity-artifact (yeni semantiğe karşı)
+   kapanınca atılır. O zamana kadar tag YOK.
+
+### UYGULAMA NOTU — sessiz-düşürme production hattında zaten patlardı
+
+`main()` STEP 3 postcheck'i (tier-sayım mutabakatı,
+`n_x1+n_x05+n_x025+paused == completed_base`) sessiz-düşürülmüş bir trade'i
+RuntimeError ile yakalar. Yani fail-fast eksiği FONKSİYON sınırındaydı,
+pipeline sınırında değil — bu, değişikliğin etkisini daraltır ve
+"hard-fail zaten vardı" diye küçümsenmez: fonksiyon-seviye tüketiciler
+(testler, araçlar) korumasızdı. Q5 ölçümü: gerçek akışta backdated-exit
+0/2302 → dal hiç tetiklenmedi; fail-fast bundan sonra tetiklenirse SEBEBİ
+görünür olur.
