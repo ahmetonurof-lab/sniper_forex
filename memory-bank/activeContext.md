@@ -969,3 +969,36 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
 
 - Ledger write tool mid-write corrupt (5× D49 dup); recovered from HEAD —
   commit-early discipline third payoff (watcher / kayıtsız-push / tool-failure).
+
+### C1–C4 PUSH KAYDI — N2 #5 + AĞAÇ DONDURULDU (2026-08-31, soak start)
+
+- **SET (4 commit, hakem onaylı paket):**
+  - `2730977` chore: relocate test_causality_synthetic.py root→tests/ (2 files, +243/−215)
+  - `fb89e79` chore: ruff format sweep — behaviour-neutral (43 files) + index.json atomic
+    (44 files, +275/−472)
+  - `cb2d659` chore: archive initial GLM review → docs/archive/ (1 file, +1232)
+  - `b89895a` chore: ledger — freeze rule + tool-corruption incident note (1 file, +18)
+- **PUSH (N2 beşinci uygulama):** onaylı (hakem, bu sohbet) — `5c35862..b89895a main -> main`.
+  İmzalar: `git log origin/main..HEAD` → BOŞ · `git ls-remote origin main` →
+  `b89895ac21e793425529cbf84f8eb9b1950dd9eb` = local HEAD. Remote HEAD güncel.
+- **Süit imzası (C2 nötrlük, ampirik):** 7 failed / 464 passed / 1 skipped / 0 errors
+  (655.42s) — fail listesi pin'li baseline ile birebir (2×e2e_live_chain + 5×canonical).
+- **AST nötrlük kanıtı (yeni kanıt sınıfı, hakem standardı):** behaviour-neutral iddia
+  hiyerarşisi = iddia < koşum < AST. 45 .py'da import-set + gövde-AST kıyaslaması →
+  NONE (19 sahte-diff = I001 alias sırası, normalize edildi). **Soak runbook kuralı:**
+  soak sırasında chore commit yapılırsa nötrlük AST katmanıyla kanıtlanacak.
+- **Sayı dersi (defter):** 42→43 — tahmin ≠ ölçüm; ölçümü rapor eden kazanır.
+  Stage kazası commit ÖNCESİ yakalandı (75→44: untracked sızıntısı + ledger sızıntısı,
+  ayrı ayrı temizlendi). Sıfır untracked arşive girdi.
+- **Archive temizlik kontrolü (madde 4):** credential taraması = tek hit satır 437
+  `password=config["password"]` (sözlük-anahtarı referansı, literal sır değil); IP yok,
+  hesap no yok (6+ hane: yalnız magic=9007001), token yok. **Aşama 4 gate'ine şart
+  olarak işlendi: canlı hesaba geçişte docs/archive/ canlı-kimlik temizliğinden
+  geçecek.**
+- **FREEZE: AKTİF.** src/ + tests/ + index.json = HEAD (`b89895a`); mutation YOK.
+  memory-bank writable (kod-dokunuşu yok). Kod değişikliği = soak durur → tam süit →
+  N2 → restart. Kısayol yok. Watcher KAPALI.
+- **Soak gate açık kalemler:** ① C2 end-state policy (Forexçi yazılı karar)
+  ② P0 teşhis (5 causality: differential + blame) ③ tag'li parity (P0 sonrası)
+  ④ S10 boot-replay ölçümü (~4.330 on_bar/boot — ilk soak raporunda)
+  ⑤ runbook staleness-knob semantiği.
