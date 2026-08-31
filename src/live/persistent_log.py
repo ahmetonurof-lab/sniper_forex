@@ -32,6 +32,11 @@ _SENSITIVE_PATTERNS = [
         re.IGNORECASE,
     ),
     re.compile(r"(MT5_PASSWORD|MT5_LOGIN)s?\s*[:=]\s*\S+", re.IGNORECASE),
+    # D53: Telegram credentials must never leak into rotated logs.
+    re.compile(
+        r"(TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID)s?\s*[:=]\s*\S+",
+        re.IGNORECASE,
+    ),
 ]
 
 

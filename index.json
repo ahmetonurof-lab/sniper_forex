@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-31T12:23:24",
+  "generated_at": "2026-08-31T16:39:04",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2478,296 +2478,320 @@
         },
         "src.live.orchestrator.ConsoleAlert.__init__": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 226,
-          "line_end": 228,
+          "line_start": 227,
+          "line_end": 229,
           "signature": "def __init__(self, env: str='SNIPER_ALERT') -> None:"
         },
         "src.live.orchestrator.ConsoleAlert.send": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 230,
-          "line_end": 235,
+          "line_start": 231,
+          "line_end": 236,
           "signature": "def send(self, level: str, msg: str) -> None:"
+        },
+        "src.live.orchestrator.TelegramAlert.__init__": {
+          "file": "src\\live\\orchestrator.py",
+          "line_start": 254,
+          "line_end": 266,
+          "signature": "def __init__(self, bot_token: str, chat_id: str, env: str='SNIPER_ALERT', timeout_sec: float=3.0) -> None:"
+        },
+        "src.live.orchestrator.TelegramAlert.send": {
+          "file": "src\\live\\orchestrator.py",
+          "line_start": 268,
+          "line_end": 279,
+          "signature": "def send(self, level: str, msg: str) -> None:"
+        },
+        "src.live.orchestrator.TelegramAlert._post": {
+          "file": "src\\live\\orchestrator.py",
+          "line_start": 281,
+          "line_end": 291,
+          "signature": "def _post(self, level: str, msg: str) -> None:"
+        },
+        "src.live.orchestrator._build_alert_transport": {
+          "file": "src\\live\\orchestrator.py",
+          "line_start": 294,
+          "line_end": 316,
+          "signature": "def _build_alert_transport(env: str, audit: Optional[AuditChain]=None) -> ConsoleAlert:"
         },
         "src.live.orchestrator.SafeModeStore.__init__": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 246,
-          "line_end": 248,
+          "line_start": 327,
+          "line_end": 329,
           "signature": "def __init__(self, state_dir: str, filename: str='orchestrator_safe.json'):"
         },
         "src.live.orchestrator.SafeModeStore.load": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 250,
-          "line_end": 256,
+          "line_start": 331,
+          "line_end": 337,
           "signature": "def load(self) -> Optional[dict]:"
         },
         "src.live.orchestrator.SafeModeStore.write": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 258,
-          "line_end": 261,
+          "line_start": 339,
+          "line_end": 342,
           "signature": "def write(self, reason: str) -> None:"
         },
         "src.live.orchestrator.SafeModeStore.clear": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 263,
-          "line_end": 268,
+          "line_start": 344,
+          "line_end": 349,
           "signature": "def clear(self) -> None:"
         },
         "src.live.orchestrator.Lock.__init__": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 285,
-          "line_end": 287,
+          "line_start": 366,
+          "line_end": 368,
           "signature": "def __init__(self, lock_path: Path):"
         },
         "src.live.orchestrator.Lock.acquire": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 289,
-          "line_end": 300,
+          "line_start": 370,
+          "line_end": 381,
           "signature": "def acquire(self) -> None:"
         },
         "src.live.orchestrator.Lock.release": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 302,
-          "line_end": 313,
+          "line_start": 383,
+          "line_end": 394,
           "signature": "def release(self) -> None:"
         },
         "src.live.orchestrator.Lock.heartbeat": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 315,
-          "line_end": 322,
+          "line_start": 396,
+          "line_end": 403,
           "signature": "def heartbeat(self) -> None:"
         },
         "src.live.orchestrator.Lock._read": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 324,
-          "line_end": 329,
+          "line_start": 405,
+          "line_end": 410,
           "signature": "def _read(self) -> Optional[LockData]:"
         },
         "src.live.orchestrator.Lock._write": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 331,
-          "line_end": 336,
+          "line_start": 412,
+          "line_end": 417,
           "signature": "def _write(self) -> None:"
         },
         "src.live.orchestrator.Lock._is_stale": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 339,
-          "line_end": 344,
+          "line_start": 420,
+          "line_end": 425,
           "signature": "@staticmethod"
         },
         "src.live.orchestrator.Lock.owned": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 347,
-          "line_end": 348,
+          "line_start": 428,
+          "line_end": 429,
           "signature": "@property"
         },
         "src.live.orchestrator.Orchestrator.__init__": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 369,
-          "line_end": 441,
+          "line_start": 450,
+          "line_end": 524,
           "signature": "def __init__(self, state_dir: str='state', magic: int=9007001, configured_symbols: Optional[List[str]]=None, audit: Optional[AuditChain]=None, config_obj: Optional[OrchestratorConfig]=None, mt5: Any=N"
         },
         "src.live.orchestrator.Orchestrator.startup": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 443,
-          "line_end": 482,
+          "line_start": 526,
+          "line_end": 565,
           "signature": "def startup(self) -> StartupResult:"
         },
         "src.live.orchestrator.Orchestrator._run_phases": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 484,
-          "line_end": 868,
+          "line_start": 567,
+          "line_end": 951,
           "signature": "def _run_phases(self) -> StartupResult:"
         },
         "src.live.orchestrator.Orchestrator.release_lock": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 870,
-          "line_end": 872,
+          "line_start": 953,
+          "line_end": 955,
           "signature": "def release_lock(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator.shutdown": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 874,
-          "line_end": 946,
+          "line_start": 957,
+          "line_end": 1029,
           "signature": "def shutdown(self, exit_code: int=0, reason: str='shutdown') -> None:"
         },
         "src.live.orchestrator.Orchestrator._safe_path": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 950,
-          "line_end": 954,
+          "line_start": 1033,
+          "line_end": 1037,
           "signature": "def _safe_path(self) -> Path:"
         },
         "src.live.orchestrator.Orchestrator._read_safe_mode": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 956,
-          "line_end": 966,
+          "line_start": 1039,
+          "line_end": 1049,
           "signature": "def _read_safe_mode(self) -> Optional[dict]:"
         },
         "src.live.orchestrator.Orchestrator._write_safe_mode": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 968,
-          "line_end": 979,
+          "line_start": 1051,
+          "line_end": 1062,
           "signature": "def _write_safe_mode(self, reason: str) -> None:"
         },
         "src.live.orchestrator.Orchestrator.clear_safe_mode": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 981,
-          "line_end": 988,
+          "line_start": 1064,
+          "line_end": 1071,
           "signature": "def clear_safe_mode(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._build_contract": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 992,
-          "line_end": 1040,
+          "line_start": 1075,
+          "line_end": 1123,
           "signature": "def _build_contract(self, symbol: str) -> Optional[ContractSpec]:"
         },
         "src.live.orchestrator.Orchestrator._warmup": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1044,
-          "line_end": 1250,
+          "line_start": 1127,
+          "line_end": 1333,
           "signature": "def _warmup(self, m1_count: int) -> Tuple[bool, int, dict]:"
         },
         "src.live.orchestrator.Orchestrator._restore_stale_slots": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1254,
-          "line_end": 1274,
+          "line_start": 1337,
+          "line_end": 1357,
           "signature": "def _restore_stale_slots(self) -> int:"
         },
         "src.live.orchestrator.Orchestrator._replay_end_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1276,
-          "line_end": 1283,
+          "line_start": 1359,
+          "line_end": 1366,
           "signature": "def _replay_end_state(self) -> str:"
         },
         "src.live.orchestrator.Orchestrator._cbdr_session_key": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1285,
-          "line_end": 1291,
+          "line_start": 1368,
+          "line_end": 1374,
           "signature": "def _cbdr_session_key(self) -> Optional[str]:"
         },
         "src.live.orchestrator.Orchestrator._cbdr_bias": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1293,
-          "line_end": 1299,
+          "line_start": 1376,
+          "line_end": 1382,
           "signature": "def _cbdr_bias(self) -> Optional[str]:"
         },
         "src.live.orchestrator.Orchestrator._begin_cold_rebuild": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1303,
-          "line_end": 1317,
+          "line_start": 1386,
+          "line_end": 1400,
           "signature": "def _begin_cold_rebuild(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._seed_restore_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1321,
-          "line_end": 1348,
+          "line_start": 1404,
+          "line_end": 1431,
           "signature": "def _seed_restore_state(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._warm_bar_count": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1350,
-          "line_end": 1357,
+          "line_start": 1433,
+          "line_end": 1440,
           "signature": "def _warm_bar_count(self) -> int:"
         },
         "src.live.orchestrator.Orchestrator._rates_to_bars": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1361,
-          "line_end": 1404,
+          "line_start": 1444,
+          "line_end": 1487,
           "signature": "def _rates_to_bars(self, rates: Any) -> List[Bar]:"
         },
         "src.live.orchestrator.Orchestrator.produce_new_bars": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1406,
-          "line_end": 1497,
+          "line_start": 1489,
+          "line_end": 1580,
           "signature": "def produce_new_bars(self) -> List[Bar]:"
         },
         "src.live.orchestrator.Orchestrator._check_bar_gaps": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1499,
-          "line_end": 1525,
+          "line_start": 1582,
+          "line_end": 1608,
           "signature": "def _check_bar_gaps(self, new_bars: List[Any]) -> None:"
         },
         "src.live.orchestrator.Orchestrator._fetch_m1_tri_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1529,
-          "line_end": 1571,
+          "line_start": 1612,
+          "line_end": 1654,
           "signature": "def _fetch_m1_tri_state(self, count: int) -> Tuple[str, Any]:"
         },
         "src.live.orchestrator.Orchestrator._safe": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1575,
-          "line_end": 1591,
+          "line_start": 1658,
+          "line_end": 1674,
           "signature": "def _safe(self, condition: str) -> Tuple[bool, str]:"
         },
         "src.live.orchestrator.Orchestrator.on_new_bar": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1595,
-          "line_end": 1599,
+          "line_start": 1678,
+          "line_end": 1682,
           "signature": "def on_new_bar(self, bar: Bar) -> Any:"
         },
         "src.live.orchestrator.Orchestrator.is_connected": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1601,
-          "line_end": 1610,
+          "line_start": 1684,
+          "line_end": 1693,
           "signature": "def is_connected(self) -> bool:"
         },
         "src.live.orchestrator.Orchestrator._install_signal_handlers": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1614,
-          "line_end": 1622,
+          "line_start": 1697,
+          "line_end": 1705,
           "signature": "def _install_signal_handlers(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._on_signal": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1624,
-          "line_end": 1625,
+          "line_start": 1707,
+          "line_end": 1708,
           "signature": "def _on_signal(self, _signum: Any, _frame: Any) -> None:"
         },
         "src.live.orchestrator.Orchestrator._heartbeat_validated": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1627,
-          "line_end": 1644,
+          "line_start": 1710,
+          "line_end": 1727,
           "signature": "def _heartbeat_validated(self) -> bool:"
         },
         "src.live.orchestrator.Orchestrator._interruptible_sleep": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1646,
-          "line_end": 1661,
+          "line_start": 1729,
+          "line_end": 1744,
           "signature": "def _interruptible_sleep(self, seconds: float, kill_fn) -> bool:"
         },
         "src.live.orchestrator.Orchestrator._recon_decision_for_gate": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1663,
-          "line_end": 1682,
+          "line_start": 1746,
+          "line_end": 1765,
           "signature": "def _recon_decision_for_gate(self) -> ReconciliationDecision:"
         },
         "src.live.orchestrator.Orchestrator._get_spread_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1684,
-          "line_end": 1716,
+          "line_start": 1767,
+          "line_end": 1799,
           "signature": "def _get_spread_state(self, now_dt: datetime) -> Tuple[bool, float]:"
         },
         "src.live.orchestrator.Orchestrator._get_account": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1718,
-          "line_end": 1729,
+          "line_start": 1801,
+          "line_end": 1812,
           "signature": "def _get_account(self) -> Optional[Account]:"
         },
         "src.live.orchestrator.Orchestrator._assert_signal_only": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1731,
-          "line_end": 1739,
+          "line_start": 1814,
+          "line_end": 1822,
           "signature": "def _assert_signal_only(self, res: Any) -> Optional[str]:"
         },
         "src.live.orchestrator.Orchestrator._feed_bars": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1741,
-          "line_end": 1773,
+          "line_start": 1824,
+          "line_end": 1856,
           "signature": "def _feed_bars(self, bars: List[Any], account: Account) -> Optional[int]:"
         },
         "src.live.orchestrator.Orchestrator.run": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1775,
-          "line_end": 2026,
+          "line_start": 1858,
+          "line_end": 2109,
           "signature": "def run(self, kill_switch_fn: Optional[Callable[[], bool]]=None, sleep_fn: Optional[Callable[[float], None]]=None) -> int:"
         },
         "src.live.paper.PaperPosition.to_position": {
@@ -2928,26 +2952,26 @@
         },
         "src.live.persistent_log._mask_sensitive": {
           "file": "src\\live\\persistent_log.py",
-          "line_start": 38,
-          "line_end": 42,
+          "line_start": 43,
+          "line_end": 47,
           "signature": "def _mask_sensitive(msg: str) -> str:"
         },
         "src.live.persistent_log._SensitiveFilter.filter": {
           "file": "src\\live\\persistent_log.py",
-          "line_start": 48,
-          "line_end": 54,
+          "line_start": 53,
+          "line_end": 59,
           "signature": "def filter(self, record: logging.LogRecord) -> bool:"
         },
         "src.live.persistent_log.setup_logging": {
           "file": "src\\live\\persistent_log.py",
-          "line_start": 57,
-          "line_end": 114,
+          "line_start": 62,
+          "line_end": 119,
           "signature": "def setup_logging(log_dir: Optional[str]=None, log_file: Optional[str]=None, level: int=logging.INFO, max_bytes: int=MAX_BYTES, backup_count: int=BACKUP_COUNT) -> logging.Logger:"
         },
         "src.live.persistent_log.get_logger": {
           "file": "src\\live\\persistent_log.py",
-          "line_start": 117,
-          "line_end": 119,
+          "line_start": 122,
+          "line_end": 124,
           "signature": "def get_logger(name: str=LOGGER_NAME) -> logging.Logger:"
         },
         "src.live.portfolio_dd.PortfolioDD.current_dd_r": {
@@ -3844,46 +3868,52 @@
           "line_end": 272,
           "signature": "def shutdown(self):"
         },
+        "tests.conftest._no_telegram_env_for_session": {
+          "file": "tests\\conftest.py",
+          "line_start": 26,
+          "line_end": 33,
+          "signature": "@pytest.fixture(autouse=True, scope='session')"
+        },
         "tests.conftest.FakeRunner.__init__": {
           "file": "tests\\conftest.py",
-          "line_start": 17,
-          "line_end": 21,
+          "line_start": 39,
+          "line_end": 43,
           "signature": "def __init__(self):"
         },
         "tests.conftest.FakeRunner.on_bar": {
           "file": "tests\\conftest.py",
-          "line_start": 23,
-          "line_end": 31,
+          "line_start": 45,
+          "line_end": 53,
           "signature": "def on_bar(self, bar, account):"
         },
         "tests.conftest.FakeRunner.poll_deals": {
           "file": "tests\\conftest.py",
-          "line_start": 33,
-          "line_end": 35,
+          "line_start": 55,
+          "line_end": 57,
           "signature": "def poll_deals(self):"
         },
         "tests.conftest.FakeRunner.sync_trailing": {
           "file": "tests\\conftest.py",
-          "line_start": 37,
-          "line_end": 39,
+          "line_start": 59,
+          "line_end": 61,
           "signature": "def sync_trailing(self):"
         },
         "tests.conftest.kill_after": {
           "file": "tests\\conftest.py",
-          "line_start": 42,
-          "line_end": 50,
+          "line_start": 64,
+          "line_end": 72,
           "signature": "def kill_after(n):"
         },
         "tests.conftest.kill_after.fn": {
           "file": "tests\\conftest.py",
-          "line_start": 46,
-          "line_end": 48,
+          "line_start": 68,
+          "line_end": 70,
           "signature": "def fn():"
         },
         "tests.conftest.fake_runner": {
           "file": "tests\\conftest.py",
-          "line_start": 54,
-          "line_end": 55,
+          "line_start": 76,
+          "line_end": 77,
           "signature": "@pytest.fixture"
         },
         "tests.test_65k_regression_harness.harness_artifact_path": {
@@ -6279,6 +6309,126 @@
           "line_start": 616,
           "line_end": 683,
           "signature": "def test_c3_proceed_semantics_after_successful_rebuild(self, tmp_state: Path, monkeypatch: pytest.MonkeyPatch) -> None:"
+        },
+        "tests.test_orchestrator_d53_alerting._clean_telegram_env": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 25,
+          "line_end": 28,
+          "signature": "@pytest.fixture(autouse=True)"
+        },
+        "tests.test_orchestrator_d53_alerting.test_factory_telegram_env_values_bound": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 34,
+          "line_end": 40,
+          "signature": "def test_factory_telegram_env_values_bound(monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_factory_telegram_no_fallback_warn": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 43,
+          "line_end": 54,
+          "signature": "def test_factory_telegram_no_fallback_warn(monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_factory_console_fallback_single_audit_warn": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 57,
+          "line_end": 69,
+          "signature": "def test_factory_console_fallback_single_audit_warn():"
+        },
+        "tests.test_orchestrator_d53_alerting.test_factory_partial_env_is_fallback": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 72,
+          "line_end": 78,
+          "signature": "def test_factory_partial_env_is_fallback(monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_orchestrator_uses_telegram_when_env_set": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 84,
+          "line_end": 91,
+          "signature": "def test_orchestrator_uses_telegram_when_env_set(tmp_path, monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_orchestrator_fallback_warn_visible_in_audit": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 94,
+          "line_end": 106,
+          "signature": "def test_orchestrator_fallback_warn_visible_in_audit(tmp_path):"
+        },
+        "tests.test_orchestrator_d53_alerting._Captured.__init__": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 113,
+          "line_end": 114,
+          "signature": "def __init__(self):"
+        },
+        "tests.test_orchestrator_d53_alerting._Captured.__call__": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 116,
+          "line_end": 129,
+          "signature": "def __call__(self, req, timeout=None):"
+        },
+        "tests.test_orchestrator_d53_alerting._Captured.__call__._Resp.read": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 120,
+          "line_end": 121,
+          "signature": "def read(self_inner):"
+        },
+        "tests.test_orchestrator_d53_alerting._Captured.__call__._Resp.__enter__": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 123,
+          "line_end": 124,
+          "signature": "def __enter__(self_inner):"
+        },
+        "tests.test_orchestrator_d53_alerting._Captured.__call__._Resp.__exit__": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 126,
+          "line_end": 127,
+          "signature": "def __exit__(self_inner, *a):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_telegram_posts_correct_url_and_payload": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 132,
+          "line_end": 147,
+          "signature": "def test_telegram_posts_correct_url_and_payload(monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_telegram_timeout_never_raises": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 150,
+          "line_end": 162,
+          "signature": "def test_telegram_timeout_never_raises(monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_telegram_timeout_never_raises._boom": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 151,
+          "line_end": 152,
+          "signature": "def _boom(req, timeout=None):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_telegram_exception_never_raises": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 165,
+          "line_end": 177,
+          "signature": "def test_telegram_exception_never_raises(monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_telegram_exception_never_raises._boom": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 166,
+          "line_end": 167,
+          "signature": "def _boom(req, timeout=None):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_alert_failure_never_raises_integration": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 180,
+          "line_end": 195,
+          "signature": "def test_alert_failure_never_raises_integration(tmp_path, monkeypatch):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_alert_failure_never_raises_integration._boom": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 185,
+          "line_end": 186,
+          "signature": "def _boom(req, timeout=None):"
+        },
+        "tests.test_orchestrator_d53_alerting.test_timeout_cap_enforced": {
+          "file": "tests\\test_orchestrator_d53_alerting.py",
+          "line_start": 198,
+          "line_end": 200,
+          "signature": "def test_timeout_cap_enforced():"
         },
         "tests.test_orchestrator_startup.tmp_state": {
           "file": "tests\\test_orchestrator_startup.py",
@@ -9225,11 +9375,11 @@
           "hash": "sha256:209b0111910d7a61"
         },
         "scripts\\validate_variant_D.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:a7b736fa4a55bf3c"
         },
         "scripts\\validate_variant_D_pure.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:a7e2206b0469c1d0"
         },
         "scripts\\verify_p0_1.py": {
@@ -9245,7 +9395,7 @@
           "hash": "sha256:b838bb1528cdb44c"
         },
         "scripts\\verify_phase11_parity_fix.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:c723a88ec65b1c80"
         },
         "src\\main.py": {
@@ -9257,7 +9407,7 @@
           "hash": "sha256:18d8fc88a7d2d2be"
         },
         "src\\test_mt5_data.py": {
-          "last_modified": "2026-08-31T12:19:26",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:fe47a85bfcb59767"
         },
         "src\\backtest\\aggregator.py": {
@@ -9313,7 +9463,7 @@
           "hash": "sha256:04d0998d95c220e1"
         },
         "src\\live\\audit.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:d5d305935b92c580"
         },
         "src\\live\\candle_feed.py": {
@@ -9325,47 +9475,47 @@
           "hash": "sha256:e37e3d38cd9dd438"
         },
         "src\\live\\execution.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:e56e4017ec8c4666"
         },
         "src\\live\\live_runner.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:0cc3952f5475f644"
         },
         "src\\live\\orchestrator.py": {
-          "last_modified": "2026-08-31T07:59:36",
-          "hash": "sha256:26f13d9239762dca"
+          "last_modified": "2026-08-31T15:54:13",
+          "hash": "sha256:8abec499e20db941"
         },
         "src\\live\\paper.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:a4a45830411875ee"
         },
         "src\\live\\parity_gate.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:a7f99d7cdc9c8936"
         },
         "src\\live\\persistent_log.py": {
-          "last_modified": "2026-08-31T12:09:22",
-          "hash": "sha256:2b60c4d56121a866"
+          "last_modified": "2026-08-31T15:54:13",
+          "hash": "sha256:6e1a7e481aa8e4ca"
         },
         "src\\live\\portfolio_dd.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:cfddffb682b77f38"
         },
         "src\\live\\position_manager.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:7cd9210cd36103df"
         },
         "src\\live\\reconciliation.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:2001011120e19af2"
         },
         "src\\live\\recovery.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:34f5a0387ae641fc"
         },
         "src\\live\\risk.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:8c8b03ab645ee9db"
         },
         "src\\live\\run_production.py": {
@@ -9373,11 +9523,11 @@
           "hash": "sha256:823aa51fad0fbeff"
         },
         "src\\live\\safety.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:6a0cdb9a62eaf08d"
         },
         "src\\live\\signal_runner.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:e644740ddeb5e713"
         },
         "src\\live\\sizing.py": {
@@ -9389,11 +9539,11 @@
           "hash": "sha256:d33ba24022a86ca0"
         },
         "src\\live\\strategy_runtime.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:5428a2749d78981d"
         },
         "src\\live\\trade_lifecycle.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:1e3335891eed70fc"
         },
         "src\\live\\trailing_bridge.py": {
@@ -9449,12 +9599,12 @@
           "hash": "sha256:72f06039cda0e6dc"
         },
         "src\\trading\\mt5_connection.py": {
-          "last_modified": "2026-08-31T12:19:26",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:5da7b86d6623fa37"
         },
         "tests\\conftest.py": {
-          "last_modified": "2026-08-30T17:37:50",
-          "hash": "sha256:9b171abf9b14e4ca"
+          "last_modified": "2026-08-31T16:11:51",
+          "hash": "sha256:688cb030314c2141"
         },
         "tests\\test_65k_regression_harness.py": {
           "last_modified": "2026-08-30T02:16:44",
@@ -9469,7 +9619,7 @@
           "hash": "sha256:65ae6da6a632fec7"
         },
         "tests\\test_execution_gate.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:b4ef59d0a32a5cfa"
         },
         "tests\\test_exp5b_research_eq.py": {
@@ -9501,47 +9651,47 @@
           "hash": "sha256:e0cadb7de367b0da"
         },
         "tests\\test_live_audit_safety.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:3ebe62133bf71630"
         },
         "tests\\test_live_candle_feed.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:3824c2b935b5c18e"
         },
         "tests\\test_live_execution.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:5ca781b489243a84"
         },
         "tests\\test_live_paper.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:c1f275a392ba1b1d"
         },
         "tests\\test_live_parity_gate.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:7e87e8d313ee696c"
         },
         "tests\\test_live_portfolio_dd.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:56288c3a7f7b8073"
         },
         "tests\\test_live_position_reconciliation.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:bc9febf0ce6c2dae"
         },
         "tests\\test_live_risk_sizing.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:80e44af1d2eac24d"
         },
         "tests\\test_live_signal_runner.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:c98a0ce9865dba48"
         },
         "tests\\test_live_strategy_runtime.py": {
-          "last_modified": "2026-08-31T12:17:51",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:cc33dc4d30156ddd"
         },
         "tests\\test_m1_ingestion_parity.py": {
-          "last_modified": "2026-08-31T12:17:51",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:a7cd0eabd8d8c6bb"
         },
         "tests\\test_main_research_c_v1_1.py": {
@@ -9549,15 +9699,19 @@
           "hash": "sha256:eb86fafb20b83450"
         },
         "tests\\test_mt5_connection_hardening.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:71443482579cbd25"
         },
         "tests\\test_orchestrator_d49.py": {
           "last_modified": "2026-08-31T11:37:21",
           "hash": "sha256:494be93043381123"
         },
+        "tests\\test_orchestrator_d53_alerting.py": {
+          "last_modified": "2026-08-31T16:19:41",
+          "hash": "sha256:88be239823ee4f18"
+        },
         "tests\\test_orchestrator_startup.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:cb49611b5cd90f5e"
         },
         "tests\\test_orchestrator_tas2.py": {
@@ -9573,23 +9727,23 @@
           "hash": "sha256:9d36c2240536e3c1"
         },
         "tests\\test_p0_1_mt5_trailing.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:6a42d7a675927be3"
         },
         "tests\\test_p0_1_risk_sizing.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:e6911a26e0b08d46"
         },
         "tests\\test_p0_2_lifecycle_wiring.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:cd1559d9d39ad696"
         },
         "tests\\test_p0_2_trade_lifecycle.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:31a327b7b151e3c0"
         },
         "tests\\test_p1_5_timezone.py": {
-          "last_modified": "2026-08-31T12:17:51",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:c03611277c975f2d"
         },
         "tests\\test_p1_dd_rebuild_and_quarantine.py": {
@@ -9609,19 +9763,19 @@
           "hash": "sha256:8c2d2040d534efe7"
         },
         "tests\\test_p2_6_paper_continuity.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:378fc4a1c2ccd9a3"
         },
         "tests\\test_parity_6majors.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:034229d6793e5e17"
         },
         "tests\\test_persistent_logging.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:921bba82a79b449d"
         },
         "tests\\test_startup_snapshot.py": {
-          "last_modified": "2026-08-31T12:09:22",
+          "last_modified": "2026-08-31T12:34:03",
           "hash": "sha256:1675c15efbe23487"
         },
         "tools\\rollback_stageA.py": {
@@ -9657,7 +9811,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-08-31T12:23:24"
+      "last_full_scan": "2026-08-31T16:39:04"
     }
   }
 }

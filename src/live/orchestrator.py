@@ -220,7 +220,8 @@ class ConsoleAlert:
     """Minimal alert sink (Taş 3 Aşama 1): stderr + in-memory log.
 
     Tests observe ``alert.alert_log`` entries (``.level`` / ``.msg``).
-    Real alerting channels (env SNIPER_ALERT routing) are Taş 4+ scope.
+    D53 wires the real channel on top of this sink (``TelegramAlert``);
+    the sink stays canonical so every transport keeps the same log.
     """
 
     def __init__(self, env: str = "SNIPER_ALERT") -> None:
@@ -233,6 +234,86 @@ class ConsoleAlert:
         entry = SimpleNamespace(level=level, msg=msg, ts=time.time())
         self.alert_log.append(entry)
         print(f"[{self.env}][{level}] {msg}", file=sys.stderr)
+
+
+class TelegramAlert(ConsoleAlert):
+    """D53 — Telegram transport over the console sink (urllib POST sendMessage).
+
+    Hard rules (referee spec, S5 lesson):
+
+    - The trading loop must NEVER be blocked or broken by alerting: the POST
+      runs with a ``timeout_sec`` cap (≤ 3 s) and every network exception is
+      swallowed — ``send`` never raises.
+    - Silent fallback is forbidden: on the first transport failure the alert
+      is disabled once (``_dead``) and a visible console WARN is recorded
+      (no per-message spam, no recursion).
+    - ``alert_log`` / stderr behaviour is inherited unchanged, so existing
+      call sites and tests keep observing the same entries.
+    """
+
+    def __init__(
+        self,
+        bot_token: str,
+        chat_id: str,
+        env: str = "SNIPER_ALERT",
+        timeout_sec: float = 3.0,
+    ) -> None:
+        super().__init__(env)
+        self.bot_token = bot_token
+        self.chat_id = chat_id
+        # Spec cap: a network call must never stall the loop beyond 3 s.
+        self.timeout_sec = min(float(timeout_sec), 3.0)
+        self._dead = False
+
+    def send(self, level: str, msg: str) -> None:
+        super().send(level, msg)  # console sink stays canonical first
+        if self._dead:
+            return
+        try:
+            self._post(level, msg)
+        except Exception as e:  # noqa: BLE001 - never propagate into trading
+            self._dead = True  # one-time visible degradation, never raises
+            super().send(
+                "WARN",
+                f"telegram transport disabled ({type(e).__name__}) — console-only fallback",
+            )
+
+    def _post(self, level: str, msg: str) -> None:
+        import urllib.parse
+        import urllib.request
+
+        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        body = urllib.parse.urlencode(
+            {"chat_id": self.chat_id, "text": f"[{self.env}][{level}] {msg}"}
+        ).encode("utf-8")
+        req = urllib.request.Request(url, data=body, method="POST")
+        with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
+            resp.read()
+
+
+def _build_alert_transport(env: str, audit: Optional[AuditChain] = None) -> ConsoleAlert:
+    """D53 factory: TelegramAlert when TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
+    are both set (via .env / environment), otherwise ConsoleAlert.
+
+    The fallback must be VISIBLE (S5: sessiz fallback YASAK): exactly one
+    audit WARN event is appended when the Telegram env pair is absent.
+    """
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if token and chat_id:
+        return TelegramAlert(token, chat_id, env)
+    if audit is not None:
+        audit.append(
+            time.time(),
+            EventType.STARTUP,
+            None,
+            {
+                "phase": "alerting",
+                "verdict": "CONSOLE_FALLBACK",
+                "reason": "telegram_env_unset",
+            },
+        )
+    return ConsoleAlert(env)
 
 
 class SafeModeStore:
@@ -438,7 +519,9 @@ class Orchestrator:
         self._feed_cap_alerted: bool = False
         self._ladder_alerted: bool = False
         self._safety: Optional[Any] = None
-        self.alert = ConsoleAlert(self.config.alert_env)
+        # D53: Telegram transport when TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are
+        # configured; visible console fallback otherwise (single audit WARN).
+        self.alert = _build_alert_transport(self.config.alert_env, self.audit)
 
     def startup(self) -> StartupResult:
         """Run S0→S11 startup sequence with lock ownership contract.
