@@ -891,3 +891,63 @@ Sonrası doğrulama: git log --oneline origin/main..HEAD → BOŞ beklenir;
   git ls-remote origin main → 5136094 beklenir. İki çıktı Aşama 1'in imzasıdır.
 Onay: HAKEM — bu sohbet, final gate.
 ```
+
+## D49 FINAL — COLD-REBUILD HOLE FIX (B-1) + PUSH (2026-08-31)
+
+- **B-1**: `_begin_cold_rebuild()` (orchestrator.py) — stale/partial restore'da
+  `_seen_bar_slots.clear()` + `_global_bar_index=0` + `_last_15m_ts=None` +
+  FRESH `StrategyRuntime` + `_runtime_restored=False`; lifecycle dokunuşsuz (D6).
+  İki çağrı noktası: S7 partial-restore dalı + S9 staleness gate (`warm_skip=False`).
+  Kök neden: `_seed_restore_state()` restore slotlarını seen'a ekliyordu →
+  reindexed loop seen-skip ile restore dönemini ATLADIYOR → delikli runtime.bars
+  → O2 replay delikli stream'den bias/ATR/session üretiyordu.
+- **T1/T4 hole-assertion'ları**: T1 restored-slot varlığı + `_assert_no_slot_gaps`
+  (fake history 1700' — guard vakumda değil); T4 tamlık + oldest-slot full-coverage.
+  KRİTİK KANIT: T4 ilk tam süitte KIRMIZIYDI (8 fail) → B-1 ile YEŞİL. Delik artık
+  görünmez kalamaz.
+- Regresyon (committed blob üzerinde): d49 8/8 · orchestrator grubu 92/92 ·
+  push-öncesi son koşum 98/98 (startup+tas2+tas3+tas4+snapshot) ·
+  tam süit `tests/` = **7 failed, 464 passed, 1 skipped** (668s).
+  Fail listesi = pin'li 7 (2×e2e_live_chain + 5×canonical research) — baseline'la
+  BİREBİR; tek diff T4 failed→passed (B-1 kanıtı). R-1 dürüst ifadesi: 7 fail
+  düzeltilmedi, kapsam dışı/pin'li kaldı; beklenen liste buydu ve çıktı.
+- **COMMIT**: `b36c7c4` "D49: boot-time sync replay (O2) + restore staleness
+  gate — C1-C6, B-1" — yalnız 4 dosya (orchestrator.py, test_orchestrator_d49.py
+  yeni, test_orchestrator_tas2.py T6-update, index.json). 35+ formatting-only
+  modified dosya stage DIŞI (rambling check). Ayrı commit, piece-1 amend yok.
+- **PUSH**: onaylı (hakem, bu sohbet) — `b9d15a3..b36c7c4 main -> main`.
+  İmzalar: `git log origin/main..HEAD` → BOŞ · `git ls-remote origin main` →
+  `b36c7c4176c8b5c362a9512fe545330aa4354cdd`. N2 policy ikinci uygulaması.
+
+### INCIDENT — code-index-system watcher (kayıt, hakem talimatı)
+
+- `tools/code-index-system/watcher.py` arka planda çalışıyordu (PID 10408) ve
+  `index.json`'ı **bayat 658-fonksiyonluk üretimle** staged 1507-fonksiyonluk
+  blob'un ÜZERİNE ezdi → pre-commit stash-restore çakışması → **iki commit
+  rollback'i** (1. deneme: hook auto-fix + conflict; 2. deneme: aynı).
+- Çözüm: watcher kill (PID 10408), staged index blob'u worktree'ye geri alındı,
+  3. deneme temiz geçti → `b36c7c4`.
+- **KARAR (hakem): watcher KAPALI kalacak, soak boyunca da kapalı.**
+  Gerekçe: (1) kanıtlanmış tehlike; (2) index.json atomic-commit disiplinine
+  bağlı — commit anında dışarıdan mutasyona açık tek dosya; (3) soak'ta index
+  işlevi yok (MCP navigation artifact, runtime'a girmiyor). Index gerektiğinde
+  MANUEL: `cd tools/code-index-system && python index_builder.py --config
+  config.json --full` (commit ÖNCESİ, aynı protokol). Soak sonunda değerlendirilir.
+- **HOOK HIJYENİ (Aşama 2 backlog)**: format değişikliği commit anında hook'a
+  bırakılmayacak — `ruff format` stage'den ÖNCE elle koşulacak (veya hook
+  `--check` moduna alınacak); commit-anı mutasyonu sıfır, stash koreografisi
+  gereksizleşir.
+
+### SOAK START GATE (3 şart, sıra önemli) — D49 MERGE sonrası açık kalemler
+
+1. **C2 end-state policy** — Forexçi YAZILI karar: simüle `active_trade`
+   (O2 replay end-state) canlı girişleri bastırır mı? Mimari hazır:
+   COLD_REBUILD_OK + replay_report `end_state` alanı.
+2. **P0 teşhis** — 5 canonical causality fail'i: differential + blame
+   (paralel koşabilir).
+3. **Tag'li parity** — P0 çözülünce tag + artifact bağlama.
+- Paralel: **S10 boot-replay ölçümü** (~4.330 on_bar/boot — soak ilk raporunda
+  sayı gelsin) · runbook'a `restore_staleness_slots` semantiği (2-slot tolerans
+  penceresi; 0 = her gap rebuild).
+- N-a notu: COLD_REBUILD_OK + final STARTUP = bir boot'ta iki STARTUP event
+  (kabul); SHUTDOWN-dedupe'nin "one-per-kind" genellemesi Aşama 2'ye.
