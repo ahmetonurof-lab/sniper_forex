@@ -1157,3 +1157,38 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
 - **SET (N2 #6, §9.5 — 7 hash, Hakem onayı bu mesajla):**
   {2f26da9, b81308b, b50b3bb, a94ab4b, 8610951, <chore>, <D54>}. Push →
   §9.2 zinciri → defter N2 #6 → FREEZE push'lanmış HEAD'de → GATE 4 şart.
+
+## D53/D54 PUSH KAYDI — N2 #6 + FREEZE YENİ HEAD'DE (2026-08-31)
+
+- **who/what/when:** Luna (executing agent) — Hakem yazılı onayıyla (bu
+  sohbet, D53-Final mesajı, "set 6 hash" + D54 ile 7'ye genişletme emri) —
+  2026-08-31 ~17:05 +0300.
+- **SET (7 commit, §9.5 hash-hash):**
+  - `2f26da9` chore: ledger — N2 #5 push record, freeze ACTIVE (önceki onaylı set)
+  - `b81308b` protocol: AGENTS.md — agent operating contract (önceki onaylı set)
+  - `b50b3bb` chore: ledger — soak status audit, role-chain (önceki onaylı set)
+  - `a94ab4b` chore: memory-bank — soak-start runbook (önceki onaylı set)
+  - `8610951` D53: TelegramAlert transport + visible fallback (5 files, +636/−172)
+  - `2c3f779` chore: memory-bank — D53 record + runbook bot-START (2 files, +86/−2)
+  - `402aa6a` chore(tools): D54 pathspec declared + loud-fail (5 files, +209/−11)
+- **PUSH (N2 altıncı uygulama):** `b89895a..402aa6a main -> main` →
+  github.com/ahmetonurof-lab/sniper_forex.
+- **İMZALAR (§9.2 post-push):** `git log origin/main..HEAD` → **BOŞ** ·
+  `git ls-remote origin main` → `402aa6a6766c21fe62db8835141525b5e7f054d4`
+  = local HEAD. Working tree clean (tracked). Remote HEAD güncel.
+- **Set büyümesi beyanı (§9.5):** onaylı 4'lü set → 6'ya (D53) → 7'ye
+  (D54, Hakem'in aynı mesajla verdiği ek-üye kararı). Her büyüme Hakem
+  onaylı; unauthorized ride-along commit YOK — 7 commit'in 7'si de
+  isim-isim onay metninde.
+- **D54 precondition beyanı:** `tools/` ilk kez track edildi
+  (`gitignore_utils.py`); `index_builder.py`/`config.json` hâlâ untracked
+  → "tracked artifact ← untracked generator" provenance sorusu AÇIK
+  (kendi kendine kapsam genişletilmedi, hakeme raporlandı).
+- **FREEZE: AKTİF — yeni HEAD `402aa6a`.** src/ + tests/ + index.json
+  donduruldu (soak başlangıcında fiilen uygulanacak; gate 4 şartı açık).
+  memory-bank writable. Kod değişikliği = soak durur → tam süit → commit →
+  ayrı push onayı.
+- **GATE durumu (4 şart):** ① C2 policy — Forexçi yazılı kararı BEKLİYOR ·
+  ② P0 teşhis — paralel · ③ tag'li parity — ②'ye bağlı ·
+  ④ Telegram seviye-1 — OPERATÖR START adımı BEKLİYOR (bot'a hiç yazılmadı;
+  smoke `sendMessage` → 400 chat-not-found). ①④ kapanmadan soak start yok.
