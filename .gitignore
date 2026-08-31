@@ -15,3 +15,7 @@ env/
 
 # Logs
 logs/
+
+# Run/test logs (soak hygiene — kanıt özeti memory-bank'te yaşar)
+pytest_*.log
+d49_*_*.txt
