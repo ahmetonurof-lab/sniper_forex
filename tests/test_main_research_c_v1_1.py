@@ -6,9 +6,13 @@ Covers (per the task spec):
   2. DD scaling threshold/multiplier tests (all 4 tiers + boundaries).
   3. zero-DD / full-risk state.
   4. each scaling tier (x1.0 / x0.5 / x0.25 / PAUSE).
-  5. chronology / same-bar causality (no-lookahead, exit-timestamp order).
+  5. chronology / same-bar causality (no-lookahead, event-stream order).
   6. deterministic replay (same input -> same output).
   7. C v1.0 vs C v1.1 head-to-head parity (trade identity, scaling delta).
+  8. FAIL-FAST negatives (arbitration (b), 2026-08-31): backdated-exit
+     invariant (ValueError + audit ERROR) and the dropped-signal gate —
+     the fixtures here all use REAL-DATA ordering (entry_ts <= exit_ts);
+     illegal ordering is exercised ONLY by the negative tests.
 """
 
 from __future__ import annotations
@@ -32,7 +36,9 @@ from experiment.main_research_c_v1_1 import (  # noqa: E402
     DD_T1,
     DD_T2,
     DD_T3,
+    MAX_DROPPED_SIGNALS,
     _derive_entry_ts,
+    _enforce_dropped_signal_policy,
     apply_dd_scaling,
     compute_dd_multiplier,
     compute_stats_v11,
@@ -320,28 +326,33 @@ def test_apply_dd_scaling_sorts_by_exit_timestamp():
 
 
 def test_apply_dd_scaling_same_bar_causality():
-    """Strictly-before-entry causality (Patch #9): a trade's own PnL
-    is never used to scale itself (via the `applied < k` guard),
-    but OTHER trades that closed before this trade's entry DO
-    contribute (via `exit < entry`).
+    """Same-bar causality under the single-curve event-stream semantics
+    (rewrite, arbitration (b) — the old fixture used a backdated exit
+    (exit=50 < entry=55) which the entry<=exit invariant now rejects).
 
-    Two trades with exit_ts=50, entry_ts=55, sorted by exit then id puts
-    t1 (id=1) before t2 (id=2). With the pointer-free bisect causality
-    (j = min(bisect_left(EX, entry), pos)):
-      t1 (k=0): no advance. dd=0, x1, pnl=-3.
-      t2 (k=1): t1 prior (applied=0<1, 50<55 YES). equity=97, peak=100.
-                 dd=3. 3>2 YES, 3>4 NO -> x0.5, pnl=0.5.
-    t1's -3 IS included in t2's DD (different trade, different
-    index), but t1's -3 is NOT included in t1's own DD (the
-    `applied < k` guard prevents self-advancement).
+    Real-data ordering: both trades share entry=55, exit=60, and a third
+    trade closes at 54 (strictly before the entries). At the shared
+    timestamp 55, ENTRY priority 0 < EXIT priority 1 means the prior
+    trade's exit at 54 IS visible to both entries; at timestamp 60 both
+    EXITs fire with their locked multipliers.
+
+      prior: entry=10, exit=54, pnl=-3 -> DD=0 -> x1, equity=97, peak=100
+      t1:    entry=55 -> dd=3 (>2) -> x0.5, exit pnl=-1.5, equity=95.5
+      t2:    entry=55 -> same dd=3 -> x0.5, exit pnl=+0.5 (pnl_r=1.0)
     """
-    t1 = _mk_trade(1, entry_ts=55.0, exit_ts=50.0, pnl_r=-3.0, result="LOSS")
-    t2 = _mk_trade(2, entry_ts=55.0, exit_ts=50.0, pnl_r=1.0)
-    surviving, paused, n1, n05, n025 = apply_dd_scaling([t1, t2], entry_ts=[55.0, 55.0])
+    prior = _mk_trade(0, entry_ts=10.0, exit_ts=54.0, pnl_r=-3.0, result="LOSS")
+    t1 = _mk_trade(1, entry_ts=55.0, exit_ts=60.0, pnl_r=-3.0, result="LOSS")
+    t2 = _mk_trade(2, entry_ts=55.0, exit_ts=60.0, pnl_r=1.0)
+    surviving, paused, n1, n05, n025 = apply_dd_scaling(
+        [prior, t1, t2], entry_ts=[10.0, 55.0, 55.0]
+    )
     assert paused == 0
-    assert n1 == 1  # t1
-    assert n05 == 1  # t2 (DD=3 > 2 -> x0.5)
-    assert [t.pnl_r for t in surviving] == [-3.0, 0.5]
+    assert n1 == 1  # prior (DD=0 at entry=10)
+    assert n05 == 2  # t1 and t2 both enter at 55 with realized dd=3
+    by_id = {(t.symbol, t.trade_id): t.pnl_r for t in surviving}
+    assert by_id[("TEST", 0)] == -3.0
+    assert by_id[("TEST", 1)] == -1.5
+    assert by_id[("TEST", 2)] == 0.5
 
 
 def test_apply_dd_scaling_preserves_trade_identity():
@@ -699,75 +710,114 @@ def test_G_main_global_single_scaling_pass_via_main_contract():
 
 
 def _reference_dd_and_mult(trades, entry_ts, starting_balance=100.0):
-    """INDEPENDENT reference implementing the production realized equity walk.
+    """INDEPENDENT O(N^2) reference implementing the production realized
+    equity walk (single-curve semantics, arbitration (b)).
 
-    Single global (equity, peak, dd) state updated ONLY by ACCEPTED trades'
-    SCALED pnl_r (= base_pnl × multiplier) at their exit. PAUSED trades
-    contribute ZERO to the state. Current trade excluded by strict exit<entry.
+    For every completed trade T, the multiplier is recomputed FROM SCRATCH:
+    the realized state at T's entry is rebuilt by applying, in
+    (exit_ts, symbol, trade_id) order, the SCALED pnl of every completed
+    trade E with STRICTLY earlier exit (exit_E < entry_T), where E's own
+    multiplier comes from the same rule (well-founded because
+    entry_E <= exit_E < entry_T). PAUSED trades contribute ZERO.
 
-    This is the correct semantics verified against production portfolio_dd.py:
-    record_realized(pnl_r) is called only after a closed/executed position;
-    a PAUSED trade (blocked before entry) never calls it → its pnl_r is
-    never in the realized DD state.
+    This deliberately does NOT share code with production's event-stream
+    walk (no event list, no lock dict, no single pass): independence is
+    the point of an O(N^2) reference. The old exit-order-walk reference
+    was NOT equivalent to production — with same-timestamp ties it applied
+    an exit BEFORE a same-ts entry, violating the strict-< rule that the
+    ENTRY-priority-0 ordering enforces.
     """
-    completed = [
-        (t, e) for t, e in zip(trades, entry_ts) if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
-    ]
     from experiment.main_research_c_v1_1 import _to_float_ts, compute_dd_multiplier
 
-    def keyf(p):
-        return (_to_float_ts(p[0].exit_timestamp), str(p[0].symbol), int(p[0].trade_id))
+    completed = [
+        (t, _to_float_ts(e), _to_float_ts(t.exit_timestamp))
+        for t, e in zip(trades, entry_ts)
+        if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
+    ]
 
-    completed.sort(key=keyf)
+    def exit_key(p):
+        return (p[2], str(p[0].symbol), int(p[0].trade_id))
+
+    def entry_key(p):
+        return (p[1], str(p[0].symbol), int(p[0].trade_id))
+
+    mult = {}
+
+    def dd_at_entry(entry_float, self_t):
+        equity = starting_balance
+        peak = starting_balance
+        prior = sorted(
+            (p for p in completed if p[2] < entry_float and p[0] is not self_t),
+            key=exit_key,
+        )
+        for e_t, e_entry, e_exit in prior:
+            m = mult[(str(e_t.symbol), int(e_t.trade_id))]
+            if m > 0.0:
+                equity += e_t.pnl_r * m
+                if equity > peak:
+                    peak = equity
+        return peak - equity
+
+    for t, entry_float, _exit_float in sorted(completed, key=entry_key):
+        dd_now = dd_at_entry(entry_float, t)
+        m = compute_dd_multiplier(dd_now)
+        mult[(str(t.symbol), int(t.trade_id))] = m
 
     out = {}
-    equity = starting_balance
-    peak = starting_balance
-
-    for t, e in completed:
-        dd_now = peak - equity
-        m = compute_dd_multiplier(dd_now)
-        if m == 0.0:
-            out[(t.symbol, t.trade_id)] = (dd_now, 0.0, True)
-            continue
-        scaled = t.pnl_r * m
-        equity += scaled
-        if equity > peak:
-            peak = equity
-        out[(t.symbol, t.trade_id)] = (dd_now, m, False)
+    for t, entry_float, _exit in completed:
+        key = (str(t.symbol), int(t.trade_id))
+        dd_now = dd_at_entry(entry_float, t)
+        m = mult[key]
+        out[key] = (dd_now, m, m == 0.0)
     return out
 
 
 def test_A_later_exit_position_still_prior_to_entry():
-    """Counterexample from the correctness patch: a prior trade whose exit
-    order POSITION is after the current trade's can still be prior-to-entry
-    and MUST be included in the current trade's DD.
+    """ALL trades whose EXIT is strictly before the current trade's ENTRY
+    contribute to its DD — the contribution set is timestamp-driven, never
+    position-capped. (Name predates the entry<=exit invariant; the old
+    fixture used C exit=10 < entry=20, a backdated exit that now raises —
+    see test_backdated_exit_raises_invariant. Rewritten with real-data
+    ordering.)
 
-    C: entry=20, exit=10, pnl=-1
-    B: entry=5,  exit=15, pnl=+1
-    B exits (15) BEFORE C's entry (20) -> B MUST contribute to C's DD.
-    Exit order is [C(exit10), B(exit15)] (C sorts first), but that must
-    NOT exclude B from C's DD (the old `pos` cap bug did this).
+      D: entry=1,  exit=10, pnl=-5 -> dd=0 -> x1;   equity=95,  peak=100
+      E: entry=2,  exit=15, pnl=+2 -> dd=0 -> x1;   equity=97,  peak=100
+      C: entry=20, exit=25, pnl=-1 -> dd=3 -> x0.5; scaled -0.5
+    Both D and E exit before C's entry, so both must be in C's realized
+    state (peak=100, equity=97 -> dd=3). A position-capped implementation
+    (the old `pos` cap bug) would drop E from C's DD because E's exit
+    position is after C's own... it cannot: the event stream is ordered by
+    timestamp.
     """
-    c = _mk_trade(1, entry_ts=20.0, exit_ts=10.0, pnl_r=-1.0, result="LOSS")
-    b = _mk_trade(2, entry_ts=5.0, exit_ts=15.0, pnl_r=1.0)
-    surviving, paused, n1, n05, n025 = apply_dd_scaling([c, b], entry_ts=[20.0, 5.0])
-    # C's DD: B's +1R is included -> equity=101, peak=101, dd=0 -> x1.
-    # B's DD: no other trade exited before entry=5 -> dd=0 -> x1.
-    assert n1 == 2
+    d = _mk_trade(1, entry_ts=1.0, exit_ts=10.0, pnl_r=-5.0, result="LOSS")
+    e = _mk_trade(2, entry_ts=2.0, exit_ts=15.0, pnl_r=2.0)
+    c = _mk_trade(3, entry_ts=20.0, exit_ts=25.0, pnl_r=-1.0, result="LOSS")
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([c, d, e], entry_ts=[20.0, 1.0, 2.0])
     assert paused == 0
-    pnls = sorted(t.pnl_r for t in surviving)
-    assert pnls == [-1.0, 1.0]
+    assert n1 == 2  # d, e
+    assert n05 == 1  # c (dd=3 at entry=20)
+    by_id = {(t.symbol, t.trade_id): t.pnl_r for t in surviving}
+    assert by_id[("TEST", 1)] == -5.0
+    assert by_id[("TEST", 2)] == 2.0
+    assert by_id[("TEST", 3)] == -0.5
 
 
 def test_B_self_exclusion():
-    """A trade's own PnL must never enter its own DD state."""
-    c = _mk_trade(1, entry_ts=20.0, exit_ts=10.0, pnl_r=-1.0, result="LOSS")
-    surviving, paused, n1, n05, n025 = apply_dd_scaling([c], entry_ts=[20.0])
-    # Only C; no other trade -> dd=0 -> x1. The -1R does NOT feed its own DD.
+    """A trade's own PnL must never enter its own DD state.
+
+    Rewritten under the entry<=exit invariant (the old fixture used
+    exit=10 < entry=20 — a backdated exit that now raises). Strengthened:
+    the trade's own loss is large enough to trigger PAUSE (dd=7 > 6) if it
+    leaked into its own DD. Under the event-stream walk its EXIT happens
+    strictly after its ENTRY, so it sees dd=0 -> x1.
+    """
+    c = _mk_trade(1, entry_ts=10.0, exit_ts=20.0, pnl_r=-7.0, result="LOSS")
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([c], entry_ts=[10.0])
+    # Only C; no other trade -> dd=0 -> x1. The -7R does NOT feed its own DD
+    # (if it did, dd=7 > 6 -> paused and C would be absent from surviving).
     assert n1 == 1
     assert paused == 0
-    assert surviving[0].pnl_r == -1.0
+    assert surviving[0].pnl_r == -7.0
 
 
 def test_C_same_timestamp_excluded():
@@ -792,7 +842,12 @@ def test_D_arbitrary_input_order_invariant():
     ets = []
     for i in range(12):
         exit_ts = float(random.randint(0, 200))
-        entry_ts = exit_ts + float(random.randint(1, 30))
+        # Real-data ordering: entry <= exit (the old fixture used
+        # entry = exit + offset, i.e. BACKDATED exits, which made every
+        # trade fail the entry<=exit invariant and be silently dropped —
+        # so the "invariance" assertion compared two empty results and was
+        # vacuously green. Flipped to exit - offset.)
+        entry_ts = exit_ts - float(random.randint(1, 30))
         pnl = random.choice([2.0, -4.0, 3.0, -6.0, 1.0])
         t = _mk_trade(
             i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl, result="LOSS" if pnl < 0 else "TP"
@@ -805,6 +860,9 @@ def test_D_arbitrary_input_order_invariant():
         return (sorted(round(t.pnl_r, 6) for t in s), p, a, b, c)
 
     base = scaled_multiset(trades, ets)
+    # Non-vacuity guard: with valid ordering the fixture must produce real
+    # work — otherwise this test silently degenerates to empty==empty again.
+    assert len(base[0]) > 0, "fixture produced no surviving completed trades"
     for _ in range(10):
         perm = list(range(12))
         random.shuffle(perm)
@@ -824,7 +882,11 @@ def test_E_brute_force_reference_zero_mismatch():
     ets = []
     for i in range(60):
         exit_ts = float(random.randint(0, 1000))
-        entry_ts = exit_ts + float(random.randint(0, 60))
+        # Real-data ordering: entry <= exit (old fixture used entry = exit +
+        # offset — backdated exits, which production silently dropped while
+        # the reference replayed them, i.e. the red-vs-green asymmetry that
+        # the arbitration probe exposed). Flipped to exit - offset.
+        entry_ts = exit_ts - float(random.randint(0, 60))
         pnl = random.choice([1.0, 2.0, -3.0, -5.0, 1.5, -7.0])
         t = _mk_trade(
             i + 1, entry_ts=entry_ts, exit_ts=exit_ts, pnl_r=pnl, result="LOSS" if pnl < 0 else "TP"
@@ -868,16 +930,88 @@ def test_open_trades_excluded_from_entry_correspondence():
 
 
 def test_tie_break_exit_symbol_trade_id_deterministic():
-    """Trades with identical exit timestamps resolve by (symbol, trade_id)
-    in the prior-trade replay, giving a stable, platform-independent result."""
-    # Two trades same exit=50, different symbols/ids.
-    t1 = _mk_trade(1, entry_ts=60.0, exit_ts=50.0, pnl_r=-7.0, result="LOSS", symbol="SYMA")
-    t2 = _mk_trade(2, entry_ts=60.0, exit_ts=50.0, pnl_r=1.0, symbol="SYMB")
-    r1 = apply_dd_scaling([t1, t2], entry_ts=[60.0, 60.0])
-    r2 = apply_dd_scaling([t2, t1], entry_ts=[60.0, 60.0])
+    """Trades with identical EXIT timestamps resolve by (symbol, trade_id)
+    in the event stream, giving a stable, platform-independent realized
+    equity walk. Rewritten under the entry<=exit invariant (the old fixture
+    used exit=50 < entry=60 — backdated — and asserted bisect-era paused
+    semantics that the single-curve walk does not produce).
+
+    Construction (all exit >= entry):
+      t1 (SYMA, id=1): entry=10, exit=50, pnl=-7 -> x1 (dd=0 at entry)
+      t2 (SYMB, id=2): entry=10, exit=50, pnl=+5 -> x1 (dd=0 at entry)
+      t3 (TEST, id=3): entry=60, exit=70, pnl=+1 -> sees BOTH t1/t2 exits
+    At ts=50 the EXIT events order by (symbol, trade_id): SYMA#1 (-7)
+    BEFORE SYMB#2 (+5). Equity path: 100 -> 93 -> 98, peak stays 100,
+    so t3 at entry=60 sees dd=(100-98)/100*100=2.0 -> x1.0 -> +1.0.
+    A reversed tie-break (+5 first) would push peak to 105 and give
+    t3 dd=(105-98)/105*100=6.67% > 6 -> PAUSE — so t3's survival at x1
+    PROVES the documented order. Input-order permutations are identical.
+    """
+    t1 = _mk_trade(1, entry_ts=10.0, exit_ts=50.0, pnl_r=-7.0, result="LOSS", symbol="SYMA")
+    t2 = _mk_trade(2, entry_ts=10.0, exit_ts=50.0, pnl_r=5.0, symbol="SYMB")
+    t3 = _mk_trade(3, entry_ts=60.0, exit_ts=70.0, pnl_r=1.0, symbol="TEST")
+    r1 = apply_dd_scaling([t1, t2, t3], entry_ts=[10.0, 10.0, 60.0])
+    r2 = apply_dd_scaling([t2, t1, t3], entry_ts=[10.0, 10.0, 60.0])
     # Paused/tier counts identical regardless of input order.
     assert (r1[1], r1[2], r1[3], r1[4]) == (r2[1], r2[2], r2[3], r2[4])
-    # t1 (loss -7) is prior to t2 in (exit,symbol,id) order -> t2's DD
-    # includes it (dd=7>6 -> PAUSE). t1's own DD=0 -> x1. So x1=1, paused=1.
-    assert r1[2] == 1  # x1
-    assert r1[1] == 1  # paused
+    assert r1[1] == 0  # paused — a reversed tie-break would pause t3
+    assert r1[2] == 3  # x1: t1, t2 (dd=0) and t3 (dd=2.0, at the boundary)
+    assert r1[3] == 0 and r1[4] == 0
+    by_id = {(t.symbol, t.trade_id): t.pnl_r for t in r1[0]}
+    assert by_id[("TEST", 3)] == 1.0
+
+
+# ── 8. FAIL-FAST negatives (arbitration (b), 2026-08-31) ─────────
+
+
+def test_backdated_exit_raises_invariant(caplog):
+    """A COMPLETED trade with entry_ts > exit_ts (backdated exit) is an
+    illegal state: apply_dd_scaling must raise ValueError and log an audit
+    ERROR — never silently drop the trade (§19 silent-fallback closure)."""
+    import logging
+
+    good = _mk_trade(1, entry_ts=5.0, exit_ts=10.0, pnl_r=-2.0, result="LOSS")
+    bad = _mk_trade(2, entry_ts=50.0, exit_ts=40.0, pnl_r=3.0)  # exit < entry
+    with caplog.at_level(logging.ERROR, logger="experiment.main_research_c_v1_1"):
+        with pytest.raises(ValueError, match="invariant violated"):
+            apply_dd_scaling([good, bad], entry_ts=[5.0, 50.0])
+    msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR]
+    assert any("INVARIANT VIOLATION" in m and "trade_id=2" in m for m in msgs), msgs
+
+
+def test_open_trade_is_exempt_from_invariant():
+    """The entry<=exit invariant applies to COMPLETED trades only: an OPEN
+    trade (excluded from scaling by result) must not trigger the check —
+    real data carries OPEN rows with placeholder exit timestamps."""
+    t_open = _mk_trade(1, entry_ts=90.0, exit_ts=20.0, pnl_r=0.0, result="OPEN")
+    t_win = _mk_trade(2, entry_ts=30.0, exit_ts=40.0, pnl_r=5.0)
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([t_open, t_win], entry_ts=[90.0, 30.0])
+    assert len(surviving) == 1
+    assert surviving[0].trade_id == 2
+    assert n1 == 1 and paused == 0
+
+
+def test_entry_equal_exit_is_legal():
+    """entry_ts == exit_ts (same-bar close) is LEGAL ordering (invariant is
+    entry > exit only) and must not raise — the strict < DD rule, not the
+    invariant, governs same-timestamp contribution."""
+    t = _mk_trade(1, entry_ts=20.0, exit_ts=20.0, pnl_r=-4.0, result="LOSS")
+    surviving, paused, n1, n05, n025 = apply_dd_scaling([t], entry_ts=[20.0])
+    assert n1 == 1 and paused == 0
+    assert surviving[0].pnl_r == -4.0
+
+
+def test_dropped_signal_policy_gate_direct():
+    """The silent-drop defence gate is unreachable through apply_dd_scaling
+    (the invariant raises first) — exercised directly as defence-in-depth.
+    Zero tolerance: any drop fails; the limit is configurable for tests."""
+    with pytest.raises(RuntimeError, match="fail-fast"):
+        _enforce_dropped_signal_policy([("SYMA", 7)])
+    _enforce_dropped_signal_policy([])  # no drops -> no raise
+    _enforce_dropped_signal_policy([("SYMA", 7)], max_dropped=1)  # under limit
+
+
+def test_max_dropped_signals_is_zero():
+    """The shipped policy is ZERO tolerance (§19): a non-zero default here
+    would silently re-open the drop hole the arbitration closed."""
+    assert MAX_DROPPED_SIGNALS == 0

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-31T17:26:05",
+  "generated_at": "2026-08-31T21:00:33",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -960,62 +960,68 @@
         },
         "experiment.main_research_c_v1_1.compute_dd_multiplier": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 209,
-          "line_end": 227,
+          "line_start": 265,
+          "line_end": 283,
           "signature": "def compute_dd_multiplier(dd_now: float) -> float:"
         },
         "experiment.main_research_c_v1_1._to_float_ts": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 230,
-          "line_end": 239,
+          "line_start": 286,
+          "line_end": 295,
           "signature": "def _to_float_ts(t) -> float:"
+        },
+        "experiment.main_research_c_v1_1._enforce_dropped_signal_policy": {
+          "file": "experiment\\main_research_c_v1_1.py",
+          "line_start": 298,
+          "line_end": 324,
+          "signature": "def _enforce_dropped_signal_policy(dropped: List[Tuple[str, int]], max_dropped: int=MAX_DROPPED_SIGNALS) -> None:"
         },
         "experiment.main_research_c_v1_1._exit_order_key": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 242,
-          "line_end": 261,
+          "line_start": 327,
+          "line_end": 347,
           "signature": "def _exit_order_key(t: BenchmarkTrade) -> Tuple[float, str, int]:"
         },
         "experiment.main_research_c_v1_1.apply_dd_scaling": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 264,
-          "line_end": 403,
+          "line_start": 350,
+          "line_end": 547,
           "signature": "def apply_dd_scaling(trades: List[BenchmarkTrade], entry_ts: Optional[List[float]]=None, starting_balance: float=STARTING_BALANCE_R) -> Tuple[List[BenchmarkTrade], int, int, int, int]:"
         },
         "experiment.main_research_c_v1_1._derive_entry_ts": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 406,
-          "line_end": 440,
+          "line_start": 550,
+          "line_end": 584,
           "signature": "def _derive_entry_ts(trades: List[BenchmarkTrade], bars_15m: List) -> List[float]:"
         },
         "experiment.main_research_c_v1_1.run_test_a_v11": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 448,
-          "line_end": 468,
+          "line_start": 592,
+          "line_end": 612,
           "signature": "def run_test_a_v11(symbol: str, bars_15m: List) -> List[BenchmarkTrade]:"
         },
         "experiment.main_research_c_v1_1.compute_stats_v11": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 476,
-          "line_end": 564,
+          "line_start": 620,
+          "line_end": 708,
           "signature": "def compute_stats_v11(trades: List[BenchmarkTrade], starting_balance: float=STARTING_BALANCE_R) -> Dict[str, Any]:"
         },
         "experiment.main_research_c_v1_1._run_symbol_base": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 572,
-          "line_end": 616,
+          "line_start": 716,
+          "line_end": 760,
           "signature": "def _run_symbol_base(sym: str, dry_run: bool) -> Tuple[List[BenchmarkTrade], List[float]]:"
         },
         "experiment.main_research_c_v1_1.main": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 624,
-          "line_end": 759,
+          "line_start": 768,
+          "line_end": 903,
           "signature": "def main():"
         },
         "experiment.main_research_c_v1_1._load_bars": {
           "file": "experiment\\main_research_c_v1_1.py",
-          "line_start": 762,
-          "line_end": 791,
+          "line_start": 906,
+          "line_end": 935,
           "signature": "def _load_bars(sym: str, dry_run: bool) -> List:"
         },
         "experiment.main_research_d_v1_0._build_1h_swing_timeline": {
@@ -3936,20 +3942,20 @@
         },
         "tests.test_causality_synthetic.mk_trade": {
           "file": "tests\\test_causality_synthetic.py",
-          "line_start": 21,
-          "line_end": 46,
+          "line_start": 29,
+          "line_end": 54,
           "signature": "def mk_trade(trade_id, entry_ts, exit_ts, pnl_r, result='TP', symbol='TEST'):"
         },
         "tests.test_causality_synthetic.reference_apply_dd_scaling": {
           "file": "tests\\test_causality_synthetic.py",
-          "line_start": 49,
-          "line_end": 102,
+          "line_start": 57,
+          "line_end": 110,
           "signature": "def reference_apply_dd_scaling(trades, entry_ts, starting_balance=100.0):"
         },
         "tests.test_causality_synthetic.get_mult": {
           "file": "tests\\test_causality_synthetic.py",
-          "line_start": 105,
-          "line_end": 109,
+          "line_start": 113,
+          "line_end": 117,
           "signature": "def get_mult(surviving_trades, base_trade):"
         },
         "tests.test_e2e_live_chain.E2EBroker.__init__": {
@@ -5844,255 +5850,297 @@
         },
         "tests.test_main_research_c_v1_1._mk_trade": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 45,
-          "line_end": 78,
+          "line_start": 51,
+          "line_end": 84,
           "signature": "def _mk_trade(trade_id: int, entry_ts: float, exit_ts: float, pnl_r: float, result: str='TP', symbol: str='TEST') -> BenchmarkTrade:"
         },
         "tests.test_main_research_c_v1_1.test_c_v10_engine_untouched_after_promotion": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 84,
-          "line_end": 122,
+          "line_start": 90,
+          "line_end": 128,
           "signature": "def test_c_v10_engine_untouched_after_promotion():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_zero_dd_is_full_risk": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 128,
-          "line_end": 129,
+          "line_start": 134,
+          "line_end": 135,
           "signature": "def test_multiplier_zero_dd_is_full_risk():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_below_t1_is_full_risk": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 132,
-          "line_end": 133,
+          "line_start": 138,
+          "line_end": 139,
           "signature": "def test_multiplier_below_t1_is_full_risk():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_just_above_t1_is_half": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 136,
-          "line_end": 137,
+          "line_start": 142,
+          "line_end": 143,
           "signature": "def test_multiplier_just_above_t1_is_half():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_at_t1_is_full_risk": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 140,
-          "line_end": 142,
+          "line_start": 146,
+          "line_end": 148,
           "signature": "def test_multiplier_at_t1_is_full_risk():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_between_t1_and_t2_is_half": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 145,
-          "line_end": 146,
+          "line_start": 151,
+          "line_end": 152,
           "signature": "def test_multiplier_between_t1_and_t2_is_half():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_just_above_t2_is_quarter": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 149,
-          "line_end": 150,
+          "line_start": 155,
+          "line_end": 156,
           "signature": "def test_multiplier_just_above_t2_is_quarter():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_at_t2_is_half": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 153,
-          "line_end": 154,
+          "line_start": 159,
+          "line_end": 160,
           "signature": "def test_multiplier_at_t2_is_half():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_just_above_t3_is_pause": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 157,
-          "line_end": 158,
+          "line_start": 163,
+          "line_end": 164,
           "signature": "def test_multiplier_just_above_t3_is_pause():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_at_t3_is_quarter": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 161,
-          "line_end": 162,
+          "line_start": 167,
+          "line_end": 168,
           "signature": "def test_multiplier_at_t3_is_quarter():"
         },
         "tests.test_main_research_c_v1_1.test_multiplier_large_dd_is_pause": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 165,
-          "line_end": 166,
+          "line_start": 171,
+          "line_end": 172,
           "signature": "def test_multiplier_large_dd_is_pause():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_no_lookahead": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 172,
-          "line_end": 195,
+          "line_start": 178,
+          "line_end": 201,
           "signature": "def test_apply_dd_scaling_no_lookahead():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_pause_drops_trade": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 198,
-          "line_end": 219,
+          "line_start": 204,
+          "line_end": 225,
           "signature": "def test_apply_dd_scaling_pause_drops_trade():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_x05_tier": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 222,
-          "line_end": 245,
+          "line_start": 228,
+          "line_end": 251,
           "signature": "def test_apply_dd_scaling_x05_tier():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_x025_tier": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 248,
-          "line_end": 274,
+          "line_start": 254,
+          "line_end": 280,
           "signature": "def test_apply_dd_scaling_x025_tier():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_paused_trade_does_not_change_peak": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 277,
-          "line_end": 299,
+          "line_start": 283,
+          "line_end": 305,
           "signature": "def test_apply_dd_scaling_paused_trade_does_not_change_peak():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_sorts_by_exit_timestamp": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 302,
-          "line_end": 319,
+          "line_start": 308,
+          "line_end": 325,
           "signature": "def test_apply_dd_scaling_sorts_by_exit_timestamp():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_same_bar_causality": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 322,
-          "line_end": 344,
+          "line_start": 328,
+          "line_end": 355,
           "signature": "def test_apply_dd_scaling_same_bar_causality():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_preserves_trade_identity": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 347,
-          "line_end": 366,
+          "line_start": 358,
+          "line_end": 377,
           "signature": "def test_apply_dd_scaling_preserves_trade_identity():"
         },
         "tests.test_main_research_c_v1_1.test_apply_dd_scaling_deterministic_replay": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 372,
-          "line_end": 385,
+          "line_start": 383,
+          "line_end": 396,
           "signature": "def test_apply_dd_scaling_deterministic_replay():"
         },
         "tests.test_main_research_c_v1_1.test_c_v11_trade_identity_matches_c_v10_on_synth": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 391,
-          "line_end": 413,
+          "line_start": 402,
+          "line_end": 424,
           "signature": "def test_c_v11_trade_identity_matches_c_v10_on_synth():"
         },
         "tests.test_main_research_c_v1_1.test_c_v11_pnl_differs_from_v10_only_via_multiplier": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 416,
-          "line_end": 436,
+          "line_start": 427,
+          "line_end": 447,
           "signature": "def test_c_v11_pnl_differs_from_v10_only_via_multiplier():"
         },
         "tests.test_main_research_c_v1_1.test_c_v11_compute_stats_v11_matches_v10_format": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 439,
-          "line_end": 444,
+          "line_start": 450,
+          "line_end": 455,
           "signature": "def test_c_v11_compute_stats_v11_matches_v10_format():"
         },
         "tests.test_main_research_c_v1_1.test_c_v11_smoke_run_test_a_v11_returns_list": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 447,
-          "line_end": 479,
+          "line_start": 458,
+          "line_end": 490,
           "signature": "def test_c_v11_smoke_run_test_a_v11_returns_list():"
         },
         "tests.test_main_research_c_v1_1.test_A_global_portfolio_scaling_shares_DD_across_symbols": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 487,
-          "line_end": 519,
+          "line_start": 498,
+          "line_end": 530,
           "signature": "def test_A_global_portfolio_scaling_shares_DD_across_symbols():"
         },
         "tests.test_main_research_c_v1_1.test_B_no_self_pnl_in_own_dd_decision": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 522,
-          "line_end": 539,
+          "line_start": 533,
+          "line_end": 550,
           "signature": "def test_B_no_self_pnl_in_own_dd_decision():"
         },
         "tests.test_main_research_c_v1_1.test_C_deterministic_same_exit_ordering": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 542,
-          "line_end": 576,
+          "line_start": 553,
+          "line_end": 587,
           "signature": "def test_C_deterministic_same_exit_ordering():"
         },
         "tests.test_main_research_c_v1_1.test_D_entry_ts_length_mismatch_raises": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 579,
-          "line_end": 588,
+          "line_start": 590,
+          "line_end": 599,
           "signature": "def test_D_entry_ts_length_mismatch_raises():"
         },
         "tests.test_main_research_c_v1_1.test_E_invalid_entry_bar_index_raises": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 591,
-          "line_end": 616,
+          "line_start": 602,
+          "line_end": 627,
           "signature": "def test_E_invalid_entry_bar_index_raises():"
         },
         "tests.test_main_research_c_v1_1.test_F_starting_balance_consistency": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 619,
-          "line_end": 641,
+          "line_start": 630,
+          "line_end": 652,
           "signature": "def test_F_starting_balance_consistency():"
         },
         "tests.test_main_research_c_v1_1.test_G_main_global_single_scaling_pass_via_main_contract": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 644,
-          "line_end": 693,
+          "line_start": 655,
+          "line_end": 704,
           "signature": "def test_G_main_global_single_scaling_pass_via_main_contract():"
         },
         "tests.test_main_research_c_v1_1._reference_dd_and_mult": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 701,
-          "line_end": 738,
+          "line_start": 712,
+          "line_end": 772,
           "signature": "def _reference_dd_and_mult(trades, entry_ts, starting_balance=100.0):"
         },
-        "tests.test_main_research_c_v1_1._reference_dd_and_mult.keyf": {
+        "tests.test_main_research_c_v1_1._reference_dd_and_mult.exit_key": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 718,
-          "line_end": 719,
-          "signature": "def keyf(p):"
+          "line_start": 738,
+          "line_end": 739,
+          "signature": "def exit_key(p):"
+        },
+        "tests.test_main_research_c_v1_1._reference_dd_and_mult.entry_key": {
+          "file": "tests\\test_main_research_c_v1_1.py",
+          "line_start": 741,
+          "line_end": 742,
+          "signature": "def entry_key(p):"
+        },
+        "tests.test_main_research_c_v1_1._reference_dd_and_mult.dd_at_entry": {
+          "file": "tests\\test_main_research_c_v1_1.py",
+          "line_start": 746,
+          "line_end": 759,
+          "signature": "def dd_at_entry(entry_float, self_t):"
         },
         "tests.test_main_research_c_v1_1.test_A_later_exit_position_still_prior_to_entry": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 741,
-          "line_end": 760,
+          "line_start": 775,
+          "line_end": 802,
           "signature": "def test_A_later_exit_position_still_prior_to_entry():"
         },
         "tests.test_main_research_c_v1_1.test_B_self_exclusion": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 763,
-          "line_end": 770,
+          "line_start": 805,
+          "line_end": 820,
           "signature": "def test_B_self_exclusion():"
         },
         "tests.test_main_research_c_v1_1.test_C_same_timestamp_excluded": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 773,
-          "line_end": 782,
+          "line_start": 823,
+          "line_end": 832,
           "signature": "def test_C_same_timestamp_excluded():"
         },
         "tests.test_main_research_c_v1_1.test_D_arbitrary_input_order_invariant": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 785,
-          "line_end": 813,
+          "line_start": 835,
+          "line_end": 871,
           "signature": "def test_D_arbitrary_input_order_invariant():"
         },
         "tests.test_main_research_c_v1_1.test_D_arbitrary_input_order_invariant.scaled_multiset": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 803,
-          "line_end": 805,
+          "line_start": 858,
+          "line_end": 860,
           "signature": "def scaled_multiset(ts, es):"
         },
         "tests.test_main_research_c_v1_1.test_E_brute_force_reference_zero_mismatch": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 816,
-          "line_end": 852,
+          "line_start": 874,
+          "line_end": 914,
           "signature": "def test_E_brute_force_reference_zero_mismatch():"
         },
         "tests.test_main_research_c_v1_1.test_open_trades_excluded_from_entry_correspondence": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 855,
-          "line_end": 867,
+          "line_start": 917,
+          "line_end": 929,
           "signature": "def test_open_trades_excluded_from_entry_correspondence():"
         },
         "tests.test_main_research_c_v1_1.test_tie_break_exit_symbol_trade_id_deterministic": {
           "file": "tests\\test_main_research_c_v1_1.py",
-          "line_start": 870,
-          "line_end": 883,
+          "line_start": 932,
+          "line_end": 961,
           "signature": "def test_tie_break_exit_symbol_trade_id_deterministic():"
+        },
+        "tests.test_main_research_c_v1_1.test_backdated_exit_raises_invariant": {
+          "file": "tests\\test_main_research_c_v1_1.py",
+          "line_start": 967,
+          "line_end": 979,
+          "signature": "def test_backdated_exit_raises_invariant(caplog):"
+        },
+        "tests.test_main_research_c_v1_1.test_open_trade_is_exempt_from_invariant": {
+          "file": "tests\\test_main_research_c_v1_1.py",
+          "line_start": 982,
+          "line_end": 991,
+          "signature": "def test_open_trade_is_exempt_from_invariant():"
+        },
+        "tests.test_main_research_c_v1_1.test_entry_equal_exit_is_legal": {
+          "file": "tests\\test_main_research_c_v1_1.py",
+          "line_start": 994,
+          "line_end": 1001,
+          "signature": "def test_entry_equal_exit_is_legal():"
+        },
+        "tests.test_main_research_c_v1_1.test_dropped_signal_policy_gate_direct": {
+          "file": "tests\\test_main_research_c_v1_1.py",
+          "line_start": 1004,
+          "line_end": 1011,
+          "signature": "def test_dropped_signal_policy_gate_direct():"
+        },
+        "tests.test_main_research_c_v1_1.test_max_dropped_signals_is_zero": {
+          "file": "tests\\test_main_research_c_v1_1.py",
+          "line_start": 1014,
+          "line_end": 1017,
+          "signature": "def test_max_dropped_signals_is_zero():"
         },
         "tests.test_mt5_connection_hardening._make_connection": {
           "file": "tests\\test_mt5_connection_hardening.py",
@@ -9323,8 +9371,8 @@
           "hash": "sha256:4bd53a5f2492a8b6"
         },
         "experiment\\main_research_c_v1_1.py": {
-          "last_modified": "2026-08-30T17:37:50",
-          "hash": "sha256:d6fc2f6c04fd0470"
+          "last_modified": "2026-08-31T19:59:24",
+          "hash": "sha256:773e01b1d599b09f"
         },
         "experiment\\main_research_d_v1_0.py": {
           "last_modified": "2026-08-30T17:37:50",
@@ -9635,8 +9683,8 @@
           "hash": "sha256:8c950406d32c4da5"
         },
         "tests\\test_causality_synthetic.py": {
-          "last_modified": "2026-08-30T17:37:50",
-          "hash": "sha256:aa559c4fdede5526"
+          "last_modified": "2026-08-31T20:30:18",
+          "hash": "sha256:b82b5d7956e8287f"
         },
         "tests\\test_e2e_live_chain.py": {
           "last_modified": "2026-08-30T02:42:52",
@@ -9719,8 +9767,8 @@
           "hash": "sha256:a7cd0eabd8d8c6bb"
         },
         "tests\\test_main_research_c_v1_1.py": {
-          "last_modified": "2026-08-30T17:37:50",
-          "hash": "sha256:eb86fafb20b83450"
+          "last_modified": "2026-08-31T20:58:11",
+          "hash": "sha256:429daa561732456c"
         },
         "tests\\test_mt5_connection_hardening.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9839,7 +9887,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-08-31T17:26:05"
+      "last_full_scan": "2026-08-31T21:00:33"
     }
   }
 }

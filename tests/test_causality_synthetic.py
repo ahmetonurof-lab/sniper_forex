@@ -5,6 +5,14 @@ Verifies:
   2. Same timestamp strict causality (exit < entry, not <=)
   3. Scaled realized PnL in DD state
   4. Paused trade zero contribution
+
+Expected values updated to the CANONICAL single-curve event-stream
+semantics (arbitration (b), 2026-08-31): DD tiers are evaluated on the
+realized equity walk (1R = 1 balance unit at starting_balance=100), with
+boundary dd <= DD_T1 -> x1.0, DD_T1 < dd <= DD_T2 -> x0.5,
+DD_T2 < dd <= DD_T3 -> x0.25, dd > DD_T3 -> PAUSE. The pre-arbitration
+hardcoded expectations (e.g. "t2 at dd=3 -> x1") encoded the old
+absolute-R reading and are superseded here.
 """
 
 import sys
@@ -151,10 +159,14 @@ print()
 print("=" * 70)
 print("TEST 3 — SCALED REALIZED PNL IN DD STATE")
 print("=" * 70)
-# A: entry=9, exit=10, -3R => x1, realized=-3R => equity=97, peak=100, dd=3R
-# B: entry=11, exit=12, +2R => sees dd=3R => x0.5, realized=+1R => equity=98, peak=100
-# C: entry=13, exit=14, +1R => sees dd=2R => x0.5, realized=+0.5R
-tA3 = mk_trade(1, 9.0, 10.0, -3.0, "LOSS", "A")
+# Canonical semantics (arbitration (b)): the DD state advances by the
+# SCALED realized pnl, never the raw R.
+# A: entry=9, exit=10, -4R -> dd=0 -> x1,   realized=-4R -> equity=96, peak=100
+# B: entry=11, exit=12, +2R -> dd=4 -> x0.5, realized=+1R -> equity=97, peak=100
+# C: entry=13, exit=14, +1R -> dd=3 -> x0.5, realized=+0.5R
+# Discriminator: if B's RAW +2R had entered the DD state, equity would be
+# 98 -> C would see dd=2 -> x1.0. C's x0.5 proves the scaled walk.
+tA3 = mk_trade(1, 9.0, 10.0, -4.0, "LOSS", "A")
 tB3 = mk_trade(2, 11.0, 12.0, 2.0, "TP", "B")
 tC3 = mk_trade(3, 13.0, 14.0, 1.0, "TP", "C")
 
@@ -163,7 +175,7 @@ ref_s3, _, _, _, _ = reference_apply_dd_scaling([tA3, tB3, tC3], [9.0, 11.0, 13.
 
 print(f"  Current surviving:  {[round(t.pnl_r, 4) for t in cur_s3]}")
 print(f"  Reference surviving: {[round(t.pnl_r, 4) for t in ref_s3]}")
-print("  Expected: A=-3R, B=+1R (scaled), C=+0.5R (scaled)")
+print("  Expected: A=-4R, B=+1R (scaled), C=+0.5R (scaled)")
 
 # Check individual
 cur_A = get_mult(cur_s3, tA3)
@@ -174,8 +186,8 @@ ref_B = get_mult(ref_s3, tB3)
 ref_C = get_mult(ref_s3, tC3)
 
 print(f"  A mult: cur={cur_A} ref={ref_A}  (expected 1.0)")
-print(f"  B mult: cur={cur_B} ref={ref_B}  (expected 0.5 — uses +1R NOT +2R in DD state)")
-print(f"  C mult: cur={cur_C} ref={ref_C}  (expected 0.5)")
+print(f"  B mult: cur={cur_B} ref={ref_B}  (expected 0.5 — dd=4 at entry)")
+print(f"  C mult: cur={cur_C} ref={ref_C}  (expected 0.5 — uses scaled +1R NOT raw +2R)")
 t3_ok = abs(cur_A - 1.0) < 1e-9 and abs(cur_B - 0.5) < 1e-9 and abs(cur_C - 0.5) < 1e-9
 print(f"  TEST 3: {'PASS' if t3_ok else 'FAIL'}")
 
@@ -184,14 +196,18 @@ print()
 print("=" * 70)
 print("TEST 4 — PAUSED TRADE ZERO REALIZED CONTRIBUTION")
 print("=" * 70)
-# t1: -3R x1 => equity=97, peak=100, dd=3R
-# t2: -3R x1 => equity=94, peak=100, dd=6R
-# t3: entry sees dd=6R => DD_T3=6 => PAUSE => mult=0 => equity stays 94
-# t4: entry sees dd=6R (paused contributed 0) => x0.25 => realized +0.5R
-t1 = mk_trade(1, 9.0, 10.0, -3.0, "LOSS", "A")
-t2 = mk_trade(2, 11.0, 12.0, -3.0, "LOSS", "B")
-t3 = mk_trade(3, 13.0, 14.0, 5.0, "TP", "C")  # PAUSE
-t4 = mk_trade(4, 15.0, 16.0, 2.0, "TP", "D")  # x0.25
+# Canonical semantics (arbitration (b)): a paused trade contributes ZERO to
+# the equity walk — winners included.
+# t1: entry=9,  -7R -> dd=0  -> x1,    realized=-7R -> equity=93, peak=100
+# t2: entry=11, -3R -> dd=7  -> PAUSE  (contributes 0)
+# t3: entry=13, +5R -> dd=7  -> PAUSE  (a winner paused also contributes 0)
+# t4: entry=15, +2R -> dd=7  -> PAUSE
+# If any paused trade had moved equity, t4 would see a different dd.
+# Expected: paused=3, x1=1, surviving=[-7.0] only.
+t1 = mk_trade(1, 9.0, 10.0, -7.0, "LOSS", "A")
+t2 = mk_trade(2, 11.0, 12.0, -3.0, "LOSS", "B")  # PAUSE
+t3 = mk_trade(3, 13.0, 14.0, 5.0, "TP", "C")  # PAUSE (winner)
+t4 = mk_trade(4, 15.0, 16.0, 2.0, "TP", "D")  # PAUSE
 
 cur_s4, cur_p4, cur_n1, cur_n05, cur_n025 = apply_dd_scaling(
     [t1, t2, t3, t4], [9.0, 11.0, 13.0, 15.0], 100.0
@@ -202,12 +218,13 @@ ref_s4, ref_p4, ref_n1, ref_n05, ref_n025 = reference_apply_dd_scaling(
 
 t4_cur = get_mult(cur_s4, t4)
 t4_ref = get_mult(ref_s4, t4)
-print(f"  Paused count: cur={cur_p4} ref={ref_p4}  (expected 1)")
-print(f"  t4 mult:      cur={t4_cur}  ref={t4_ref}  (expected 0.25)")
+print(f"  Paused count: cur={cur_p4} ref={ref_p4}  (expected 3)")
+print(f"  x1 count:     cur={cur_n1} ref={ref_n1}  (expected 1)")
+print(f"  t4 mult:      cur={t4_cur}  ref={t4_ref}  (expected 0.0 — paused)")
 print(f"  Current surviving:  {[round(t.pnl_r, 4) for t in cur_s4]}")
 print(f"  Reference surviving: {[round(t.pnl_r, 4) for t in ref_s4]}")
-print("  Expected: t1=-3R, t2=-3R, t4=+0.5R  (t3 paused, contributes nothing)")
-t4_ok = cur_p4 == 1 and abs(t4_cur - 0.25) < 1e-9
+print("  Expected: t1=-7R only  (t2/t3/t4 paused, contribute nothing)")
+t4_ok = cur_p4 == 3 and cur_n1 == 1 and abs(t4_cur - 0.0) < 1e-9 and len(cur_s4) == 1
 print(f"  TEST 4: {'PASS' if t4_ok else 'FAIL'}")
 
 

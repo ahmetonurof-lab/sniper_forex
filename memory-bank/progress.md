@@ -587,6 +587,14 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
 ---
 
 ### C v1.1 PROMOTION (2026-08-28) — COMPLETE
+>
+> **⚠ QUARANTINED 2026-08-31 (arbitration (b), see
+> `activeContext.md` TAHKİM section):** The numbers below
+> (2300T / +2766.91R / MaxDD 4.71R / 2.19% / PF 5.13 / paused=2) were
+> produced by the pre-arbitration two-curve semantics and are **no longer
+> the canonical reference**. They are preserved verbatim per §12.1
+> (history is never rewritten silently). The canonical figures are in the
+> "ARBITRATION (b) BENCHMARK RE-RUN" record at the end of this file.
 
 - **What was done:** Promoted the (corrected) Exp C DD Risk Scaling
   algorithm to a new canonical research engine
@@ -688,4 +696,71 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
   - Crypto isolation: GUARANTEED.
 - **Status:** READY FOR CONTROLLED SERVER DEPLOYMENT / DEMO VALIDATION.
 - **Next:** Deploy to `/root/sniper_forex` → isolated venv → MT5 connection → signal-only → demo validation.
--e "\n---\n### LIVE FIX CHECKPOINT - 2026-08-28 (P1-5 to P3-7)\n- P1-5: Historical M1 timezone canonicalization (server_to_utc_historical) - PASS.\n- P1-4: PositionManager false-close protection (fetch_failed flag, snapshot preserved) - PASS.\n- P0-2: TradeLifecycle + deal tracking (idempotent, partial close, PortfolioDD) - PASS.\n- P0-1: DDscaled lot post-sizing helper (apply_scaling_and_quantize), no double scaling - PASS.\n- P1-3: Paper economic path (non-zero volume, PortfolioDD on close, entry context) - PASS.\n- P2-6: Paper 15m continuity (partial tail, no duplicate emission) - PASS.\n- P3-7: Documentation sync (memory-bank + roadmap updated, stale claims removed) - PASS.\n- All protected files untouched. No frozen benchmark changes. 65K M1 parity harness artifact recorded."
+
+### LIVE FIX CHECKPOINT — 2026-08-28 (P1-5 to P3-7)
+
+> **PROCESS INCIDENT (§12.1/§13.5 disclosure, 2026-08-31):** this section
+> existed in this file as a single corrupted line — a literal shell
+> `echo -e "\n---\n..."` argument that a past `echo >>` invocation wrote
+> verbatim (escape sequences never expanded, no newlines). Content below is
+> that payload restored to readable markdown WITHOUT altering any claim;
+> the incident is logged in `activeContext.md`. Nothing was invented,
+> dropped, or reworded.
+
+- P1-5: Historical M1 timezone canonicalization (server_to_utc_historical) - PASS.
+- P1-4: PositionManager false-close protection (fetch_failed flag, snapshot preserved) - PASS.
+- P0-2: TradeLifecycle + deal tracking (idempotent, partial close, PortfolioDD) - PASS.
+- P0-1: DD→scaled lot post-sizing helper (apply_scaling_and_quantize), no double scaling - PASS.
+- P1-3: Paper economic path (non-zero volume, PortfolioDD on close, entry context) - PASS.
+- P2-6: Paper 15m continuity (partial tail, no duplicate emission) - PASS.
+- P3-7: Documentation sync (memory-bank + roadmap updated, stale claims removed) - PASS.
+- All protected files untouched. No frozen benchmark changes. 65K M1 parity harness artifact recorded.
+
+---
+
+### ARBITRATION (b) BENCHMARK RE-RUN — 2026-08-31 (HEAD semantics)
+
+- **What tested:** canonical C v1.1 full benchmark under the (b) ruling
+  (single-curve event-stream semantics) + fail-fast engine hardening.
+- **Engine:** `experiment/main_research_c_v1_1.py` at this commit
+  (invariant entry<=exit on completed trades, ValueError + audit ERROR,
+  `MAX_DROPPED_SIGNALS=0` gate, docstring superseded). C v1.0/D v1.0
+  FROZEN — not touched.
+- **Dataset:** 6 majors, 2.7Y, 15m feather — **bit-verified against
+  `memory-bank/dataset_manifest_v1.1.md` BEFORE the run: 24/24 SHA256
+  match** (6×15m + 12 other feathers + 6 RAW CSVs).
+- **SEMANTIC DECLARATION (mandatory provenance field):** equity advances
+  ONLY by accepted trades' SCALED pnl at EXIT; paused trades contribute
+  ZERO; mult locked at ENTRY; events sorted (ts, ENTRY=0/EXIT=1, symbol,
+  trade_id); strict `<` for prior-exit-before-entry. This is the contract
+  that matches `src/live/portfolio_dd.py`.
+- **Result (canonical, re-run on this HEAD):**
+  | Metric | Value |
+  |---|---:|
+  | Trades | 2302 |
+  | TotalR | +2593.26 |
+  | AvgR | +1.1265 |
+  | WR% | 69.37 |
+  | PF | 4.97 |
+  | MaxDD | 5.00R (2.24%) |
+  | x1.0 / x0.5 / x0.25 | 1994 / 278 / 30 |
+  | paused | 0 |
+  | invariant fires | 0 (Q5: 0/2302 backdated exits in real data) |
+  | dropped signals | 0 |
+- **Number-change disclosure:** vs quarantined PROMOTED figures
+  (2300T/+2766.91R/4.71R/2.19%/PF 5.13/paused 2): TotalR lower. Per the
+  arbitration: NOT a worse strategy — the two-curve pre-arbitration walk
+  double-counted paused trades' contribution; the single-curve walk is the
+  contract the live system already trades. The 0899b38 figures were never
+  reproducible under the live-consistent semantics.
+- **Reproducibility:** exact-match re-run expected on any future
+  verification (same dataset hashes + same engine semantics):
+  `2302T | +2593.26R | 5.00R/2.24% | PF 4.97 | x1=1994 x0.5=278 x0.25=30 | paused=0`.
+  `elapsed_s` is the only permitted drift.
+- **Validation:** `tests/test_main_research_c_v1_1.py` → 43/43 PASS
+  (incl. 5 new fail-fast negatives + non-vacuity guard).
+  `tests/test_causality_synthetic.py` → 4/4 PASS + Current==Reference.
+  Full suite: see activeContext.md TAHKİM section.
+- **Artifact:** `results/research/c_v1_1_summary.json` (regenerated from
+  this run; note: the committed version of this file held DRY-RUN numbers
+  (79T) — a disclosure-grade inconsistency now corrected).

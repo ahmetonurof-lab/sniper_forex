@@ -1,8 +1,37 @@
 """
-main_research_c_v1_1.py — Research C Engine v1.1: C2 EQ + DD-Based Risk Scaling
+main_research_c_v1_1.py — Research C engine v1.1: C2 EQ + DD-Based Risk Scaling
 
 =============================================================================
-PROMOTION HEADER (PROMOTED 2026-08-28)
+ARBITRATION SUPERSESSION BANNER (2026-08-31 — read this FIRST)
+=============================================================================
+The DD-scaling SEMANTICS below have changed twice AFTER the 2026-08-28
+promotion, silently, without disclosure (AGENTS.md §8.1 provenance break):
+
+  - 0899b38 (promotion): DOUBLE-curve pre_scale/post_scale DD, bisect
+    pointer walk -> 2300T / paused 2 / +2766.91R / MaxDD 4.71R / PF 5.13.
+  - 797d946: strict causality + _trade_order_key -> 2299T / paused 3 /
+    MaxDD 6.29R (a second silent number change, undisclosed).
+  - 409fc17 == HEAD: SINGLE-curve live event-stream walk (equity advances
+    ONLY by accepted trades' SCALED pnl at EXIT; paused contribute ZERO;
+    multiplier locked at ENTRY) -> 2302T / paused 0.
+
+A parity probe (gate ③) proved the difference is in the SEMANTICS, not the
+test fixtures. The referee (Hakem) arbitration ruled option (b): the
+SINGLE-CURVE semantics are CANONICAL because they match the live trading
+module `src/live/portfolio_dd.py` (record_realized is called only after a
+closed position; a paused trade never calls it). The old "PROMOTED" figures
+(2300T/+2766.91R/4.71R/PF 5.13) are QUARANTINED and must NOT be cited as
+canonical until the benchmark is re-run under HEAD semantics with the
+provenance package (engine commit + semantic declaration + config + dataset
+hashes in `memory-bank/dataset_manifest_v1.1.md`).
+
+The algorithm actually implemented at HEAD is the SINGLE-CURVE event-stream
+walk described in the CAUSALITY section below. The "pointer-free bisect
+refactor" labels in the historical sections are the SUPERSEDED 0899b38/797d946
+semantics, retained only so the correction chain stays visible (§12.1).
+
+=============================================================================
+PROMOTION HEADER (PROMOTED 2026-08-28 — figures QUARANTINED, see banner)
 =============================================================================
 - Engine:          C v1.1 (CANONICAL research engine, version 1.1)
 - Parent:          C v1.0  (`experiment/main_research_c_v1_0.py`, FROZEN baseline)
@@ -76,7 +105,9 @@ GLOBALLY across the 6-major merged trade stream.
   to the equity curve. That is a 1R-per-trade fixed risk model.
 - C v1.1 multiplies each accepted trade's `pnl_r` by a multiplier
   derived from the portfolio DD observed BEFORE that trade's entry:
-      DD > 6R  -> PAUSE   (trade excluded; 2 paused on canonical data)
+      DD > 6R  -> PAUSE   (trade excluded; 0 paused on the canonical
+                           single-curve stream — the old "2 paused" figure
+                           belonged to the quarantined 0899b38 semantics)
       DD > 4R  -> x0.25
       DD > 2R  -> x0.50
       else     -> x1.00
@@ -92,26 +123,38 @@ GLOBALLY across the 6-major merged trade stream.
     - the underlying entry/SL/TP/trailing/exit logic.
 
 =============================================================================
- NO-LOOKAHEAD / SAME-BAR CAUSALITY
+ NO-LOOKAHEAD / SAME-BAR CAUSALITY  (single-curve event-stream semantics)
 =============================================================================
-The portfolio DD used for a trade's risk decision is measured from
-trades that closed STRICTLY BEFORE this trade's entry
-(`exit_timestamp < entry_timestamp` -- strict `<`; see `apply_dd_scaling`
-and `_strictly_before_entry_dd`). The same no-lookahead rule as the
-canonical engine, but with explicit strict causality.
+The scaling walks ONE global realized-equity curve via an event stream
+(each completed trade emits an ENTRY event at its entry_ts and an EXIT
+event at its exit_ts; events are ordered by
+`(timestamp, ENTRY-before-EXIT, symbol, trade_id)` — see
+`apply_dd_scaling`).
 
-For each trade, ONLY OTHER completed trades with
-`exit_timestamp < current_entry_timestamp` contribute to its DD. The
-current trade is excluded by identity, and even without that guard its
-own exit (<= its entry) fails the strict `<`, so it can never leak into
-its own DD. This is NOT enforced by a position cap or prefix trick --
-it is the literal selection rule in `_strictly_before_entry_dd`.
+  - At a trade's ENTRY, the multiplier is computed from the CURRENT
+    realized DD (`dd = peak - equity`) and LOCKED for that trade; only
+    prior EXIT events have advanced equity/peak, so a trade is scaled
+    exclusively by trades that CLOSED STRICTLY BEFORE its entry
+    (`exit_timestamp < entry_timestamp` -- strict `<`; same-timestamp
+    ENTRY-before-EXIT ordering enforces the strictness).
+  - At a trade's EXIT, the LOCKED multiplier is applied: the SCALED pnl
+    (`base_pnl_r x mult`) is added to equity/peak. A PAUSED trade
+    (mult == 0) contributes ZERO to the realized state — exactly the
+    production semantics of `src/live/portfolio_dd.py`, where
+    `record_realized(pnl_r)` is called only after a closed position.
+  - The current trade is excluded from its own DD by construction: its
+    ENTRY event precedes its EXIT event at the same timestamp, and its
+    EXIT is the only event that mutates equity.
 
-Deterministic ordering for EVERY chronological walk (the stats equity
-curve AND the DD-scaling prior-trade replay) is the shared key
-`(exit_timestamp, symbol, trade_id)` (`_exit_order_key`). Two trades
-with an identical exit timestamp resolve by (symbol, trade_id); this is
-stable across sessions/threads/platforms.
+RUNTIME INVARIANT (arbitration (b), 2026-08-31): `entry_ts <= exit_ts`
+for every completed trade — enforced (ValueError, not assert) inside
+`apply_dd_scaling`. A backdated exit would flip the ENTRY/EXIT order and
+silently drop the trade; that silent-drop branch is now a counted,
+audit-ERROR-logged, hard-fail path (`_enforce_dropped_signal_policy`,
+`MAX_DROPPED_SIGNALS = 0`).
+
+Deterministic tie-break for identical timestamps is
+`(symbol, trade_id)`; this is stable across sessions/threads/platforms.
 
 =============================================================================
 GLOBAL PORTFOLIO DD (per-symbol entry_ts is preserved)
@@ -173,11 +216,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import statistics
 import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+_logger = logging.getLogger("experiment.main_research_c_v1_1")
 
 # ── Setup paths ──
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -199,6 +245,16 @@ from experiment.main_research_c_v1_0 import (
 DD_T1: float = 2.0  # >2R  -> x0.50 risk
 DD_T2: float = 4.0  # >4R  -> x0.25 risk
 DD_T3: float = 6.0  # >6R  -> PAUSE  (trade excluded)
+
+# ── Fail-fast policy for the DD-scaling EXIT branch (arbitration (b)) ──
+# Under the single-curve event-stream semantics, a completed trade whose
+# EXIT event is processed BEFORE its ENTRY event (exit_ts < entry_ts, a
+# "backdated exit") would silently drop from the scaled stream via the old
+# `mult is None: continue` branch. A silent drop is a §19 provenance break,
+# so it is now (a) hard-blocked by the entry<=exit runtime invariant inside
+# apply_dd_scaling, and (b) counted + audit-ERROR-logged + raised-on-threshold
+# as defence-in-depth. Threshold 0 => the FIRST residual drop is fatal.
+MAX_DROPPED_SIGNALS: int = 0
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -239,14 +295,43 @@ def _to_float_ts(t) -> float:
     return float(t)
 
 
+def _enforce_dropped_signal_policy(
+    dropped: List[Tuple[str, int]],
+    max_dropped: int = MAX_DROPPED_SIGNALS,
+) -> None:
+    """Fail-fast gate for the DD-scaling EXIT branch (arbitration (b), item 1).
+
+    A completed trade whose EXIT was processed without a locked ENTRY
+    multiplier is a DROPPED SIGNAL — under the old code it was silently
+    `continue`d, i.e. a §19 silent-drop provenance break. Each drop is
+    counted by the caller and audit-ERROR-logged as it happens; this gate
+    turns any drop beyond `max_dropped` (default 0 = zero tolerance) into
+    a hard failure so the scaled stream can never be trusted while a
+    silent drop is in flight.
+
+    NOTE: with the entry<=exit invariant in `apply_dd_scaling` this branch
+    is unreachable by construction; it is retained as defence-in-depth
+    against future ordering-bug classes, and is unit-tested directly.
+    """
+    if len(dropped) > max_dropped:
+        raise RuntimeError(
+            f"apply_dd_scaling fail-fast: {len(dropped)} completed trade(s) "
+            f"dropped at the EXIT branch without a locked ENTRY multiplier "
+            f"(symbols/ids: {dropped[:10]}{'...' if len(dropped) > 10 else ''}); "
+            f"hard-fail threshold MAX_DROPPED_SIGNALS={max_dropped} exceeded. "
+            f"A dropped signal is a silent provenance break (AGENTS.md §19) "
+            f"— the scaled stream is NOT trustworthy."
+        )
+
+
 def _exit_order_key(t: BenchmarkTrade) -> Tuple[float, str, int]:
-    """Deterministic global ordering key shared by EVERY chronological walk
-    in C v1.1 (stats equity curve AND the DD-scaling prefix curves).
+    """Deterministic global ordering key for the stats equity curve
+    (`compute_stats_v11`) — the same chronological convention the
+    DD-scaling event stream walks by.
 
     KEY CONTRACT: (exit_timestamp, symbol, trade_id)
       * exit_timestamp first  -> chronological by exit (the only causally
-                                 valid ordering for a realized equity curve
-                                 or a strictly-before-entry DD query).
+                                 valid ordering for a realized equity curve).
       * symbol then trade_id -> the deterministic tie-break. Two trades
                                  with an identical exit timestamp resolve
                                  by (symbol, trade_id); this is stable
@@ -254,9 +339,10 @@ def _exit_order_key(t: BenchmarkTrade) -> Tuple[float, str, int]:
                                  platforms (no reliance on insertion order
                                  or set iteration).
 
-    Strictly-before-entry causality (exit_ts < current_entry_ts) is enforced
-    SEPARATELY by the prior-trade SELECTION in `_strictly_before_entry_dd`
-    (see apply_dd_scaling) -- NOT by adding entry_ts into this key.
+    Strictly-before-entry causality inside the SCALING walk is enforced
+    separately by the event-stream ordering in `apply_dd_scaling`
+    (ENTRY priority 0 before EXIT priority 1 at equal timestamps) —
+    NOT by adding entry_ts into this key.
     """
     return (_to_float_ts(t.exit_timestamp), str(t.symbol), int(t.trade_id))
 
@@ -282,14 +368,25 @@ def apply_dd_scaling(
         is never in the realized DD state.
 
     Algorithm (O(N log N) due to sort, N≈2300):
-        1. Sort ALL completed trades by (exit_ts, symbol, trade_id)
-        2. Walk the sorted list once:
-           - Read current DD = peak - equity
-           - Compute multiplier for current trade
-           - If PAUSE: skip (no state update)
-           - If ACCEPT: equity += base_pnl * multiplier; peak = max(peak, equity)
-        3. The state after processing trade T contains contributions from
-           ALL prior ACCEPTED trades (scaled) + ZERO from prior PAUSED trades
+        1. Enforce the entry_ts <= exit_ts invariant on every completed
+           trade (ValueError + audit ERROR on violation — a backdated
+           exit is a data-integrity failure, never silently dropped).
+        2. Emit 2 events per completed trade: ENTRY at entry_ts
+           (priority 0), EXIT at exit_ts (priority 1); sort events by
+           (timestamp, priority, symbol, trade_id).
+        3. Single live walk of the event stream:
+           - ENTRY: mult = compute_dd_multiplier(peak - equity);
+                    lock mult for (symbol, trade_id).
+           - EXIT:  paused (mult==0) -> contributes ZERO, count and skip;
+                    accepted -> equity += base_pnl * mult;
+                    peak = max(peak, equity); emit scaled trade.
+        4. Fail-fast gate: any EXIT processed without a locked ENTRY is
+           counted, audit-ERROR-logged, and hard-fails past
+           MAX_DROPPED_SIGNALS (defence-in-depth; unreachable while the
+           invariant holds).
+        5. The state after processing trade T's EXIT contains the SCALED
+           contributions of ALL prior ACCEPTED trades + ZERO from prior
+           PAUSED trades (single-curve semantics).
 
     Determinism: same (exit_ts, symbol, trade_id) key as compute_stats_v11.
 
@@ -306,7 +403,8 @@ def apply_dd_scaling(
                            mutated; SL/TP/entry/exit/result/symbol/
                            trade_id/zone/sweep are UNCHANGED).
         paused_count:     number of trades that were paused
-                          (multiplier == 0.0, dropped).
+                          (multiplier == 0.0; excluded from surviving,
+                          contributed ZERO to the realized state).
         x1_count, x05_count, x025_count: tier counts.
     """
     if entry_ts is None:
@@ -321,12 +419,38 @@ def apply_dd_scaling(
             f"length ({len(trades)}). entry_ts is a parallel list."
         )
 
-    # Pair each completed trade with its entry_ts (parallel lists)
-    completed_pairs = [
-        (t, _to_float_ts(e))
-        for t, e in zip(trades, entry_ts)
-        if t.result in ("TP", "PROFIT_TRAIL", "LOSS")
-    ]
+    # Pair each completed trade with its entry_ts (parallel lists).
+    # RUNTIME INVARIANT (arbitration (b), 2026-08-31): a completed trade's
+    # exit must never predate its entry (entry_ts <= exit_ts). A backdated
+    # exit would reorder the event stream so the EXIT is processed before
+    # the ENTRY, silently dropping the trade at `mult is None` below. That
+    # silent drop is a §19 provenance break, so it is hard-blocked here.
+    # NOTE: this is a ValueError (not a bare `assert`) on purpose — `assert`
+    # is stripped under `python -O`, which is unacceptable for a trading
+    # safety invariant (AGENTS.md §7 fail-safe semantics).
+    completed_pairs: List[Tuple[BenchmarkTrade, float, float]] = []
+    for t, e in zip(trades, entry_ts):
+        if t.result not in ("TP", "PROFIT_TRAIL", "LOSS"):
+            continue
+        entry_float = _to_float_ts(e)
+        exit_float = _to_float_ts(t.exit_timestamp)
+        if entry_float > exit_float:
+            _logger.error(
+                "apply_dd_scaling INVARIANT VIOLATION: backdated exit "
+                "(entry_ts=%r > exit_ts=%r) for trade symbol=%s trade_id=%s",
+                entry_float,
+                exit_float,
+                t.symbol,
+                t.trade_id,
+            )
+            raise ValueError(
+                f"apply_dd_scaling invariant violated: trade "
+                f"(symbol={t.symbol}, trade_id={t.trade_id}) has "
+                f"entry_ts={entry_float} > exit_ts={exit_float} "
+                f"(backdated exit). Completed trades must satisfy "
+                f"entry_ts <= exit_ts."
+            )
+        completed_pairs.append((t, entry_float, exit_float))
 
     # Build event stream for each completed trade.
     # Each trade produces 2 events:
@@ -339,10 +463,9 @@ def apply_dd_scaling(
     # priority: 0 for ENTRY, 1 for EXIT
     # sort key: (timestamp, priority, symbol, trade_id)
 
-    for t, entry_float in completed_pairs:
+    for t, entry_float, exit_float in completed_pairs:
         symbol_id = (str(t.symbol), int(t.trade_id))
         events.append((entry_float, 0, str(t.symbol), int(t.trade_id), "ENTRY", t, symbol_id))
-        exit_float = _to_float_ts(t.exit_timestamp)
         events.append((exit_float, 1, str(t.symbol), int(t.trade_id), "EXIT", t, symbol_id))
 
     events.sort(key=lambda e: (e[0], e[1], e[2], e[3]))
@@ -357,6 +480,11 @@ def apply_dd_scaling(
     peak = starting_balance
     # Lock multiplier per (symbol, trade_id) at ENTRY time.
     mult_lock = {}  # (symbol, trade_id) -> float multiplier
+    # FAIL-FAST counter (arbitration (b)): completed trades whose EXIT event
+    # was processed without a locked ENTRY multiplier. Under the
+    # entry<=exit invariant above this is unreachable via backdated exits;
+    # any hit means a NEW ordering bug class — it must never be silent.
+    dropped: List[Tuple[str, int]] = []
 
     for ts, priority, sym_str, tid, event_type, t_ref, symbol_id in events:
         t_obj = t_ref  # BenchmarkTrade reference
@@ -372,7 +500,22 @@ def apply_dd_scaling(
         else:  # EXIT
             mult = mult_lock.get(symbol_id)
             if mult is None:
-                # Should not happen, but defensive.
+                # FAIL-FAST (was: silent `continue` drop — §19 code
+                # closure, arbitration (b) decision item 1). Counted,
+                # audit-ERROR-logged, and raised below against
+                # MAX_DROPPED_SIGNALS.
+                dropped.append((sym_str, tid))
+                _logger.error(
+                    "apply_dd_scaling DROPPED SIGNAL: EXIT event for trade "
+                    "symbol=%s trade_id=%s at ts=%r had no locked ENTRY "
+                    "multiplier (event-stream ordering violation). "
+                    "dropped_count so far=%d (hard-fail threshold=%d).",
+                    sym_str,
+                    tid,
+                    ts,
+                    len(dropped),
+                    MAX_DROPPED_SIGNALS,
+                )
                 continue
             if mult == 0.0:
                 # PAUSED trade: no realized contribution.
@@ -399,7 +542,8 @@ def apply_dd_scaling(
 
     # Note: paused trades are NOT in surviving. Their base pnl_r contributes ZERO.
     # Their multiplier is 0. The event stream processed them at ENTRY (mult=0)
-    # and at EXIT (mult=0 -> skip, no state update).
+    # and at EXIT (mult==0 -> skip, no state update).
+    _enforce_dropped_signal_policy(dropped)
     return surviving, paused, n_x1, n_x05, n_x025
 
 
@@ -669,9 +813,9 @@ def main():
     # STEP 2 — SINGLE GLOBAL SCALING PASS
     # Apply DD scaling to the merged 6-major stream. EXACTLY ONE
     # call to `apply_dd_scaling()`. No per-symbol scaling, no
-    # second pass, no recomputation. Each trade's DD is computed from
-    # OTHER trades with exit < entry in the shared (exit, symbol,
-    # trade_id) order (see apply_dd_scaling / _strictly_before_entry_dd).
+    # second pass, no recomputation. Single-curve event-stream walk:
+    # multiplier locked at ENTRY from realized DD, scaled pnl applied
+    # at EXIT; paused trades contribute ZERO (see apply_dd_scaling).
     # ========================================================================
     scaled_trades, paused, n_x1, n_x05, n_x025 = apply_dd_scaling(
         all_base_trades,

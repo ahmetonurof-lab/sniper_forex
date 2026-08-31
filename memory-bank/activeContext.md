@@ -1487,3 +1487,84 @@ pipeline sınırında değil — bu, değişikliğin etkisini daraltır ve
 (testler, araçlar) korumasızdı. Q5 ölçümü: gerçek akışta backdated-exit
 0/2302 → dal hiç tetiklenmedi; fail-fast bundan sonra tetiklenirse SEBEBİ
 görünür olur.
+
+### UYGULAMA KAPANIŞI (b-paketi, 2026-08-31) — maddeler 1-4 + 6
+
+- **Madde 1 (fail-fast):** ✅ `apply_dd_scaling` EXIT dalındaki
+  `mult is None → continue` sessiz-düşürmesi artık `dropped` listesine
+  yazılıyor + `_logger.error` + dönüşten önce
+  `_enforce_dropped_signal_policy(dropped)` (eşik `MAX_DROPPED_SIGNALS=0`).
+- **Madde 2 (invariant):** ✅ Tamamlanmış her trade için
+  `entry_ts > exit_ts` → `_logger.error` + `ValueError` (bilerek `assert`
+  DEĞİL — `python -O`'da silinmemeli; §7 fail-safe gerekçesi koda yazıldı).
+  OPEN trade'ler istisna (placeholder exit_ts gerçek değil).
+- **Madde 3 (test-rewrite):** ✅ `tests/test_main_research_c_v1_1.py` 43
+  test. Tüm fixture'lar gerçek-veri-düzene (entry≤exit) çevrildi:
+  `same_bar`, `test_A`, `test_B_self_exclusion`, `test_tie_break` yeniden
+  yazıldı; `test_D`/`test_E` randomik fixture'ları `entry=exit-offset`'e
+  flip edildi + `test_D`'ye non-vacuity guard eklendi. 5 NEGATİF test:
+  backdated→ValueError+caplog ERROR; OPEN-muafiyet; entry==exit legal;
+  `_enforce_dropped_signal_policy` doğrudan (boş/geç/aşım);
+  `MAX_DROPPED_SIGNALS==0`.
+  - **BULGU (görünür kılınır):** `test_D` eski hâliyle VACUOUS-GREEN idi —
+    backdated fixture → tüm trade'ler sessiz düşer → `[]==[]`. `test_E`
+    kırmızıydı çünkü referans düşürülmüşleri oynatıyordu. Bu asimetri
+    tahkim probe'unun (motor-mu-fixture-mı) kök kanıtıdır.
+  - Eski `_reference_dd_and_mult` BAĞIMSIZ değildi (exit-sıra yürüyüşü,
+    same-ts'de ENTRY-priority'ini ihlal ediyordu) → gerçek O(N²)
+    per-trade yeniden-hesaba yazıldı.
+- **`tests/test_causality_synthetic.py`:** ✅ 4/4 PASS + Current==Reference.
+  Hardcoded beklentiler bisect-öncesi mutlak-R okumasındaydı (Test 3/4);
+  canonical tek-eğri semantiğine güncellendi (disclosed; §19 görünür-kırmızı
+  bırakmaz). `test_causality_extended.py` (kök, standalone) 10/10 PASS.
+- **Madde 4 (benchmark re-run):** ✅ HEAD semantiğiyle tam üretim.
+  Sonuç: `2302T | +2593.26R | 5.00R/2.24% | PF 4.97 | x1=1994 x0.5=278
+  x0.25=30 | paused=0`. Pre-run dataset bit-doğrulaması: 24/24 SHA256
+  MATCH. Sayı-değişikliği YOK (quarantine öncesi HEAD ile birebir) →
+  (b)-fix semantik-beyanıdır, sayı-üretimi değil; invariant gerçek veride
+  0/2302 ateşlendi (Q5). Provenance paketi:
+  `memory-bank/benchmark_provenance_c_v1_1_arbitration_b.md` (engine
+  sha256 + SEMANTİK BEYANI + config + canlı hash + row-count + bilinen
+  gap'ler).
+- **PROCESS İNSİDANI (§12.1/§13.5):** `memory-bank/progress.md` sonunda
+  bozuk tek-satır bulundu: geçmiş bir `echo >>` komutunun `-e "\n---\n..."`
+  argümanı kaçış-dizileri genişlemeden aynen yazılmış (LIVE FIX CHECKPOINT).
+  İddia değişmeden okunur markdown'a restore edildi; satır içi
+  `DDscaled`→`DD→scaled` (kaçırılan `→`) düzeltildi. Bu kayıt insidandır,
+  gürültü değildir.
+
+### TAM SÜİT SONUCU (b-paketi, 2026-08-31) — 3F/486P/1S + d49 flake tekrarı
+
+- **Koşum:** `pytest tests/ -q` (tam `tests/`, 598.9 s) →
+  **3 failed / 486 passed / 1 skipped**. Raw: `/tmp/full_suite_bfix.txt`.
+- **Sayım mutabakatı (§13):** baseline 7F/477P/1S (485 test). Hedef
+  2F/482P + bu pakette eklenen 5 negatif test = 2F/487P beklenirdi;
+  gözlenen 3F/486P → fark TAM OLARAK 1× d49 flake (aşağıda). 5×
+  `test_main_research_c_v1_1` kırmızısı GİTTİ (FAILED listesinde yok);
+  2× `test_e2e_live_chain` pre-existing kaldı (disclosed); 485→490
+  toplam = eklenen 5 negatif test. Gizli kırmızı yok.
+- **FAILURE (§13.4 formatı):**
+  - Test: `test_orchestrator_d49.py::TestReplayEstablishesYesterdaysWindow::
+    test_replay_establishes_yesterdays_window_fresh_boot`
+  - Scope: OUTSIDE current task (bu paket `experiment/`+`tests/test_main_
+    research_c_v1_1.py`+`tests/test_causality_synthetic.py`'ye dokundu;
+    orchestrator/d49'a dokunmadı — `git status` bu dosyalarda temiz).
+  - Status: **REPEAT of documented open item** — D53 dönemi koşum-1'de
+    aynı test aynı teşhisle kaydedilmişti (`activeContext.md` ~1107:
+    "time-boundary flake şüphesi, anchor `_recent_naive()` dakika kırpımı
+    + uzun süit altında boundary aşması; AÇIK KALEM: tekrarlanırsa
+    now_fn-enjeksiyonlu kök-neden testi yazılır"). **Tekrarlandı.**
+  - Evidence: hata mesajı `oldest slot 1788096600000 != expected
+    1788095700000` = tam 15m (900000 ms) kayma — bir slot boundary
+    aşması. Diferansiyel (§8.2): tek test 3× PASS, d49 dosyası 8/8 PASS,
+    5× tekrarlı koşum 5/5 PASS; yalnız ~10 dakikalık tam süit içinde,
+    `_recent_naive()`'ın fixture-kurulumu ile `_warmup`'ı arasına dakika
+    kırpma boundary'si düştüğünde ortaya çıkıyor. Benim değişikliklerimle
+    nedensellik bağı YOK (aynı desen D53'te de görüldü, o paket de
+    orchestrator'a dokunmamıştı).
+  - Action: **DISCLOSED, not hidden, not fixed here.** Kök-neden testi
+    (now_fn enjeksiyonu) açık kalem olarak ORTADA — reçete ledger'da
+    yazılı; bu (b)-paketi kapsamı dışı (Hakem onayı/ayrı commit gerekir).
+    Bu commit'in süit iddiası: "full suite within tests/ = 3F/486P/1S,
+    bundan 2'si pre-existing disclosed + 1'i documented time-boundary
+    flake (repeat, differential evidence above)".
