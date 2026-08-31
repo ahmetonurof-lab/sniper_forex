@@ -1029,3 +1029,26 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
   Freeze kuralları bu süre boyunca duruyor; soak sayacı gerçek startup anından başlar.
 - **Aksiyon bekliyor:** operatör (Forexci) soak'ı fiilen başlatmalı; ilk startup
   raporu (verdict+reason+warmup_bars+REPLAY) gelmeden gün-3 takvimi işletilmez.
+
+## HAKEM KARAR İŞLEME — 2026-08-31 (madde 2-4) + b81308b NETLEŞTİRME
+
+- **b81308b tek satır cevap (blob doğrulandı, tahmin değil):** §13.5 (L793),
+  §7.4 (L491), §7.2 persists-across-restart (L468), §9.5 (L627) — **dördü de
+  b81308b içinde işlenmiş.** 2 dosya = `AGENTS.md` (+1144 satır blob) +
+  `.github/copilot-instructions.md` (221→18 pointer). Üçlü set protocol
+  dosyasını ESKİ haliyle çıkarmıyor; push sonrası mini-chore GEREKMEZ.
+  Kanıt: `git show b81308b:AGENTS.md | grep -n "13.5|9.5|7.4|persists"`.
+- **Memory-file yetimliği (madde 2):** `sniper_forex_soak_freeze.md`
+  Copilot workspaceStorage deposundan **SİLİNDİ** (karar: Hakem; gerekçe:
+  3-katman yedeklilik + §19 duplicate-source-of-truth bayat-kopya riski).
+  Tek gerçek kaynak = repo AGENTS.md (§17) + bu defter.
+- **Runbook (madde 4):** `memory-bank/RUNBOOK_SOAK_START.md` eklendi —
+  şablonun kod-doğrulanmış hali. Fark düzeltmeleri: (a) tam getenv listesi
+  çıkarıldı (SNIPER_WARMUP_COUNT, SNIPER_LADDER_THRESHOLD, SNIPER_FEED_CAP,
+  SNIPER_MAGIC + varsayılanları); (b) **Telegram/APNs env'i kod tabanında
+  yok** — "SNIPER_ALERT..." satırı şablondan düşürüldü, D28-Telegram E2E
+  maddesi kanal fiilen wired değilken N-A işaretlendi (hidden-green yerine
+  görünür N-A). Hesap sırrı runbook'a yazılmadı (yazılmaz).
+- **Sıra (Hakem onaylı):** C2 cevabı (Forexçi) → soak start (runbook) →
+  gün-1 verisi → TEK push seti {2f26da9, b81308b, b50b3bb, +bu chore,
+  +gün-1 ledger} — tek N2, tek #9.5 hash-set'i. Pencere: >7 gün → mini-push.
