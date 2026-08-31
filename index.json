@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-31T17:06:24",
+  "generated_at": "2026-08-31T17:26:05",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -9054,74 +9054,74 @@
         },
         "tools.code-index-system.index_builder._signature_from_node": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 34,
-          "line_end": 43,
+          "line_start": 33,
+          "line_end": 42,
           "signature": "def _signature_from_node(node):"
         },
         "tools.code-index-system.index_builder.extract_functions_python": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 46,
-          "line_end": 77,
+          "line_start": 45,
+          "line_end": 76,
           "signature": "def extract_functions_python(rel_path, source_text):"
         },
         "tools.code-index-system.index_builder.extract_functions_python.walk": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 56,
-          "line_end": 74,
+          "line_start": 55,
+          "line_end": 73,
           "signature": "def walk(node, context):"
         },
         "tools.code-index-system.index_builder.extract_functions_generic": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 96,
-          "line_end": 116,
+          "line_start": 93,
+          "line_end": 113,
           "signature": "def extract_functions_generic(rel_path, source_text):"
         },
         "tools.code-index-system.index_builder.module_name_from_path": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 138,
-          "line_end": 141,
+          "line_start": 135,
+          "line_end": 138,
           "signature": "def module_name_from_path(rel_path):"
         },
         "tools.code-index-system.index_builder.file_hash": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 144,
-          "line_end": 145,
+          "line_start": 141,
+          "line_end": 142,
           "signature": "def file_hash(content_bytes):"
         },
         "tools.code-index-system.index_builder.index_single_file": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 148,
-          "line_end": 175,
+          "line_start": 145,
+          "line_end": 172,
           "signature": "def index_single_file(full_path, rel_path, ext, functions, files_meta):"
         },
         "tools.code-index-system.index_builder.remove_file_entries": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 178,
-          "line_end": 182,
+          "line_start": 175,
+          "line_end": 179,
           "signature": "def remove_file_entries(repo_section, rel_path):"
         },
         "tools.code-index-system.index_builder.scan_single_repo": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 185,
-          "line_end": 217,
+          "line_start": 182,
+          "line_end": 214,
           "signature": "def scan_single_repo(repo_cfg, common_cfg):"
         },
         "tools.code-index-system.index_builder.build_full_index": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 220,
-          "line_end": 234,
+          "line_start": 217,
+          "line_end": 231,
           "signature": "def build_full_index(cfg):"
         },
         "tools.code-index-system.index_builder.write_index": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 237,
-          "line_end": 242,
+          "line_start": 234,
+          "line_end": 239,
           "signature": "def write_index(index_data, output_path):"
         },
         "tools.code-index-system.index_builder.load_config": {
           "file": "tools\\code-index-system\\index_builder.py",
-          "line_start": 245,
-          "line_end": 263,
+          "line_start": 242,
+          "line_end": 258,
           "signature": "def load_config(path):"
         },
         "tools.code-index-system.watcher.DebouncedRebuilder.__init__": {
@@ -9827,8 +9827,8 @@
           "hash": "sha256:c0d5d5c5b793b7f9"
         },
         "tools\\code-index-system\\index_builder.py": {
-          "last_modified": "2026-08-30T02:42:52",
-          "hash": "sha256:59dd3695c7f0d98e"
+          "last_modified": "2026-08-31T17:25:12",
+          "hash": "sha256:6054bbe2377caf1f"
         },
         "tools\\code-index-system\\watcher.py": {
           "last_modified": "2026-08-30T02:42:52",
@@ -9839,7 +9839,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-08-31T17:06:24"
+      "last_full_scan": "2026-08-31T17:26:05"
     }
   }
 }

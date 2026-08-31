@@ -1,0 +1,43 @@
+{
+    "repos": [
+        {
+            "name": "sniper_forex",
+            "root": "../..",
+            "memory_bank": "../../memory-bank",
+            "enabled": true
+        }
+    ],
+    "index_output_path": "../../index.json",
+    "always_ignored_dirs": [
+        ".git",
+        ".kilo",
+        "node_modules",
+        "venv",
+        ".venv",
+        "__pycache__",
+        "dist",
+        "build",
+        ".idea",
+        ".vscode",
+        "memory-bank"
+    ],
+    "extensions": [
+        ".py",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".java",
+        ".go",
+        ".rb",
+        ".c",
+        ".h",
+        ".cpp",
+        ".hpp",
+        ".cc",
+        ".cs",
+        ".rs",
+        ".php"
+    ],
+    "debounce_seconds": 1.5
+}

@@ -1192,3 +1192,31 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
   ② P0 teşhis — paralel · ③ tag'li parity — ②'ye bağlı ·
   ④ Telegram seviye-1 — OPERATÖR START adımı BEKLİYOR (bot'a hiç yazılmadı;
   smoke `sendMessage` → 400 chat-not-found). ①④ kapanmadan soak start yok.
+
+## D55 — BUILDER TRACKED (N2 #7 adayı) — provenance zinciri kapanıyor
+
+- **Hakem kararı (ratify mesajı §2):** TRACK — gerekçeler: §10.2
+  "attributable" sözü, format-drift görünürlüğü, §21 next-agent ilkesi.
+  Ön-şart grep: `C:/Users|Administrator|password|token|login` → **exit 1
+  (temiz)** genişletilmiş taramada da sır/path yok. `config.json` tamamen
+  relative path (`../..`) — makine-bağımsız, deployment-artifact olarak kabul.
+- **T4 nuance (hakem şartı):** "İki ardışık tekil kırmızı = rastgele flake
+  değil, DAKİKA-BOUNDARY deterministik yarışı. Soak-sonrası ilk kod
+  penceresinde now_fn-enjeksiyonlu rewrite **ZORUNLU** (backlog'dan pin'e
+  değil, şarta)."
+- **Kapsam beyanı:** Hakem'in literal `git add tools/` komutu 17 dosya
+  sürüklüyordu (watcher.log runtime artifact'ları, alakasız operasyon
+  tool'ları). Parantez-scope intent (`index_builder.py` + `config.json`)
+  esas alındı — **2 dosya track edildi**, kalan 15'i (watcher.py dahil)
+  beyanlı dışarıda; karar hakeme sunulan açık soru.
+- **Reformat (§11 kanıtı):** builder hook-version ruff'da I001+format
+  fail veriyordu → `ruff check --fix` + `ruff format` uygulandı →
+  **AST dump birebir identical** (davranış-nötr ispatı, prose değil).
+- **Index regen:** satır-anchored → 1536 fn sabit, logs=0; diff yalnız
+  generated_at + builder satır-kaymaları (28/28 satır).
+- builder tracked — provenance chain complete: artifact + generator +
+  rules (AGENTS.md) all versioned.
+- **N2 #7 SET BEYANI (§9.5):** push kümesi fiilen **2 hash**:
+  `{0711a5c (N2 #6 ledger kaydı, zorunlu ancestor), D55-builder-chore}`.
+  Hakem onay metni "tek hash" diyordu — ancestor gerçeği seti 2'ye
+  çıkarıyor; set-beyanı raporda, push bu beyan üzerine teyit bekliyor.
