@@ -1002,3 +1002,30 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
   ② P0 teşhis (5 causality: differential + blame) ③ tag'li parity (P0 sonrası)
   ④ S10 boot-replay ölçümü (~4.330 on_bar/boot — ilk soak raporunda)
   ⑤ runbook staleness-knob semantiği.
+
+---
+
+## SOAK DURUM DENETİMİ + PROSES KAYITLARI — 2026-08-31 14:25 (Hakem notları 1-5 işlendi)
+
+- **Rol zinciri (tek satır, Hakem emri):** soak operatörü: Forexci (qwen3.8 flash);
+  hakem: GLM; sentez: Luna. Model/imalcı değişimi bildirildi — provenance parçası
+  olarak kalıcı; rapor→sentez→hüküm zinciri freeze boyunca bağlayıcı.
+- **Ledger penceresi (Hakem şartı):** `2f26da9` en geç İLK soak-checkpoint push'unda
+  remote'a çıkar (günlük rapor + ledger tek set, tek N2). Pencere >7 gün → bağımsız
+  mini-push (N2 #6) zorunlu. Batching bilinçli, pencere tanımlı.
+- **⚠ FİİLİ SOAK DENETİMİ — iddia DOĞRULANAMADI (ölçüldü, tahmin edilmedi):**
+  "soak başladı" cümlesinin 3 göstergesi saha tarandı:
+  1. PROCESS: `tasklist`/`Get-Process` → python YOK, `terminal64.exe` (MT5) YOK.
+     `state/audit.jsonl` YOK, lock dosyası YOK. Son canlı-log = 29 Ağu
+     (phase5_demo/smoke — soak öncesi test koşumları).
+  2. 72-saat listesi: soak fiilen koşmadığı için göstergeler N/A.
+  3. MEMORY-FILE: `sniper_forex_soak_freeze.md` repo DIŞINDA — VS Code Copilot
+     memory-tool deposunda (`workspaceStorage/.../memory-tool/memories/repo/`).
+     Repo'ya sızıntı YOK: tracked-modified = 0, tree temiz. ✓
+  **SONUÇ:** Soak operasyonel olarak DEĞİL. Başlatma ön-kosulları: MT5 terminal64
+  (IC Markets kurulu) ayakta + account oturumu, `MT5_EXPECTED_LOGIN` set (boşsa
+  D12 gereği warn+SAFE_START — bilinçli tercih), `SNIPER_STATE_DIR` mutlak,
+  `python -m src.live.run_production` operatör tarafından başlatılacak.
+  Freeze kuralları bu süre boyunca duruyor; soak sayacı gerçek startup anından başlar.
+- **Aksiyon bekliyor:** operatör (Forexci) soak'ı fiilen başlatmalı; ilk startup
+  raporu (verdict+reason+warmup_bars+REPLAY) gelmeden gün-3 takvimi işletilmez.
