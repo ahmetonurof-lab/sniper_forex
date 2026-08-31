@@ -1685,3 +1685,30 @@ görünür olur.
   Gate ④ (soak) ve Gate ⑤ (Forexçi ticari paket: risk profili + çarpan
   dağılımı kaydı 2186/99/15→1994/278/30, scaled 114→308=%13.4, t1/t2/t3
   recalibration sahibi) — insan kapıları.
+
+## ③(a) PARITY-KAPANIŞI + 1S KİMLİK DÜZELTMESİ (§12.1 — 2026-08-31)
+
+- **Eski结论 (satır ~1603, olduğu gibi kalır):** "1S `test_parity_6majors`
+  = documented slow-skip". **Neden yanlış:** etiket hiç doğrulanmamıştı —
+  `-q` çıktısı skip-adını basmıyor; 1S kimliği tahminden kayıtlaştı.
+- **Yeni kanıt (iki koşum, donmuş HEAD ağacı):**
+  1. `test_parity_6majors` açıkça koşuldu → **7 passed, 0 skipped,
+     514.06 s** (6 parametrik + summary; altı feather da diskte ~65k bar).
+     Yani parity hiç atlamıyordu — süitin 487P'si içinde zaten koşuyordu.
+  2. Gerçek 1S izole `-rs` ile yakalandı:
+     `tests/test_live_signal_runner.py:201` —
+     `test_signal_runner_signal_event_payload_has_expected_fields`:
+     SKIPPED "no signals emitted (random data — rerun if needed)".
+     Deterministik: üretic `seed=1` sabit (L93), 3000 M1 sentetik bar →
+     0 sinyal → payload-şekil testi boş kümede atlıyor. Her süitte aynı
+     node atlar → sayım kararlı (485→490 boyunca 1S sabit).
+- **Hakem TAG-şartının akıbeti:** "ya bir kez explicit koşulur ya
+  skip-gerekçesi pakete girer" → **İKİSİ DE OLDU**: parity explicit
+  koşuldu (7/7 PASS) VE gerçek skip'in gerekçesi provenance'a girdi.
+  Kapalı soru: `test_parity_6majors` etiket hatası — düzeltme bu kayıt +
+  `memory-bank/forexci_package_gate5.md` §5'te.
+- **Ek not:** signal_runner payload-testi "DEFECTIVE-ADJACENT" değil —
+  skip bilinçli tasarımdı ("rerun if needed"); fakat seed=1 ile 0-sinyal
+  deterministik olduğundan test fiilen hiçbir süitte assert-etmiyor.
+  Aday açık-kalem: real-data varyantı veya seed-taraması (N2 #9+ işi,
+  freeze altındayken dokunulmaz).
