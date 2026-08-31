@@ -22,8 +22,18 @@
    `SNIPER_WARMUP_COUNT` (65000), `SNIPER_POLL_INTERVAL` (20), `SNIPER_MAX_SPREAD` (30),
    `SNIPER_LADDER_THRESHOLD` (3), `SNIPER_BACKOFF_MULT` (2), `SNIPER_BACKOFF_MAX` (300),
    `SNIPER_FEED_CAP` (1024), `SNIPER_MAGIC` (9007001).
-   **Telegram/APNs env'i YOK** — alert kanalı bu kod tabanında henüz env-okumuyor;
-   D28-Telegram E2E soak test maddesi ancak kanal fiilen wired'sa anlamlıdır (kontrol listesinde işaretlenecek).
+   **Telegram (D53 wired):** `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` repo
+   kökündeki `.env` içinden otomatik okunur (`mt5_config` setdefault — export
+   gerekmez). `TELEGRAM_CHAT_ID=7711060411` `.env`'de mevcut; **BOT TOKEN
+   operatör tarafından `.env`'e yazılmalı** (sir — hiçbir defter/koda yazılmaz).
+   Token yoksa: ConsoleAlert fallback + audit'te TEK `alerting/CONSOLE_FALLBACK`
+   WARN — sessiz fallback YOK (S5). soak-start kontrolü: `audit.jsonl`'da bu
+   WARN yoksa ve ilk transition'da Telegram DM gelmiyorsa kanal ölüdür.
+   **Ön koşul (operatör):** Bot kendisine hiç yazmamış kullanıcıya DM ATAMAZ
+   (Telegram platform kısıtı — `sendMessage` → 400 "chat not found"). Soak
+   başlamadan önce operatör Telegram'da botu açıp **START**'a basmalı;
+   ardından smoke testi (`curl sendMessage` → `"ok":true`) ile kanal
+   doğrulanmadan soak'a geçilmemeli.
 4. **Kosum (venv + repo kökü):**
    ```bash
    source .venv/Scripts/activate
@@ -41,6 +51,14 @@
 Gün-3 / gün-14 takvimi **bu adımdaki gerçek startup anından** işler;
 masa saatinden değil. Soak = bu komutun döndürdüğü process; başka hiçbir
 "başlattım" ifadesi soak başlangıcı sayılmaz (§3).
+
+## Canlılık taraması (günlük)
+
+- günlük tarama: process canlı + audit büyüyor + (Telegram sessizse) neden yok.
+- Telegram bir dead-man sinyali DEĞİLDİR: transition-only + ladder +
+  cold-rebuild hacmi düşük tasarlandı — sessizlik normal olabilir, ama
+  "neden yok" sorusu audit karşılaştırmasıyla cevaplanmalıdır. Gerçek
+  external dead-man ping Aşama 5 kapsamındadır.
 
 ## Kill / restart drill (72-saat listesi maddesi)
 

@@ -1052,3 +1052,69 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
 - **Sıra (Hakem onaylı):** C2 cevabı (Forexçi) → soak start (runbook) →
   gün-1 verisi → TEK push seti {2f26da9, b81308b, b50b3bb, +bu chore,
   +gün-1 ledger} — tek N2, tek #9.5 hash-set'i. Pencere: >7 gün → mini-push.
+
+## D53 — TELEGRAM ALERT TRANSPORT (kod + test, 2026-08-31, soak-öncesi son pencere)
+
+- **Kapsam (Hakem D53 emri):** Transport `TelegramAlert` (urllib POST
+  sendMessage, timeout ≤3 s sert kapağı, her network exception yutulur →
+  ASLA raise; trading loop ağ çağrısıyla bloke olmaz/bozulmaz). Env çifti
+  `TELEGRAM_BOT_TOKEN`+`TELEGRAM_CHAT_ID` `.env` üzerinden (`mt5_config`
+  setdefault). Commit-öncesi tek-satır teyit: `.gitignore:2:.env` +
+  `git check-ignore` ✓. Env yok → ConsoleAlert fallback + audit'te TEK
+  STARTUP `{phase:"alerting",verdict:"CONSOLE_FALLBACK",
+  reason:"telegram_env_unset"}` — sessiz fallback YOK (S5). İlk transport
+  hatası → one-time `_dead` + görünür console WARN (spam yok, recursion yok).
+- **Seam:** `Orchestrator.__init__` kuyruğu
+  `self.alert = _build_alert_transport(self.config.alert_env, self.audit)`.
+  `TelegramAlert(ConsoleAlert)` → alert_log/stderr kanonik kalır; mevcut 9
+  `alert.send` çağrı noktası ve test gözlem desenleri DEĞİŞMEDİ (§2.2 reuse).
+- **Redaksiyon:** `persistent_log._SENSITIVE_PATTERNS` +TELEGRAM çifti.
+- **Hermeticity (kritik tuzak):** `.env`'de gerçek token varken testlerin
+  gerçek DM post etmemesi için `tests/conftest.py` session-scoped autouse
+  guard (iki TELEGRAM_* anahtarını pop+restore). Module-level pop İŞE
+  YARAMAZ: mt5_config `.env`'i collection sırasında (conftest importundan
+  SONRA) yüklüyor. Bağımsız probe testiyle kanıtlandı (gerçek creds'le
+  Orchestrator console-only kuruluyor; probe geçiciydi, silindi).
+- **Testler:** `tests/test_orchestrator_d53_alerting.py` — 11 test (factory
+  binding/partial/single-WARN, orchestrator wiring, URL/payload/timeout
+  patched urlopen ile, timeout→fallback, exception→fallback+no-retry,
+  never-raises entegrasyon, timeout-cap). Patched-transport = §3 seviye-4/5
+  kanıt.
+- **GERÇEK KANAL (seviye-1, EKSİK):** smoke #1: `getMe` HTTP 200 (token
+  geçerli) · `sendMessage` HTTP 400 **"chat not found"** — bot operatöre hiç
+  yazılmamış (Telegram kısıtı: bot ilk mesajı kullanıcıdan alamaz).
+  OPERATÖR ADIMI: botu açıp START → smoke yeniden (`"ok":true` + gelen DM =
+  seviye-1). Runbook adım-3'e ön koşul satırı işlendi. Kanal kanıtlanmadan
+  soak'a geçilmez (hidden-green yok).
+- **SÜİT (§13, iki tam koşum):**
+  - Koşum-1 (guard sonrası, index regen öncesi ağaç): **8F/474P/1S** (819 s).
+    7F = bilinen baseline (2× e2e_live_chain + 5× research_c_v1_1). YENİ
+    kırmızı: `test_orchestrator_d49.py::
+    TestReplayEstablishesYesterdaysWindow::
+    test_replay_establishes_yesterdays_window_fresh_boot`.
+  - Diferansiyel (§8.2): tek test PASS · d49 dosyası 8/8 PASS ·
+    orchestrator grubu 103/103 PASS · D53+d49 çifti 19/19 PASS.
+  - Koşum-2 (NİHAİ ağaç): **7F/475P/1S** (828 s) = baseline + 11 D53 tam
+    tutar; d49 tekrar kırmızı DEĞİL.
+  - Teşhis: d49 T4 = time-boundary flake şüphesi (anchor `_recent_naive()`
+    dakika kırpımı + uzun süit altında boundary aşması). Mekanizama dayalı
+    güçlü şüphe, KOŞUM kanıtı değil (4 yeniden-koşumda reproduce yok).
+    D53 ile nedensellik bağı yok. **AÇIK KALEM:** soak gözlem listesi —
+    tekrarlanırsa now_fn-enjeksiyonlu kök-neden testi yazılır.
+- **INDEX (§10.2):** final ağaçtan kasıtlı regen → 1532 fonksiyon; diff
+  yalnız D53 dosyaları + kayan satır numaraları. **TUZAK:** `gitignore_utils`
+  pathspec yoksa `.gitignore`'u SESSİZ atlıyor; venv'de pathspec yok → bir
+  regen `logs/fix/`'i (gitignore'lu, 107 fn) sızdırdı. Düzeltme: venv'e
+  pathspec 1.1.1 + yeniden regen (`grep -c '"logs' index.json` = 0).
+  AÇIK SORU (Hakem): builder pathspec bağımlılığı requirements'ta declared
+  değil + silent-skip → hard-fail mi olsun? (tools/ dokunuşu = ayrı kapsam.)
+- **RUFF (hook v0.4.4):** biçim+lint temiz; format sonrası D53 11/11 yeşil.
+- **COMMIT'LER:** KOD `8610951` {orchestrator, persistent_log, conftest,
+  d53-test, index.json} — pre-commit hook validate-only geçti. CHORE
+  {RUNBOOK + bu ledger}. Ledger yazımı ilk denemede tool tarafından
+  "success" raporlayıp diske YAZMADI (bilinen mid-write failure modu —
+  ikinci vaka); anchored replace ile yeniden yazıldı ve doğrulandı.
+- **PUSH SETİ (N2 #6, §9.5 — BÜYÜDÜ, re-authorization gerekir):**
+  {2f26da9, b81308b, b50b3bb, a94ab4b, 8610951, <chore>} — önceki 4'lü sete
+  2 üye eklendi. Gün-1 ledger bir SONRAKİ setin üyesidir. Push ancak Hakem
+  yazılı onayıyla, hash-hash.
