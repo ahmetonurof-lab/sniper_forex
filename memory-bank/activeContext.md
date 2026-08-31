@@ -1220,3 +1220,46 @@ Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
   `{0711a5c (N2 #6 ledger kaydı, zorunlu ancestor), D55-builder-chore}`.
   Hakem onay metni "tek hash" diyordu — ancestor gerçeği seti 2'ye
   çıkarıyor; set-beyanı raporda, push bu beyan üzerine teyit bekliyor.
+
+## N2 #7 PUSH KAYDI — 2-hash set, FREEZE HEAD `2a0d5b3`
+
+- **Who/What:** Luna (icra) · Hakem (yetki: N2 #7 set-teyit mesajı,
+  "2 hash, PUSH YETKİLİ" — sayım hatası hakem tarafından kayıtla kabul:
+  "1 hash" bayat sayımdı, 0711a5c beyanı N2 #6 raporunda itirazsız geçmişti).
+- **When:** 2026-08-31 · **Remote:** origin/main
+  (https://github.com/ahmetonurof-lab/sniper_forex.git)
+- **Set (2/2, ride-along yok):**
+  `0711a5c` chore: ledger N2 #6 push kaydı
+  `2a0d5b3` chore(tools): builder+config tracked (D55)
+- **Push:** `402aa6a..2a0d5b3 main -> main`
+- **Verification (§9.2):** `origin/main..HEAD` → **BOŞ** ·
+  `git ls-remote origin main` → `2a0d5b352063634f6ec9aa64e3f0f0d23fac9e17`
+  = local HEAD · working tree temiz (tracked).
+- **Freeze invariant (hakem §5 keskinleştirmesi):** `402aa6a..2a0d5b3`
+  arasında `src/` + `tests/` **SIFIR delta** — doğrulandı (git diff --stat
+  boş). Tam delta: index.json (intentional regen) + ledger + builder/config.
+- **FREEZE: AKTİF — HEAD `2a0d5b3`.** Soak READY (RUNNING değil); gate 4
+  şart açık. Bu push'la provenance zinciri tamam: artifact (index.json) +
+  generator (builder+config) + rules (AGENTS.md) versioned.
+
+## TOOLS ENVANTERİ + WATCHER TOMBSTONE (hakem kararı: ŞİMDİ track YOK, Aşama 5)
+
+- `tools/watcher.py` (untracked) — **KILLED 2026-08-31** (staged-index
+  ezmeleri, iki rollback; incident analizi defterde, PID 10408).
+  Disposition: Aşama 5'te ya temiz yeniden yazım ya kalıcı arşiv.
+  Yol kaydı: `tools/code-index-system/watcher.py` — gelecekteki ajan için.
+- Kalan 16 untracked tools dosyası — disposition envanteri (Aşama 5):
+  - Runtime log'lar: `tools/code-index-system/watcher.log`,
+    `tools/code-index-system/logs/watcher-{err,out}*.log` (9 dosya)
+    → Aşama 5 **gitignore sweep** (kalıp eklenecek).
+  - Windows-servis betikleri: `bootstrap_admin.ps1`, `install-service.ps1`,
+    `setup-admin.ps1`, `start_watcher.bat`, `start_watcher.vbs`,
+    `watcher-task.xml` (code-index-system/) · `sys_cleanup.ps1` (tools/)
+    → Aşama 5 **WINSW OPS-ASSET ADAYI** — asıl iş malzemesi, orada
+    track-edilebilir hale gelir.
+  - Operasyon tool'ları: `ssh_audit.py`, `ssh_audit_cmd.py`,
+    `rollback_stageA.py`, `rollback_stageB.py` (tools/) ·
+    `histdata_acquisition/download_histdata.py`
+    → Aşama 5'te **tek tek karar**.
+- NEDEN şimdi değil: freeze disiplini + minimal scope; akıbetleri Aşama 5
+  kararında gerçek ihtiyaçla belirlenir, bugün tahmin olmaz.
