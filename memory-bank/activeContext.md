@@ -951,3 +951,21 @@ Onay: HAKEM — bu sohbet, final gate.
   penceresi; 0 = her gap rebuild).
 - N-a notu: COLD_REBUILD_OK + final STARTUP = bir boot'ta iki STARTUP event
   (kabul); SHUTDOWN-dedupe'nin "one-per-kind" genellemesi Aşama 2'ye.
+
+### SOAK TREE FREEZE (yeni kural, soak start anında aktif)
+
+```text
+soak süresince src/ + tests/ + index.json = HEAD; mutation YOK.
+İstisna: soak artifact'leri (state/, logs/) + koşum log'ları (.gitignore'lu).
+memory-bank: WRITABLE — chore commit'lere izinli (kod-dokunuşu yok; N2 push
+policy yine geçerli). Aksi halde iki haftalık kanıt uncommitted birikir.
+Kod değişikliği gerekirse: soak durur (event kaydı) → değişiklik →
+tam süit → commit/push (N2) → soak restart. Kısayol yok.
+```
+
+Gerekçe: restart, commit'lenmiş VE süit-lenmiş bir ağaçtan ayağa kalkmak
+zorunda; sınamamış state'te restart = soak'ın ölçtüğünü bulanıklaştırır.
+Format sweep bu kural öncesi SON mutasyon penceresinde yapıldı (2026-08-31).
+
+- Ledger write tool mid-write corrupt (5× D49 dup); recovered from HEAD —
+  commit-early discipline third payoff (watcher / kayıtsız-push / tool-failure).
