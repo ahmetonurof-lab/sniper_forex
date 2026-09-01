@@ -2054,3 +2054,54 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
   (src/ fix yetkisi bekliyor) + fix sonrasi runbook safe-mode
   temizligi + yeniden boot.** Smoke'un DM bacağı artık kanalli —
   A/B fix'lenince ok:true + DM beraberce ölçülebilir.
+
+## A+B FIX İCRASI — HAKEMLİK YETKİ PENCERESİ (2026-09-01)
+
+- Yetki: hakem A+B paketini şartlarla verdi (tek merge penceresi;
+  icra sırası: fix → süit → commit → push → safe-file clear →
+  PROCEED boot → gate-OPEN + smoke DM → SOAK).
+- **FIX A (uygulandı):** mt5.symbol_tick → mt5.symbol_info_tick —
+  src/trading/mt5_connection.py:get_tick_data + src/data/mt5_data.py:get_tick
+  (etiketler/yorumlar dahil). Kanıt zinciri boot raporunda (16964ce).
+- **FIX B (uygulandı):** orchestrator.py — modül sabiti
+  `_SYMBOL_TRADE_MODE_FULL = 4` (paket-doğrulanmış enum; fake-güvenli,
+  literal 0 yok) + `_build_contract` karşılaştırması `== FULL`.
+  Yorum düzeltildi (eski "0=FULL" tersti).
+- **Test körlüğü kapatıldı (zorunlu 3+1 yeni test):**
+  1. A-regresyon ×2 (test_mt5_connection_hardening.py): _RealSurfaceMT5
+     fake'i symbol_info_tick VAR, symbol_tick YOK — MagicMock
+     otomatik-üretim körlüğünü kılar; her iki site test edilir.
+  2. B(i) trade_mode=4 → gerçek startup() → PROCEED + S11_READY
+     (bug'ı yakalayan tek test tipi — §4.1).
+  3. B(ii) trade_mode=0 (DISABLED) → safe_reason 'trade_mode_not_full'
+     → SAFE_START (ters-kilidin kalıcı ölümü).
+  4. Paket-pin testi: import MetaTrader5 → symbol_info_tick var /
+     symbol_tick yok + enum 0..4 sabitleri (importorskip: paket yoksa skip).
+- **6 stale fake 0→4 taşındı** (d49:88, startup:195,309, tas2:120,610,707)
+  + T9 docstring düzeltmesi (!= 0 → != FULL(4)). T9 semantiği korundu
+  (1≠4 hâlâ flag).
+- **Hakem §12.1 kendi-payı (KAYDA GEÇTİ):** "0=FULL" varsayım zincirinde
+  hakemlik onayı: Taş 2 review'unda trade_mode==0 enum doğrulaması
+  yapılmadan ACCEPT edildi. Kalıcı kural: **fake'lerin API yüzeyi, gerçek
+  paket dokümantasyonuna karşı ayrı bir review maddesidir.**
+- **Runbook maddeleri (kalıcı):** (1) boot = `python -u` (buffered-stdout
+  kaybı dersi); (2) Windows graceful shutdown = console-attached CTRL+C
+  (MSYS-nohup + taskkill /F = stdout+audit kaybı); (3) post-boot kontrol
+  listesi: orphan lock (PID-dead takeover kurtarır — tasarım) + persisted
+  safe-file (boot SAFE_START verir; temizleme = açık operatör aksiyonu,
+  §7.2 — kod-fix'i TEMİZLEMEZ).
+- **SÜİT (fix sonrası):** 2 failed / 500 passed / 1 skipped, 0 error
+  (846.41s). = baseline 495P + 5 yeni test. 2F = bilinen pinned e2e
+  (E2EBroker retcode 10009 vs Execution.send 0 bekler; imza aynı:
+  context_registered=None, test:141/:182) — fix öncesiyle birebir,
+  kapsam-dışı, pre-existing. 1S = bilinen signal-runner skip.
+- **d49 deterministik:** 2× koşum → 8 passed (5.07s / 4.82s).
+- **Hedefli yeşil:** hardening+startup+tas2+d49 = 72 passed; 5 yeni
+  test tek-tek PASSED (skip değil, -v ile doğrulandı).
+- **Format/provenance notu:** lokal ruff 0.15.13 ile hook ruff 0.4.4
+  sürüm sapması: d49/tas2'deki `assert ... ,(...)` reformat'ı HEAD'de
+  de mevcut (pre-existing, dokunulmadı); mt5_data.py'deki blank-line
+  autofix'i geri alındı — diff yalnız semantik fix içerir.
+- **TAG:** research-canonical-v1.1 KORUNUR (7a1e6f1; benchmark
+  MT5Connection/ORCH kullanmaz, araştırma sayıları etkilenmedi).
+  Yeni annotated tag ancak canlı PROCEED+gate-OPEN+DM kanıtıyla.

@@ -117,7 +117,7 @@ class _FakeSymbolInfo:
     volume_step = 0.01
     trade_contract_size = 100000.0
     trade_stops_level = 10
-    trade_mode = 0
+    trade_mode = 4  # FULL — MetaTrader5 enum (Bug B fix 2026-09-01)
 
 
 class _FakeAccount:
@@ -607,7 +607,7 @@ class TestSafeModePersistence:
             volume_step = 0.01
             trade_contract_size = 100000.0
             trade_stops_level = 10
-            trade_mode = 0
+            trade_mode = 4  # FULL — MetaTrader5 enum (Bug B fix 2026-09-01)
 
         class FakeMT5D24:
             TIMEFRAME_M1 = 1
@@ -704,7 +704,7 @@ class TestContractBuilder:
             volume_step = 0.01
             trade_contract_size = 100000.0
             trade_stops_level = 20  # 20 points
-            trade_mode = 0
+            trade_mode = 4  # FULL — MetaTrader5 enum (Bug B fix 2026-09-01)
 
         class FakeMT5:
             TIMEFRAME_M1 = 1
@@ -1615,9 +1615,10 @@ class TestTas2Blockers:
     def test_T9_trade_mode_not_full_adds_safe_reason(
         self, tmp_state, monkeypatch, synthetic_base_time
     ):
-        """T9 (Blocker 7): symbol_info.trade_mode != 0 → the builder
-        returns the ContractSpec (NOT None) and the orchestrator adds
-        `trade_mode_not_full` to safe_reasons → SAFE-START."""
+        """T9 (Blocker 7): symbol_info.trade_mode != FULL (=4, MetaTrader5
+        enum — Bug B fix 2026-09-01) → the builder returns the ContractSpec
+        (NOT None) and the orchestrator adds `trade_mode_not_full` to
+        safe_reasons → SAFE-START."""
 
         class _FakeSI_LongOnly:
             point = 0.00001

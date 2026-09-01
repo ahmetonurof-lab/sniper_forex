@@ -12,6 +12,7 @@ PHASE 1 hardening (2026-08-27):
 """
 
 import MetaTrader5 as mt5
+
 from src.config.mt5_config import get_mt5_config
 
 
@@ -83,10 +84,14 @@ class MT5DataLayer:
             dict or None: Tick data with bid, ask, last, time
         """
         try:
-            tick = mt5.symbol_tick(symbol_name)
+            # Bug A fix (live boot 2026-09-01): MetaTrader5 exposes
+            # symbol_info_tick(), not symbol_tick(). See
+            # src/trading/mt5_connection.py:get_tick_data for the full
+            # root-cause note.
+            tick = mt5.symbol_info_tick(symbol_name)
         except Exception as e:
-            self._last_error = ("symbol_tick_exception", str(e))
-            print(f"[ERROR] symbol_tick exception for {symbol_name}: {e}")
+            self._last_error = ("symbol_info_tick_exception", str(e))
+            print(f"[ERROR] symbol_info_tick exception for {symbol_name}: {e}")
             return None
 
         if tick:

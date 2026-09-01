@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
 
@@ -176,3 +178,59 @@ def test_data_layer_get_symbols_list_captures_exception():
         result = dl.get_symbols_list()
     assert result is None
     assert dl.last_error[0] == "symbols_get_exception"
+
+
+# ── Bug A regression — real API surface (symbol_info_tick, NOT symbol_tick) ─
+# The MetaTrader5 package has NO symbol_tick(); the old code called it and
+# swallowed the resulting AttributeError into None, so the entry gate never
+# opened live (proven at first live boot 2026-09-01). MagicMock auto-creates
+# symbol_tick and hid the bug — these fakes deliberately OMIT it (§4.1).
+
+
+class _RealSurfaceMT5:
+    """Fake exposing ONLY the real MetaTrader5 call surface: symbol_info_tick
+    exists, symbol_tick does NOT. Also satisfies ensure_connected()."""
+
+    @staticmethod
+    def terminal_info():
+        return MagicMock(path="p", build=1)
+
+    @staticmethod
+    def symbol_info_tick(symbol):
+        return MagicMock(bid=1.10001, ask=1.10002, last=1.10001, time=1788241900, volume=42)
+
+
+def test_get_tick_data_uses_symbol_info_tick_not_symbol_tick():
+    """Regression (Bug A): MT5Connection.get_tick_data() must call the real
+    symbol_info_tick(). A fake WITHOUT symbol_tick must still return a dict."""
+    conn = _make_connection()
+    conn.connected = True
+    assert not hasattr(_RealSurfaceMT5, "symbol_tick")  # fake is real-surface
+    with patch("src.trading.mt5_connection.mt5", new=_RealSurfaceMT5()):
+        result = conn.get_tick_data("EURUSD")
+    assert result is not None, "get_tick_data returned None — symbol_tick bug"
+    assert result["bid"] == 1.10001
+    assert result["time"] == 1788241900
+
+
+def test_data_layer_get_tick_uses_symbol_info_tick():
+    """Regression (Bug A): MT5DataLayer.get_tick() must call symbol_info_tick()."""
+    dl = _make_data_layer()
+    with patch("src.data.mt5_data.mt5", new=_RealSurfaceMT5()):
+        result = dl.get_tick("EURUSD")
+    assert result is not None, "get_tick returned None — symbol_tick bug"
+    assert result["volume"] == 42
+
+
+def test_mt5_package_api_surface_pin():
+    """Package-authoritative pin (verified live 2026-09-01): the installed
+    MetaTrader5 build exposes symbol_info_tick (NOT symbol_tick) and the
+    trade-mode enum DISABLED=0..FULL=4. Skips if the package is absent."""
+    mt5 = pytest.importorskip("MetaTrader5")
+    assert hasattr(mt5, "symbol_info_tick")
+    assert not hasattr(mt5, "symbol_tick")
+    assert mt5.SYMBOL_TRADE_MODE_DISABLED == 0
+    assert mt5.SYMBOL_TRADE_MODE_LONGONLY == 1
+    assert mt5.SYMBOL_TRADE_MODE_SHORTONLY == 2
+    assert mt5.SYMBOL_TRADE_MODE_CLOSEONLY == 3
+    assert mt5.SYMBOL_TRADE_MODE_FULL == 4

@@ -193,6 +193,19 @@ class OrchestratorConfig:
 
 LOCK_STALE_SEC = 60 * 15  # 15 minutes
 
+# ── MT5 symbol trade-mode enum (Bug B fix, live boot 2026-09-01) ──
+# Package-verified against the installed MetaTrader5 build on 2026-09-01:
+#   SYMBOL_TRADE_MODE_DISABLED=0, LONGONLY=1, SHORTONLY=2,
+#   CLOSEONLY=3, FULL=4
+# The old code assumed 0=FULL — inverted. Live EURUSD (IC Markets) reports
+# trade_mode=4, so the old check falsely SAFE-STARTED, and a DISABLED
+# symbol (0) would have counted as FULL — a reverse-lock hazard for
+# Aşama 4. Defined as a module constant (not read off self._mt5) because
+# test fakes do not carry package enum attributes; pinned by
+# tests/test_mt5_connection_hardening.py enum-pin test against the real
+# package when importable.
+_SYMBOL_TRADE_MODE_FULL = 4
+
 
 @dataclass
 class LockData:
@@ -1099,9 +1112,11 @@ class Orchestrator:
             volume_max = float(getattr(si, "volume_max", 100.0))
             volume_step = float(getattr(si, "volume_step", 0.01))
             trade_mode = getattr(si, "trade_mode", 0)
-            # D30: trade_mode 0=FULL, 1=LONG-only, 2=SHORT-only, 3=CLOSE-only.
-            # Only FULL permits new entries. Flag, do not return None.
-            self._trade_mode_ok = trade_mode == 0
+            # D30 (Bug B fix 2026-09-01): MetaTrader5 enum is
+            # DISABLED=0, LONGONLY=1, SHORTONLY=2, CLOSEONLY=3, FULL=4.
+            # Only FULL (=4) permits new entries. Flag, do not return None.
+            # The previous `== 0` check was inverted (assumed 0=FULL).
+            self._trade_mode_ok = trade_mode == _SYMBOL_TRADE_MODE_FULL
             return ContractSpec(
                 symbol=symbol,
                 volume_min=volume_min,

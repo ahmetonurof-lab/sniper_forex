@@ -208,10 +208,15 @@ class MT5Connection:
             return None
 
         try:
-            tick = mt5.symbol_tick(symbol_name)
+            # Bug A fix (live boot 2026-09-01): the MetaTrader5 package has
+            # NO symbol_tick() — the correct call is symbol_info_tick().
+            # The old call raised AttributeError on every tick, which the
+            # except swallowed into None, so _get_spread_state saw
+            # connection_ok=False and the entry gate never opened live.
+            tick = mt5.symbol_info_tick(symbol_name)
         except Exception as e:
-            self._last_error = ("symbol_tick_exception", str(e))
-            print(f"[ERROR] symbol_tick exception for {symbol_name}: {e}")
+            self._last_error = ("symbol_info_tick_exception", str(e))
+            print(f"[ERROR] symbol_info_tick exception for {symbol_name}: {e}")
             return None
 
         if tick:

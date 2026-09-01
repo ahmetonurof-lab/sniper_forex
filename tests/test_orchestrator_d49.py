@@ -85,7 +85,7 @@ class _FakeSymbolInfo:
     volume_step = 0.01
     trade_contract_size = 100000.0
     trade_stops_level = 10
-    trade_mode = 0  # FULL
+    trade_mode = 4  # FULL — MetaTrader5 enum (Bug B fix 2026-09-01)
 
 
 class FakeMT5Full:
