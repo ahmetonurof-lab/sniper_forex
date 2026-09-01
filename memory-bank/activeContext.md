@@ -1787,3 +1787,37 @@ görünür olur.
   (C2 wire'lı, süit-kanıtlı 2F/495P/1S). origin/main = 7a1e6f1.
 - **Pano:** ②✅ ①-wired(7a1e6f1) ⑤-tek-cümle bekleniyor ③-tag-hazır
   ④-tık-bekliyor.
+
+## D53b — WATCHER KARANTİNASI (Hakem escalation, 2026-09-01)
+
+- **Karar revizyonu (§12.1):** Önceki "watcher kapalı + defter
+  tombstone" kararım YETERSİZ kaldı — ikinci diriliş (PID 10408 → kill →
+  "KAPALI" kaydı → PID 2700) bunu kanıtladı. Tombstone DURUM beyanıdır,
+  MEKANİZMA değildir. Hakem kararı: **araç-desteği** — artifact karantinası.
+- **GERÇEK DİRİLİŞ VEKTÖRÜ (bu icrada bulundu — önceki tarama eksikti):**
+  Servis kayıtlı DEĞİL, planlanmış görev temiz (yalnız Windows'un kendi
+  `\Microsoft\Windows\Shell\IndexerAutomaticMaintenance` — ilgisiz).
+  Ancak `Start Menu\Programs\Startup\CodeIndexWatcher.lnk` →
+  `wscript.exe start_watcher.vbs` → `python -u watcher.py` — LOGON
+  tetikli. PID 2700'un kaynağı buydu. Düzeltme beyanı: N2 #9 kaydındaki
+  "kaynak: el başlatması" hükmüm YANLIŞTI — otomatik logon başlatmasıydı;
+  servis/görev taraması Startup klasörünü kapsamıyordu (§12.1).
+- **KARANTİNA İCRASI (tools/code-index-system/, hepsi UNTRACKED → §17
+  freeze kapsamı dışı; index_builder.py el-yolu protokolü DOKUNULMADI):**
+  watcher.py, start_watcher.vbs, start_watcher.bat, watcher-task.xml
+  (taslak; LogonTrigger + `cmd /c python -u watcher.py` içeriyordu —
+  kayıt yoktu ama vektör taşıyordu), install-service.ps1,
+  uninstall-service.ps1, bootstrap_admin.ps1, setup-admin.ps1 →
+  hepsi `*.QUARANTINED_20260901`; watcher.cpython-312.pyc silindi;
+  Startup\CodeIndexWatcher.lnk → aynı klasöre karantina kanıtı olarak
+  taşındı. watcher.py başlığına 4 satırlık karantina notu eklendi.
+- **NEGATİF TEST (doğrulandı):** `python -u watcher.py --config
+  config.json` → `[Errno 2] No such file or directory` — sessiz diriliş
+  yolu kapalı, gürültülü fail. Startup klasörü boş (yalnız desktop.ini).
+- **ZORUNLU PRE-FLIGHT KURALI (Hakem onaylı, Aşama-5 commit'ine
+  işlenecek):** "watcher/python süreci durmuş mu" kontrolü artık commit
+  VE push anlarında ayrı ayrı zorunlu pre-flight maddesidir (§10.1
+  operasyonel türevi). Bir oturumdaki kill, sonraki oturumu bağlamaz.
+- **82fbac4 disposition (Hakem):** (A) TAG'le piggyback (N2 #10 2-hash
+  set). Ön-yetki: 82fbac4 7 günü doldurmadan TAG düşmezse SOLO push
+  önceden yetkilidir (N2 #6 deseni) — icra + defter yeter, söz istemez.
