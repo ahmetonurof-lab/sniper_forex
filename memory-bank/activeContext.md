@@ -2187,11 +2187,11 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
 - Set (§9.5 exact): {41ca925e621f1501c21a3e20872a579eaac3d67d} — parent
   0ddaf94. Set-growth beyanı: yetki penceresi tek commit; ek commit yok
   (ledger/hash backfill aşağıda ayrı chore olarak eklenirse re-auth).
-- validation: tam süit 470P/1S/0F/0E (757.46s = 12:37; tas3/tas4 + e2e
-  ignore — e2e pre-existing pinned, N2 #11 baseline ile aynı imza
-  context_registered=None test_e2e_live_chain.py:141, dosya değişmedi);
-  regresyon sweep (startup+hardening+tas2+d49) 72/72 PASSED; B1/B2/B3
-  paketi 6/6 PASSED; d49 2×8 deterministik.
+- validation: full tam süit (`pytest tests/ -q`) 2F/506P/1S/0E (559.86s).
+  2F = pinned pre-existing e2e (`test_e2e_live_chain.py:141` + loss_reduces;
+  `context_registered=None` imzası N2 #11 baseline ile birebir aynı, dosya
+  değişmedi). 506P ≥ 501P+ beklentisi (§18 protokol karşılandı). B1/B2/B3
+  paketi 6/6 PASSED; d49 8/8 deterministik; tüm hook'lar Passed.
 - Pre-flight: pre-commit hook-seti bu turda hiç dosyaya dokunmadı
   (N2 #11'in §10.3 dürüst kaydı; bu sefer I001 drift yok).
 - Imza (post-push): origin/main..HEAD=0 ✓; ls-remote main = HEAD ✓;
