@@ -2105,3 +2105,32 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
 - **TAG:** research-canonical-v1.1 KORUNUR (7a1e6f1; benchmark
   MT5Connection/ORCH kullanmaz, araştırma sayıları etkilenmedi).
   Yeni annotated tag ancak canlı PROCEED+gate-OPEN+DM kanıtıyla.
+
+## N2 #11 PUSH RECORD — A+B FIX PACK LANDED (2026-09-01)
+
+- who: LUNA — Hakem yazılı yetkisi: A+B paketi şartlarla, tek merge
+  penceresi ("İcra: A+B paketi → süit → commit → N2 → safe-file clear
+  → PROCEED boot → gate-OPEN + smoke DM → SOAK").
+- what: `c83f25c` fix(live) — Bug A (symbol_tick→symbol_info_tick,
+  2 site) + Bug B (trade_mode==FULL(4), modül sabiti, yorum düzeltme)
+  + 5 yeni regresyon testi (A gerçek-yüzey ×2, B(i) PROCEED@4,
+  B(ii) SAFE_START@0, paket enum-pin) + 6 fake 0→4 + T9 docstring
+  + index regen (satır-anchor) + bu defter.
+- when: 2026-09-01 ~10:5x local. remote: origin/main (GitHub).
+- Set (§9.5 exact): {c83f25c} — parent d3777c1 (origin'de mevcut).
+  Set-growth beyanı: yetki penceresi tek commit; ek commit yok.
+- validation: tam süit 2F/500P/1S/0E (846.41s; 2F=pinned pre-existing
+  e2e, imza değişmedi); d49 2×8 deterministik; 5 yeni test -v ile
+  tek-tek PASSED. Hook-seti commit'te: ruff (0.4.4) bir kez dosya
+  düzeltti → commit reddi → düzeltilmiş blob yeniden stage → ikinci
+  denemede TÜM hooklar PASSED (§10.3 commit-time mutation kaydı).
+- Imza (post-push): origin/main..HEAD=0 ✓; ls-remote main =
+  c83f25c979a74253b8eba52bb9bfa339277a19f1 = local HEAD ✓; tracked
+  tree CLEAN ✓. Pre-flight push anı: NO PYTHON PROCS + index clean ✓.
+- TAG: research-canonical-v1.1 (7a1e6f1) KORUNUR — fix, TAG'li
+  donmuş ağaçtaki iki kusuru düzeltir; araştırma sayıları etkilenmedi
+  (benchmark bu dosyaları kullanmaz; 16964ce provensansı). Canlı
+  boot-kanıt tag'i ayrıca (PROCEED+gate-OPEN+DM sonrası).
+- Sıradaki (yetki sırası): runbook clear_safe_mode (operatör
+  aksiyonu, §7.2) → `python -u` boot (MT5_EXPECTED_LOGIN export) →
+  PROCEED + gate-OPEN + smoke DM kanıtı → SOAK T0.
