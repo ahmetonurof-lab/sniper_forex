@@ -2036,3 +2036,21 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
   safe_reason, 4=FULL→temiz); C: operatör /start. Sonrası:
   safe-file runbook temizliği + yeniden boot → PROCEED + gate
   transition + DM kanıtı → ④.
+
+## KUSUR C KAPANDI — TELEGRAM DM KANALI CANLI DOGRULANDI (2026-09-01)
+
+- Operator beyani + L-olcum: `getMe ok:true` (@ahmetonurof_bot) ve
+  `sendMessage ok:true chat_id:7711060411 msg_id:3` — probe metni
+  ("[SNIPER_TEST] ... gate-C testidir") operatorden AYNEN iade
+  edildi → UCTAN-UCA teslim kaniti (gönderdim + okundu + geri geldi).
+- Kanal-acis provansi: getUpdates tek kayit — `/start` @
+  2026-09-01T06:17:41Z (bot'la eslesme anı; benim ~05:56Z'lik
+  ilk probe'um `400 chat not found` almusti — dogru siralamali
+  iki olcum, C'nin kod-degil tanısı teyitli).
+- URL notu (Rehat): kullanim `https://api.telegram.org` — kod yolu
+  (orchestrator TelegramAlert._post) zaten ayni biçimi kullanıyor,
+  uyum dogrulandi.
+- **GATE DURUMU: C PASS. Geriye kalan blokler: KUSUR A + KUSUR B
+  (src/ fix yetkisi bekliyor) + fix sonrasi runbook safe-mode
+  temizligi + yeniden boot.** Smoke'un DM bacağı artık kanalli —
+  A/B fix'lenince ok:true + DM beraberce ölçülebilir.
