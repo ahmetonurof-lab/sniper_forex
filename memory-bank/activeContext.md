@@ -1754,3 +1754,36 @@ görünür olur.
 - **KARAR-2 semantik not:** Çok-sembollü dağıtım zaten process-bazlı
   (1 Orchestrator = configured_symbols[0]); guard `self.symbol`
   eşleşmesine bağlı → diğer pariteler yapısal olarak bağımsız.
+
+## N2 #9 PUSH KAYDI (2026-09-01 07:1x — LUNA, Hakem yetkisiyle)
+
+- **who:** LUNA (agent) — Hakem yazılı yetkisi: "PUSH N2 #9: 3-hash
+  set, YETKİLİ" (aynı mesajda KARAR-2 wire tahkimi: KABUL; dört tasarım
+  kararı tek tek onaylı — atomiklik pre-capture / lag birleşim /
+  fail-safe yön / görünür düşürme; §7.2 üç-yarılma ve boot regresyonu
+  ayrıca teyitli).
+- **what (SET, 3 hash — yetki tam bu sete bağlı, §9.5):**
+  - `1e9dc5f` chore: ledger — N2 #8 push record
+  - `7cfad79` chore(memory-bank): gate-3(a) parity closure + Forexçi gate-5
+  - `7a1e6f1` feat(live): C2 symbol-based entry lock per KARAR-2
+- **set-büyüme beyanı:** Önerilen mini-set 2 hash'ti (1e9dc5f+7cfad79);
+  C2 wire commit'inin (7a1e6f1) katılmasıyla 2→3 büyüdü → set değişimi
+  = yeniden yetki kuralı işledi; Hakem 3-hash setini açıkça yetkilendirdi.
+- **remote:** origin main — `5ecbf0c..7a1e6f1` fast-forward.
+- **imza 1:** `git log --oneline origin/main..HEAD` → BOŞ ✓
+- **imza 2:** `git ls-remote origin main` =
+  `7a1e6f10aeaf6dcf078af004a7c0fcb93f9d29ae` = local HEAD ✓
+- **working tree:** push sonrası tracked temiz.
+- **PROVENANCE OLAYI (§10.1, görünür kalır):** Push-öncesi pre-flight'ta
+  index.json'da commit-sonrası bir mutasyon yakalandı: `CodeIndexWatcher`
+  (PID 2700, `python -u watcher.py --config config.json`, sistem Python
+  3.12) commit anındaki tasklist kontrolünde YOKTU; push hazırlığında
+  (07:03:44) `generated_at`/`last_full_scan` alanlarını tek başına
+  güncellemişti. Tespit → watcher kill → `git checkout -- index.json`
+  (kasıtlı regen'li 7a1e6f1 blob'u korundu) → push. Push edilen blob,
+  doğrulanan blob'dur (§10.3). Ders: "watcher durmuş mu" kontrolü tek
+  seferlik değil, commit-ve-push anlarında YENİDEN yapılır.
+- **FREEZE noktası güncellendi:** §17 soak-freeze HEAD = `7a1e6f1`
+  (C2 wire'lı, süit-kanıtlı 2F/495P/1S). origin/main = 7a1e6f1.
+- **Pano:** ②✅ ①-wired(7a1e6f1) ⑤-tek-cümle bekleniyor ③-tag-hazır
+  ④-tık-bekliyor.
