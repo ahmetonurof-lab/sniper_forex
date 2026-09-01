@@ -1975,3 +1975,64 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
    ④ START tıku → smoke (ok:true + DM) → SOAK.
 - **Hakem/Forexçi kısıtı korunuyor: TAG landed ≠ START. Bu rapor
   BLOCK diyor ve START ETMİYOR.**
+
+## ④ START İCRASI — BOOT RAPORU: SMOKE FAIL, İKKANITLI KUSUR, SOAK YOK (2026-09-01)
+
+- **Gate-3 canlı yeniden-ölçüm: PASS.** terminal64 çalışıyor;
+  MT5Connection.connect() → login 53012914 @ ICMarketsSC-Demo,
+  trade_allowed=True, balance 9990.42, 0 açık pozisyon; probe:
+  EURUSD tick_age=1s, spread=1pt, trade_mode=4.
+- **START (signal-only, gerçek emir YOK):** T0=05:51:23Z, win-PID
+  12124, `MT5_EXPECTED_LOGIN=53012914` export edildi (S2 identity
+  temiz), nohup → logs/soak_20260901.out.
+- **Boot sonucu: SAFE_START**, safe_reasons = ["trade_mode_not_full"]
+  (state/orchestrator_safe.json, ts=1788241897 ≈ startup 10s).
+  S9 D28-smoke GEÇTİ (warmup failed değil), S2 identity geçti,
+  recon bloklamadı. Run-loop'ta: `entry gate CLOSED: MT5 connection
+  is down` (WARN). **SOAK BAŞLAMADI — soak başlangıç zamanı TANIMSIZ.**
+- **Sonlandırma dürüst kaydı:** graceful yolların hiçbiri MSYS
+  nohup-jobsundan ulaşmadı (kill -INT → No such process;
+  AttachConsole+GenerateConsoleCtrlEvent hedefe gitmedi; taskkill
+  /F'siz reddetti). `taskkill //F` kullanıldı → **yan etki: buffered
+  stdout satırları (startup print, warmup_bars, replay raporu) ve
+  flush-edilmemiş audit.jsonl KAYBOLDU**. Verdict, safe-file + gate
+  alert + kod-yolundan yeniden kuruldu. Gelecek boot: `python -u` +
+  ayırıcı kanıt (audit auto-flush) ile başlatılmalı.
+- **KUSUR A (kanıtlı, TAG'li donmuş ağaçta):** `mt5.symbol_tick`
+  pakette YOK (`hasattr=False`, AttributeError) — doğru API
+  `symbol_info_tick`. Yerler: src/trading/mt5_connection.py:211,
+  src/data/mt5_data.py:86. Zincir: get_tick_data→None→tick_fresh
+  False→connection_ok False→**gate canlıda ASLA açılamaz** (fail-safe
+  yönlü ama fonksiyonel blok). Test körlüğü: fake mt5 modülleri
+  symbol_tick içeriyor olabilir — gerçek paket yüzeyiyle test yok.
+- **KUSUR B (kanıtlı, TAG'li donmuş ağaçta):** paket enum'u:
+  DISABLED=0, LONGONLY=1, SHORTONLY=2, CLOSEONLY=3, **FULL=4**.
+  orchestrator.py:1102-1104 yorumu "0=FULL" diyor, kodu
+  `trade_mode == 0` — **TERS**: canlı EURUSD (=4, tam yetkili)
+  → false SAFE_START; ve DISABLED (=0) sembol FULL sayılırdı.
+  Test körlüğü: tüm fake'ler trade_mode=0/1 kullanıyor, hiçbiri 4
+  değil — testler yanlış varsayımı birebir kodluyor (§4.1).
+- **KUSUR C (operatör, kod-değil):** Telegram DM imkânsız — bot
+  canlı (getMe ok:true, @ahmetonurof_bot) ama sendMessage →
+  `400 chat not found`, getUpdates boş → chat_id (77***, 10 kr)
+  bot'la hiç /start ile eşleşmemiş. Çözüm: operatör Telegram'da
+  @ahmetonurof_bot'a /start gönderir; kod değişikliği gerekmez.
+- **Provenance:** git diff 7a1e6f1..HEAD bu üç dosyada BOŞ —
+  kusurler canonical TAG'li ağaçta. TAG geçerli (research engine
+  etkilenmedi; benchmark MT5Connection kullanmaz).
+- **Güvenlik kanıtı:** broker'da 0 pozisyon / 0 emir (ölümden sonra
+  doğrulandı). Üç kat koruma çalıştı: signal_only=True sabit kodlu
+  (orchestrator.py:793) + SAFE_START (entries kapalı) + gate CLOSED.
+- **Bırakılan state:** orchestrator.lock orphan (pid 12124 ölü —
+  sonraki boot PID-dead takeover ile kurtarır, tasarım);
+  orchestrator_safe.json PERSISTED (§7.2: temizleme açık operatör
+  aksiyonu; fix sonrası bile boot SAFE_START verir — runbook
+  clear_safe_mode gerekir).
+- **FIX ÖNERİSİ (yetki bekliyor — §2.1/§5, src/ dokunuşu):**
+  A: iki dosyada symbol_tick→symbol_info_tick + regresyon testi
+  (fake, gerçek paket yüzeyi: symbol_info_tick VAR, symbol_tick YOK);
+  B: `trade_mode == 0` → `== 4` (SYMBOL_TRADE_MODE_FULL) + yorum
+  düzeltmesi + testleri gerçek enum değerlerine taşı (0=DISABLED→
+  safe_reason, 4=FULL→temiz); C: operatör /start. Sonrası:
+  safe-file runbook temizliği + yeniden boot → PROCEED + gate
+  transition + DM kanıtı → ④.
