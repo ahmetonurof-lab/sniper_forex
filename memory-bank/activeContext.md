@@ -2175,16 +2175,18 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
 
 - who: LUNA — Hakem yazılı yetkisi: B1 (push-öncesi bloker) + B2/B3
   birleştirilebilir fix → süit → N2 #13 → push → SOAK RESTART.
-- what: `TBD` — N2 #13 fix(live) — B1 (production audit_path wiring,
-  AuditChain auto_flush_path bağlantısı) + B2 (falsy-empty AuditChain
-  guard, enjekte edilen boş chain artık sessizce düşmüyor) + B3
-  (gate-OPEN reason label artık sahte 'monitor_only' sabitini döndürmüyor;
-  decision.allowed→'ok', decision.reason→boş, else→'unknown') + 6 yeni
-  regresyon testi (B1×2, B2×2, B3×1, B2-mirror×1) + index regen
-  (1561→1568 fonksiyon; yeni test_entries=15).
+- what: `41ca925e621f1501c21a3e20872a579eaac3d67d` — N2 #13 fix(live) — B1
+  (production audit_path wiring, AuditChain auto_flush_path bağlantısı) +
+  B2 (falsy-empty AuditChain guard, enjekte edilen boş chain artık
+  sessizce düşmüyor) + B3 (gate-OPEN reason label artık sahte
+  'monitor_only' sabitini döndürmüyor; decision.allowed→'ok',
+  decision.reason→boş, else→'unknown') + 6 yeni regresyon testi
+  (B1×2, B2×2, B3×1, B2-mirror×1) + index regen (1561→1568 fonksiyon;
+  yeni test_entries=15).
 - when: 2026-09-01 ~12:50 local. remote: origin/main (GitHub).
-- Set (§9.5 exact): {<hash>} — parent 0ddaf94. Set-growth beyanı: yetki
-  penceresi tek commit; ek commit yok.
+- Set (§9.5 exact): {41ca925e621f1501c21a3e20872a579eaac3d67d} — parent
+  0ddaf94. Set-growth beyanı: yetki penceresi tek commit; ek commit yok
+  (ledger/hash backfill aşağıda ayrı chore olarak eklenirse re-auth).
 - validation: tam süit 470P/1S/0F/0E (757.46s = 12:37; tas3/tas4 + e2e
   ignore — e2e pre-existing pinned, N2 #11 baseline ile aynı imza
   context_registered=None test_e2e_live_chain.py:141, dosya değişmedi);
