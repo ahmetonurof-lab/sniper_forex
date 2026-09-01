@@ -118,6 +118,34 @@ class TestResample15mParity:
             assert a.close == b.close
             assert a.volume == b.volume
 
+    def test_r4_sort_guard_unsorted_input(self):
+        """R4 (H batch): unsorted M1 bars are sorted before bucket assembly."""
+        start = pd.Timestamp("2026-01-01 00:00:00")
+        m1 = _m1_series(start, 15)
+        # Reverse the list -> descending timestamp order
+        unsorted = list(reversed(m1))
+        m15 = resample_15m(unsorted)
+        # Must produce the same single 15m bar as sorted input
+        assert len(m15) == 1
+        m15_sorted = resample_15m(m1)
+        assert m15[0].open == m15_sorted[0].open
+        assert m15[0].high == m15_sorted[0].high
+        assert m15[0].low == m15_sorted[0].low
+        assert m15[0].close == m15_sorted[0].close
+        assert m15[0].timestamp == m15_sorted[0].timestamp
+        # Multi-bucket: 2 buckets with 15 bars each, reversed
+        m1_2b = _m1_series(start, 30)
+        unsorted_2b = list(reversed(m1_2b))
+        m15_2b = resample_15m(unsorted_2b)
+        assert len(m15_2b) == 2
+        # open = first bar of slot (earliest), close = last (latest)
+        # After sort, slot 00:00 has bars[0..14], slot 00:15 has bars[15..29]
+        m15_2b_sorted = resample_15m(m1_2b)
+        assert m15_2b[0].open == m15_2b_sorted[0].open
+        assert m15_2b[0].close == m15_2b_sorted[0].close
+        assert m15_2b[1].open == m15_2b_sorted[1].open
+        assert m15_2b[1].close == m15_2b_sorted[1].close
+
 
 # ---------------------------------------------------------------------------
 # Duplicate / missing detection

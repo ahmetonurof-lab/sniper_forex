@@ -22,6 +22,7 @@ This module re-implements that exact boundary (copy-adapt) so the live
 runtime does NOT import from the frozen research engine.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -46,6 +47,20 @@ def resample_15m(bars_1m: List[Bar]) -> List[Bar]:
     Mirrors the frozen research engine's `resample_15m()` EXACTLY so live
     aggregation is byte-for-byte parity with the backtest boundary.
     """
+    # R4 (H batch): sort-guard. MT5 data lag / clock skew can deliver M1
+    # bars out of order, which would corrupt the bucket's open/close (first/
+    # last bar in insertion order, not time order). Normalize defensively.
+    if len(bars_1m) > 1:
+        unsorted = any(
+            bars_1m[i].timestamp > bars_1m[i + 1].timestamp for i in range(len(bars_1m) - 1)
+        )
+        if unsorted:
+            logging.getLogger(__name__).warning(
+                "R4 sort-guard: %d M1 bars unsorted, sorting by timestamp before resample",
+                len(bars_1m),
+            )
+            bars_1m = sorted(bars_1m, key=lambda b: b.timestamp)
+
     buckets: Dict[int, List[Bar]] = {}
     for b in bars_1m:
         ts_ms = int(b.timestamp.timestamp() * 1000)

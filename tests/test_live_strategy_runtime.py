@@ -150,3 +150,152 @@ def test_state_roundtrip_preserves_runtime():
     assert rt2.session.cbdr.body_low == rt.session.cbdr.body_low
     assert rt2.session.cbdr.locked == rt.session.cbdr.locked
     assert rt2.session.cbdr.daily_bias == rt.session.cbdr.daily_bias
+    # R1 (N2 #14): session.atr restored after restart (sweep tolerance source).
+    assert rt2.session.atr == pytest.approx(rt.session.atr)
+    # NOTE: session.atr may differ from atr_val here because on_bar updates
+    # atr_val (EMA) but not session.atr (A1 gap — RED-KAPSAM DIŞI, owner
+    # decision). R1 only guarantees session.atr survives the restart and
+    # stays > 0 so sweep tolerance is ATR-based, not the 10.0 default.
+    assert rt2.session.atr > 0
+
+
+def _make_synthetic_bars(n: int, start: pd.Timestamp = None) -> list[Bar]:
+    """Synthetic trending 15m bars (parity with A2 reproducer template)."""
+    import numpy as np
+
+    start = start or pd.Timestamp("2026-01-01 00:00:00")
+    rng = np.random.default_rng(42)
+    bars = []
+    price = 1.1000
+    for i in range(n):
+        ts = start + pd.Timedelta(minutes=15 * i)
+        drift = 0.0005 + rng.normal(0, 0.0003)
+        price += drift
+        o = price - 0.0002
+        h = max(o, price) + 0.0002 + abs(rng.normal(0, 0.0001))
+        lo = min(o, price) - 0.0002 - abs(rng.normal(0, 0.0001))
+        c = price
+        bars.append(
+            Bar(
+                index=i,
+                timestamp=ts,
+                open=round(o, 5),
+                high=round(h, 5),
+                low=round(lo, 5),
+                close=round(c, 5),
+                volume=1.0,
+            )
+        )
+    return bars
+
+
+def test_restart_restores_session_atr():
+    """R1: restart sonrası session.atr == atr_val (sweep tolerance kaynağı).
+
+    Production path: to_state -> from_state roundtrip on the REAL
+    StrategyRuntime (no fakes). A broken implementation (from_state not
+    restoring session.atr) must fail: session.atr would stay 0.0.
+    """
+    rt = StrategyRuntime("EURUSD")
+    warmup_bars = _make_synthetic_bars(150)
+    rt.warmup(warmup_bars)
+    assert rt._warmed, "warmup should succeed on 150 bars"
+    # warmup sets session.atr from computed atr_val
+    assert rt.session.atr > 0, "warmup sonrası atr > 0 olmalı"
+    saved_atr = rt.session.atr
+
+    # serialize -> deserialize (restart)
+    state = rt.to_state()
+    assert "session_atr" in state, "to_state 'session_atr' anahtarı eksik"
+    rt2 = StrategyRuntime("EURUSD")
+    rt2.from_state(state)
+
+    # session.atr == atr_val
+    assert (
+        rt2.session.atr == rt2.atr_val
+    ), f"R1: session.atr ({rt2.session.atr}) != atr_val ({rt2.atr_val})"
+    assert (
+        rt2.session.atr == saved_atr
+    ), f"R1: restart session.atr ({rt2.session.atr}) != warmup değeri ({saved_atr})"
+    assert (
+        rt2.session.atr > 0
+    ), "R1: restart sonrası session.atr=0 → sweep tolerance default'a düşer"
+
+
+def test_restart_sweep_tolerance_uses_restored_atr():
+    """R1 sweep-evaluation: restart sonrası tolerance == 0.5 * atr_val.
+
+    Real-chain assertion: session.atr restore edilmezse check_sweep
+    tolerance = sweep_default_tolerance (10.0), yani 0.5*atr değil. Bu test
+    gerçek SessionManager.check_sweep kod yolunu çalıştırır.
+    """
+    rt = StrategyRuntime("EURUSD")
+    warmup_bars = _make_synthetic_bars(150)
+    rt.warmup(warmup_bars)
+    assert rt.session.atr > 0
+    saved_atr = rt.session.atr
+
+    # Restart
+    rt2 = StrategyRuntime("EURUSD")
+    rt2.from_state(rt.to_state())
+    assert rt2.session.atr == saved_atr
+
+    # Build a CBDR body so check_sweep can evaluate a real tolerance.
+    body_high = warmup_bars[-1].close + 0.01
+    body_low = warmup_bars[-1].close - 0.01
+    rt2.session.cbdr.body_high = body_high
+    rt2.session.cbdr.body_low = body_low
+
+    # Bar that pokes above body_high by exactly 0.5*atr + epsilon and closes
+    # back below -> must be detected as a sweep ONLY with restored atr.
+    poke = body_high + saved_atr * 0.5 + 0.00001
+    sweep_bar = Bar(
+        index=0,
+        timestamp=warmup_bars[-1].timestamp + pd.Timedelta(minutes=15),
+        open=body_high,
+        high=poke,
+        low=body_low,
+        close=body_high - 0.0001,
+        volume=1.0,
+    )
+    # force outside-window processing (sweep evaluated outside CBDR window)
+    sweep_bar = Bar(
+        index=0,
+        timestamp=pd.Timestamp("2026-01-01 05:00:00"),
+        open=body_high,
+        high=poke,
+        low=body_low,
+        close=body_high - 0.0001,
+        volume=1.0,
+    )
+    sweep = rt2.session.update(sweep_bar)
+    assert sweep is not None, (
+        "R1: restore sonrası sweep algılanmalı (tolerance=0.5*atr). "
+        f"atr={saved_atr}, tolerance beklenen={saved_atr * 0.5}"
+    )
+    # tolerance == 0.5 * atr (restored), NOT default 10.0
+    assert sweep.tolerance == pytest.approx(
+        saved_atr * 0.5
+    ), f"R1: sweep tolerance {sweep.tolerance} != 0.5*atr {saved_atr * 0.5}"
+
+
+def test_per_bar_atr_sync():
+    """R2 kontrat: session.atr on_bar sırasında korunur (drift etmez).
+
+    NOTE: per-bar re-sync (session.atr = atr_val her bar) A1'dir —
+    RED-KAPSAM DIŞI strateji değişikliği (owner-kararı). Bu test mevcut
+    kontratı belgeler: session.atr warmup/restart'ta set edilir ve on_bar
+    sırasında korunur (0'a düşmez, başka değere sıçramaz). A1 benimsenirse
+    bu test güncellenecek.
+    """
+    rt = StrategyRuntime("EURUSD")
+    warmup_bars = _make_synthetic_bars(150)
+    rt.warmup(warmup_bars)
+    assert rt._warmed
+    assert rt.session.atr == rt.atr_val, "warmup sync"
+
+    # Process a few bars; session.atr must remain at the warmup value
+    # (on_bar updates atr_val only — A1 per-bar re-sync is out of scope).
+    for bar in _make_synthetic_bars(5, start=warmup_bars[-1].timestamp + pd.Timedelta(minutes=15)):
+        rt.on_bar(bar)
+        assert rt.session.atr > 0, f"bar {bar.index} sonrası session.atr 0'a düştü"

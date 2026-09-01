@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-09-01T13:15:56",
+  "generated_at": "2026-09-01T17:21:47",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2176,82 +2176,88 @@
           "line_end": 143,
           "signature": "def _maybe_flush(self) -> None:"
         },
-        "src.live.audit.AuditChain.flush": {
+        "src.live.audit.AuditChain.flush_if_due": {
           "file": "src\\live\\audit.py",
           "line_start": 145,
-          "line_end": 152,
+          "line_end": 154,
+          "signature": "def flush_if_due(self) -> None:"
+        },
+        "src.live.audit.AuditChain.flush": {
+          "file": "src\\live\\audit.py",
+          "line_start": 156,
+          "line_end": 163,
           "signature": "def flush(self, path: Optional[str]=None) -> None:"
         },
         "src.live.audit.AuditChain.shutdown": {
           "file": "src\\live\\audit.py",
-          "line_start": 154,
-          "line_end": 157,
+          "line_start": 165,
+          "line_end": 168,
           "signature": "def shutdown(self) -> None:"
         },
         "src.live.audit.AuditChain.save": {
           "file": "src\\live\\audit.py",
-          "line_start": 160,
-          "line_end": 173,
+          "line_start": 171,
+          "line_end": 184,
           "signature": "def save(self, path: str) -> None:"
         },
         "src.live.audit.AuditChain.load": {
           "file": "src\\live\\audit.py",
-          "line_start": 175,
-          "line_end": 202,
+          "line_start": 186,
+          "line_end": 213,
           "signature": "def load(self, path: str) -> int:"
         },
         "src.live.candle_feed._utcnow_naive": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 38,
-          "line_end": 40,
+          "line_start": 39,
+          "line_end": 41,
           "signature": "def _utcnow_naive() -> datetime:"
         },
         "src.live.candle_feed.resample_15m": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 43,
-          "line_end": 71,
+          "line_start": 44,
+          "line_end": 86,
           "signature": "def resample_15m(bars_1m: List[Bar]) -> List[Bar]:"
         },
         "src.live.candle_feed.M1CandleFeed.__init__": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 77,
-          "line_end": 82,
+          "line_start": 92,
+          "line_end": 97,
           "signature": "def __init__(self, data_layer: Optional[MT5DataLayer]=None):"
         },
         "src.live.candle_feed.M1CandleFeed.fetch_m1": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 85,
-          "line_end": 108,
+          "line_start": 100,
+          "line_end": 123,
           "signature": "def fetch_m1(self, symbol: str, count: int=100) -> List[Bar]:"
         },
         "src.live.candle_feed.M1CandleFeed.find_duplicates": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 112,
-          "line_end": 117,
+          "line_start": 127,
+          "line_end": 132,
           "signature": "@staticmethod"
         },
         "src.live.candle_feed.M1CandleFeed.find_missing": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 120,
-          "line_end": 137,
+          "line_start": 135,
+          "line_end": 152,
           "signature": "@staticmethod"
         },
         "src.live.candle_feed.M1CandleFeed.is_closed_m1": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 141,
-          "line_end": 150,
+          "line_start": 156,
+          "line_end": 165,
           "signature": "@staticmethod"
         },
         "src.live.candle_feed.M1CandleFeed.warmup": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 153,
-          "line_end": 169,
+          "line_start": 168,
+          "line_end": 184,
           "signature": "def warmup(self, symbol: str, n_15m: int=200) -> List[Bar]:"
         },
         "src.live.candle_feed.M1CandleFeed.update": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 172,
-          "line_end": 192,
+          "line_start": 187,
+          "line_end": 207,
           "signature": "def update(self, symbol: str, now: Optional[datetime]=None) -> List[Bar]:"
         },
         "src.live.clock._utcnow_naive": {
@@ -2803,7 +2809,7 @@
         "src.live.orchestrator.Orchestrator.run": {
           "file": "src\\live\\orchestrator.py",
           "line_start": 1888,
-          "line_end": 2145,
+          "line_end": 2162,
           "signature": "def run(self, kill_switch_fn: Optional[Callable[[], bool]]=None, sleep_fn: Optional[Callable[[float], None]]=None) -> int:"
         },
         "src.live.paper.PaperPosition.to_position": {
@@ -3306,68 +3312,68 @@
         },
         "src.live.strategy_runtime._to_nexus_bar": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 78,
-          "line_end": 91,
+          "line_start": 81,
+          "line_end": 94,
           "signature": "def _to_nexus_bar(bar: Bar) -> NexusBar:"
         },
         "src.live.strategy_runtime._is_fresh_fvg": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 94,
-          "line_end": 104,
+          "line_start": 97,
+          "line_end": 107,
           "signature": "def _is_fresh_fvg(fvg, bars_15m: List[Bar], current_index: int) -> bool:"
         },
         "src.live.strategy_runtime._compute_atr": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 107,
-          "line_end": 125,
+          "line_start": 110,
+          "line_end": 128,
           "signature": "def _compute_atr(bars: List[Bar], period: int=14) -> float:"
         },
         "src.live.strategy_runtime.StrategyRuntime.__init__": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 135,
-          "line_end": 157,
+          "line_start": 138,
+          "line_end": 160,
           "signature": "def __init__(self, symbol: str):"
         },
         "src.live.strategy_runtime.StrategyRuntime.warmup": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 160,
-          "line_end": 178,
+          "line_start": 163,
+          "line_end": 181,
           "signature": "def warmup(self, bars_15m: List[Bar]) -> None:"
         },
         "src.live.strategy_runtime.StrategyRuntime.on_bar": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 181,
-          "line_end": 332,
+          "line_start": 184,
+          "line_end": 335,
           "signature": "def on_bar(self, bar: Bar) -> Optional[Signal]:"
         },
         "src.live.strategy_runtime.StrategyRuntime._create_pending": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 335,
-          "line_end": 371,
+          "line_start": 338,
+          "line_end": 374,
           "signature": "def _create_pending(self, fvg, i: int) -> None:"
         },
         "src.live.strategy_runtime.StrategyRuntime._fill_pending": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 373,
-          "line_end": 453,
+          "line_start": 376,
+          "line_end": 456,
           "signature": "def _fill_pending(self, bar: Bar) -> bool:"
         },
         "src.live.strategy_runtime.StrategyRuntime._close_trade": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 456,
-          "line_end": 474,
+          "line_start": 459,
+          "line_end": 477,
           "signature": "def _close_trade(self, exit_info: dict, i: int, bar: Bar) -> None:"
         },
         "src.live.strategy_runtime.StrategyRuntime.to_state": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 477,
-          "line_end": 520,
+          "line_start": 480,
+          "line_end": 524,
           "signature": "def to_state(self) -> dict:"
         },
         "src.live.strategy_runtime.StrategyRuntime.from_state": {
           "file": "src\\live\\strategy_runtime.py",
-          "line_start": 522,
-          "line_end": 561,
+          "line_start": 526,
+          "line_end": 579,
           "signature": "def from_state(self, state: dict) -> None:"
         },
         "src.live.trade_lifecycle.build_open_context_from_fill": {
@@ -4882,88 +4888,94 @@
           "line_end": 119,
           "signature": "def test_parity_with_reference_impl(self):"
         },
+        "tests.test_live_candle_feed.TestResample15mParity.test_r4_sort_guard_unsorted_input": {
+          "file": "tests\\test_live_candle_feed.py",
+          "line_start": 121,
+          "line_end": 147,
+          "signature": "def test_r4_sort_guard_unsorted_input(self):"
+        },
         "tests.test_live_candle_feed.TestDetection.test_duplicate_detection": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 126,
-          "line_end": 132,
+          "line_start": 154,
+          "line_end": 160,
           "signature": "def test_duplicate_detection(self):"
         },
         "tests.test_live_candle_feed.TestDetection.test_no_duplicates": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 134,
-          "line_end": 136,
+          "line_start": 162,
+          "line_end": 164,
           "signature": "def test_no_duplicates(self):"
         },
         "tests.test_live_candle_feed.TestDetection.test_missing_detection": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 138,
-          "line_end": 146,
+          "line_start": 166,
+          "line_end": 174,
           "signature": "def test_missing_detection(self):"
         },
         "tests.test_live_candle_feed.TestDetection.test_no_missing": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 148,
-          "line_end": 150,
+          "line_start": 176,
+          "line_end": 178,
           "signature": "def test_no_missing(self):"
         },
         "tests.test_live_candle_feed.TestFormingClosed.test_closed_m1": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 157,
-          "line_end": 163,
+          "line_start": 185,
+          "line_end": 191,
           "signature": "def test_closed_m1(self):"
         },
         "tests.test_live_candle_feed.TestFormingClosed.test_forming_excluded": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 165,
-          "line_end": 172,
+          "line_start": 193,
+          "line_end": 200,
           "signature": "def test_forming_excluded(self):"
         },
         "tests.test_live_candle_feed.TestWarmup.test_warmup_builds_15m": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 179,
-          "line_end": 203,
+          "line_start": 207,
+          "line_end": 231,
           "signature": "def test_warmup_builds_15m(self, monkeypatch):"
         },
         "tests.test_live_candle_feed.TestWarmup.test_warmup_builds_15m.fake_fetch": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 184,
-          "line_end": 195,
+          "line_start": 212,
+          "line_end": 223,
           "signature": "def fake_fetch(symbol, timeframe='M1', count=100):"
         },
         "tests.test_live_candle_feed.TestUpdate.test_update_returns_only_new": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 210,
-          "line_end": 235,
+          "line_start": 238,
+          "line_end": 263,
           "signature": "def test_update_returns_only_new(self, monkeypatch):"
         },
         "tests.test_live_candle_feed.TestUpdate.test_update_returns_only_new.fake_fetch": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 215,
-          "line_end": 226,
+          "line_start": 243,
+          "line_end": 254,
           "signature": "def fake_fetch(symbol, timeframe='M1', count=100):"
         },
         "tests.test_live_candle_feed.TestClock.test_server_utc_offset_summer": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 242,
-          "line_end": 244,
+          "line_start": 270,
+          "line_end": 272,
           "signature": "def test_server_utc_offset_summer(self):"
         },
         "tests.test_live_candle_feed.TestClock.test_server_utc_offset_winter": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 246,
-          "line_end": 248,
+          "line_start": 274,
+          "line_end": 276,
           "signature": "def test_server_utc_offset_winter(self):"
         },
         "tests.test_live_candle_feed.TestClock.test_utc_to_server_roundtrip": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 250,
-          "line_end": 252,
+          "line_start": 278,
+          "line_end": 280,
           "signature": "def test_utc_to_server_roundtrip(self):"
         },
         "tests.test_live_candle_feed.TestClock.test_in_session_spans_midnight": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 254,
-          "line_end": 258,
+          "line_start": 282,
+          "line_end": 286,
           "signature": "def test_in_session_spans_midnight(self):"
         },
         "tests.test_live_execution.FakeResult.__init__": {
@@ -5749,8 +5761,32 @@
         "tests.test_live_strategy_runtime.test_state_roundtrip_preserves_runtime": {
           "file": "tests\\test_live_strategy_runtime.py",
           "line_start": 126,
-          "line_end": 152,
+          "line_end": 159,
           "signature": "def test_state_roundtrip_preserves_runtime():"
+        },
+        "tests.test_live_strategy_runtime._make_synthetic_bars": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 162,
+          "line_end": 189,
+          "signature": "def _make_synthetic_bars(n: int, start: pd.Timestamp=None) -> list[Bar]:"
+        },
+        "tests.test_live_strategy_runtime.test_restart_restores_session_atr": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 192,
+          "line_end": 220,
+          "signature": "def test_restart_restores_session_atr():"
+        },
+        "tests.test_live_strategy_runtime.test_restart_sweep_tolerance_uses_restored_atr": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 223,
+          "line_end": 277,
+          "signature": "def test_restart_sweep_tolerance_uses_restored_atr():"
+        },
+        "tests.test_live_strategy_runtime.test_per_bar_atr_sync": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 280,
+          "line_end": 299,
+          "signature": "def test_per_bar_atr_sync():"
         },
         "tests.test_m1_ingestion_parity.FakeMT5.__init__": {
           "file": "tests\\test_m1_ingestion_parity.py",
@@ -6522,44 +6558,68 @@
         },
         "tests.test_orchestrator_n2_13_audit.tmp_state": {
           "file": "tests\\test_orchestrator_n2_13_audit.py",
-          "line_start": 40,
-          "line_end": 41,
+          "line_start": 38,
+          "line_end": 39,
           "signature": "@pytest.fixture"
         },
         "tests.test_orchestrator_n2_13_audit.TestB1AuditPathWiring.test_orchestrator_wires_config_audit_path": {
           "file": "tests\\test_orchestrator_n2_13_audit.py",
-          "line_start": 48,
-          "line_end": 67,
+          "line_start": 46,
+          "line_end": 65,
           "signature": "def test_orchestrator_wires_config_audit_path(self, tmp_state: Path):"
         },
         "tests.test_orchestrator_n2_13_audit.TestB1AuditPathWiring.test_orchestrator_no_audit_path_uses_inmemory": {
           "file": "tests\\test_orchestrator_n2_13_audit.py",
-          "line_start": 69,
-          "line_end": 76,
+          "line_start": 67,
+          "line_end": 74,
           "signature": "def test_orchestrator_no_audit_path_uses_inmemory(self, tmp_state: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB1bTimerDrivenFlush.test_flush_if_due_persists_on_timer_without_append": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 87,
+          "line_end": 106,
+          "signature": "def test_flush_if_due_persists_on_timer_without_append(self, tmp_path: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB1bTimerDrivenFlush.test_flush_if_due_noop_before_interval": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 108,
+          "line_end": 116,
+          "signature": "def test_flush_if_due_noop_before_interval(self, tmp_path: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB1bTimerDrivenFlush.test_flush_if_due_noop_without_path": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 118,
+          "line_end": 125,
+          "signature": "def test_flush_if_due_noop_without_path(self):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB1bTimerDrivenFlush.test_flush_if_due_resets_flush_clock": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 127,
+          "line_end": 141,
+          "signature": "def test_flush_if_due_resets_flush_clock(self, tmp_path: Path):"
         },
         "tests.test_orchestrator_n2_13_audit.TestB2FalsyEmptyGuard.test_injected_empty_chain_does_not_silently_drop": {
           "file": "tests\\test_orchestrator_n2_13_audit.py",
-          "line_start": 83,
-          "line_end": 108,
+          "line_start": 148,
+          "line_end": 171,
           "signature": "def test_injected_empty_chain_does_not_silently_drop(self, tmp_state: Path):"
         },
         "tests.test_orchestrator_n2_13_audit.TestB2FalsyEmptyGuard.test_injected_nonempty_chain_is_honored": {
           "file": "tests\\test_orchestrator_n2_13_audit.py",
-          "line_start": 110,
-          "line_end": 128,
+          "line_start": 173,
+          "line_end": 189,
           "signature": "def test_injected_nonempty_chain_is_honored(self, tmp_state: Path):"
         },
         "tests.test_orchestrator_n2_13_audit.TestB3GateReasonLabel.test_orchestrator_exposes_decision_for_reason": {
           "file": "tests\\test_orchestrator_n2_13_audit.py",
-          "line_start": 135,
-          "line_end": 178,
+          "line_start": 196,
+          "line_end": 240,
           "signature": "def test_orchestrator_exposes_decision_for_reason(self, tmp_state: Path):"
         },
         "tests.test_orchestrator_n2_13_audit.TestB2MirrorInLiveRunner.test_live_runner_uses_injected_audit": {
           "file": "tests\\test_orchestrator_n2_13_audit.py",
-          "line_start": 191,
-          "line_end": 201,
+          "line_start": 253,
+          "line_end": 263,
           "signature": "def test_live_runner_uses_injected_audit(self):"
         },
         "tests.test_orchestrator_startup.tmp_state": {
@@ -8085,6 +8145,12 @@
           "line_start": 392,
           "line_end": 394,
           "signature": "def kill():"
+        },
+        "tests.test_orchestrator_tas3.test_run_flushes_audit_to_disk_on_timer": {
+          "file": "tests\\test_orchestrator_tas3.py",
+          "line_start": 418,
+          "line_end": 453,
+          "signature": "def test_run_flushes_audit_to_disk_on_timer(tmp_path, monkeypatch):"
         },
         "tests.test_orchestrator_tas4.ep": {
           "file": "tests\\test_orchestrator_tas4.py",
@@ -9679,12 +9745,12 @@
           "hash": "sha256:a31542978220be60"
         },
         "src\\live\\audit.py": {
-          "last_modified": "2026-08-31T12:34:03",
-          "hash": "sha256:d5d305935b92c580"
+          "last_modified": "2026-09-01T15:08:01",
+          "hash": "sha256:f3038dd61ef351ae"
         },
         "src\\live\\candle_feed.py": {
-          "last_modified": "2026-08-28T17:28:14",
-          "hash": "sha256:e393e920734b8925"
+          "last_modified": "2026-09-01T17:20:48",
+          "hash": "sha256:bf636742acaa6a6d"
         },
         "src\\live\\clock.py": {
           "last_modified": "2026-08-28T16:12:31",
@@ -9699,8 +9765,8 @@
           "hash": "sha256:b482b17ab38c3339"
         },
         "src\\live\\orchestrator.py": {
-          "last_modified": "2026-09-01T12:19:24",
-          "hash": "sha256:6a024b83391ed618"
+          "last_modified": "2026-09-01T15:08:01",
+          "hash": "sha256:87bed3ef445dd8ff"
         },
         "src\\live\\paper.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9755,8 +9821,8 @@
           "hash": "sha256:d33ba24022a86ca0"
         },
         "src\\live\\strategy_runtime.py": {
-          "last_modified": "2026-08-31T12:34:03",
-          "hash": "sha256:5428a2749d78981d"
+          "last_modified": "2026-09-01T17:04:47",
+          "hash": "sha256:18c5c87c27eefd9c"
         },
         "src\\live\\trade_lifecycle.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9871,8 +9937,8 @@
           "hash": "sha256:3ebe62133bf71630"
         },
         "tests\\test_live_candle_feed.py": {
-          "last_modified": "2026-08-31T12:34:03",
-          "hash": "sha256:3824c2b935b5c18e"
+          "last_modified": "2026-09-01T17:09:20",
+          "hash": "sha256:71132b3b75978724"
         },
         "tests\\test_live_execution.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9903,8 +9969,8 @@
           "hash": "sha256:c98a0ce9865dba48"
         },
         "tests\\test_live_strategy_runtime.py": {
-          "last_modified": "2026-08-31T12:34:03",
-          "hash": "sha256:cc33dc4d30156ddd"
+          "last_modified": "2026-09-01T17:21:00",
+          "hash": "sha256:c2605f61dc512d9c"
         },
         "tests\\test_m1_ingestion_parity.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9927,8 +9993,8 @@
           "hash": "sha256:88be239823ee4f18"
         },
         "tests\\test_orchestrator_n2_13_audit.py": {
-          "last_modified": "2026-09-01T12:22:41",
-          "hash": "sha256:ce992fa913ff43c4"
+          "last_modified": "2026-09-01T15:08:01",
+          "hash": "sha256:568253dc097b9f54"
         },
         "tests\\test_orchestrator_startup.py": {
           "last_modified": "2026-09-01T10:32:40",
@@ -9939,8 +10005,8 @@
           "hash": "sha256:fe2429da64c84879"
         },
         "tests\\test_orchestrator_tas3.py": {
-          "last_modified": "2026-09-01T00:10:28",
-          "hash": "sha256:1298d6c61fee8b84"
+          "last_modified": "2026-09-01T15:08:01",
+          "hash": "sha256:1105671ead600cd7"
         },
         "tests\\test_orchestrator_tas4.py": {
           "last_modified": "2026-08-30T17:37:50",
@@ -10031,7 +10097,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-09-01T13:15:56"
+      "last_full_scan": "2026-09-01T17:21:47"
     }
   }
 }

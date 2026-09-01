@@ -17,12 +17,15 @@ This is the C2 (POST_SWEEP_FVG) engine behavior. Per-symbol state is isolated
 
 from __future__ import annotations
 
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
 import pandas as pd
+
+_LOG = logging.getLogger(__name__)
 
 # ── Reuse config (same constants as frozen engine) ──
 from experiment.config import (  # noqa: E402
@@ -479,6 +482,7 @@ class StrategyRuntime:
         return {
             "symbol": self.symbol,
             "atr_val": self.atr_val,
+            "session_atr": self.session.atr,
             "sweep_detected": self.sweep_detected,
             "last_sweep": (
                 {
@@ -523,6 +527,20 @@ class StrategyRuntime:
         """Restore runtime state from a serialized dict."""
         self.symbol = state["symbol"]
         self.atr_val = state["atr_val"]
+        # R1/R2: restore session.atr (sweep tolerance source). Fallback for
+        # state files persisted before N2 #14 (no "session_atr" key) is
+        # audited — never silent (§ contract: no silent fallback).
+        if "session_atr" in state:
+            self.session.atr = state["session_atr"]
+        else:
+            _LOG.warning(
+                "R1/R2: 'session_atr' missing from persisted state "
+                "(pre-N2#14 format); audited fallback session.atr = atr_val "
+                "= %s for %s",
+                self.atr_val,
+                self.symbol,
+            )
+            self.session.atr = self.atr_val
         self.sweep_detected = state["sweep_detected"]
         ls = state.get("last_sweep")
         self.last_sweep = (
