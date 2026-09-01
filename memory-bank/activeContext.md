@@ -1940,3 +1940,38 @@ görünür olur.
 - Pre-flight (push anı): NO PYTHON PROCS + index.json tracked-clean ✓.
 - **Zincir durumu: TAG LANDED. START YOK — ④ operatör tıkı + smoke
   bekleniyor. Gate raporu: ayrı kayıt.**
+
+## PRE-START GATE RAPORU (2026-09-01 — read-only keşif, START YOK)
+
+Forexçi checklist'i madde madde, kanıt kaynaklı:
+
+1. **Deployment SHA:** executable tree = `7a1e6f10aeaf…29ae`
+   (= TAG `research-canonical-v1.1` hedefi; C2-wired). main =
+   `1f0075e` (üzeri yalnız chore/ledger — src/, tests/, index.json
+   baytları 7a1e6f1 ile aynı; §17 freeze intact). **PASS**
+2. **Canonical TAG:** remote'da doğrulanmış `fcb9b88` → peel
+   `7a1e6f1`. **PASS**
+3. **MT5 bağlantısı/login:** `.env` tam: MT5_LOGIN (8 hane),
+   MT5_PASSWORD (14), MT5_SERVER (16 kr — ICMarketsSC-Demo formatı).
+   ANCAK `terminal64.exe` ÇALIŞMIYOR (tasklist boş) ve bağlantı
+   testi bot-aşaması işi. **BLOCK (operatör): MT5 terminal başlat +
+   DEMO hesabında oturum aç — sonra yeniden ölçülür.**
+4. **İzlenecek symbol listesi:** `SNIPER_SYMBOLS` env'de TANIMLI
+   DEĞİL → `_env_symbols()` default = **["EURUSD"]** (tek-sembol,
+   1 Orchestrator = 1 symbol topolojisiyle uyumlu). **PASS (varsayılan
+   EURUSD — operatör onayına sunulur; yeni kalibrasyon YOK).**
+5. **C2 symbol-lock durumu:** wired @ 7a1e6f1 —
+   `_symbol_entry_locked()` broker-authoritative, fail-safe LOCKED,
+   RISK-audit'li, §7.2 korunur; 7+1 test yeşil. **PASS**
+6. **Risk config:** `max_risk_per_trade=0.01` default; T1/T2/T3 =
+   2/4/6R kod-default (KARAR-1: config no-op, kod doğru). **PASS**
+7. **Telegram:** `.env` TELEGRAM_BOT_TOKEN (46 kr) +
+   TELEGRAM_CHAT_ID (10 kr) set; D53 factory env-okursa AlertTransport,
+   yoksa console-only fallback + audit-not (fail-soft, sessiz değil).
+   **PASS (konfigürasyonel) — canlı DM teslimi smoke'ta doğrulanacak.**
+8. **START kararı: BLOCK.** Neden: madde 3 (MT5 terminal + DEMO
+   oturumu operatör aksiyonu). Diğer tüm gate'ler PASS.
+   Prosedür: operatör terminal+login → (bu kayıtta yeniden-ölçüm) →
+   ④ START tıku → smoke (ok:true + DM) → SOAK.
+- **Hakem/Forexçi kısıtı korunuyor: TAG landed ≠ START. Bu rapor
+  BLOCK diyor ve START ETMİYOR.**
