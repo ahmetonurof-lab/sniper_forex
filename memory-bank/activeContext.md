@@ -1847,3 +1847,43 @@ görünür olur.
 - **PUSH SETİ N2 #10 (TAG anı, Hakem §4):**
   {82fbac4, afe695b, tag-commit, (ops. kalibrasyon)} — pencere-kuralı:
   82fbac4 7 günü doldurmadan TAG düşmezse solo-push ÖNCEDEN YETKİLİ.
+
+## N2 #10 KESİN + TAG PAKETİ ÖN-BAĞLAMA (2026-09-01, Hakem D53b-RATIFY)
+
+- **Set-growth onayı (Hakem, bu turda):** N2 #10 = 5 hash —
+  {82fbac4, afe695b, 2c1bf2a, tag-commit, (ops. kalibrasyon→6)}.
+  Pencere-kuralı 3 ledger hash'i için işler: TAG, 82fbac4'ün 7 günü
+  dolmadan düşmezse {82fbac4, afe695b, 2c1bf2a} SOLO push önceden
+  yetkili (N2 #6 deseni; icra+defter yeter).
+- **TAG paketi ÖN-BAĞLAMASI (uydurma yok — hepsi committed artifact'tan
+  bu oturumda doğrulandı):**
+  - HEAD'ler: (b)-fix `c66888a` · flake-fix `5ecbf0c` · C2 wire
+    `7a1e6f1` (origin/main = FREEZE noktası).
+  - Benchmark `results/research/c_v1_1_summary.json` (tracked, c66888a
+    blob'u): **SHA256 = 70012094ea5effe95049e4352fd7d5e3e149356f9aede
+    fc7db4bdf63a0739ea0** · engine "C v1.1" · parent "C v1.0" ·
+    artifact-içi sayımlar: trades=2302, total_pnl=2593.2629R,
+    max_dd=5.0R/2.24%, PF=4.97, WR=69.37% (1597W), paused=0,
+    elapsed=79.7 s.
+  - Dataset SHA256 manifest: 24/24 MATCH / 0 MISMATCH
+    (`benchmark_provenance_c_v1_1_arbitration_b.md`).
+  - Semantik: tek-eğri, paused=sıfır-katkı, çarpan ENTRY'de kilitli;
+    (b)-fix fail-fast invariant (MAX_DROPPED_SIGNALS=0).
+  - Parity: `test_parity_6majors` explicit **7/7 PASS, 0 skip
+    (514.06 s)**; faz-matrisi **10/10** commit-blob üzerinde.
+  - C2: KARAR-2 sembol-bazlı entry-lock wire'lı (`7a1e6f1`), süit
+    2F/495P/1S/0E (2F pinned pre-existing, §12.1 stash-differential).
+- **TAG anı prosedürü (⑤ cümlesi gelir gelmez):**
+  1. ⑤ onay cümlesi + KARAR-2 ratify aynen deftere (bu dosyaya).
+  2. Pre-flight (yürürlükteki kural): tasklist + index.json temizliği.
+  3. Annotated TAG `research-canonical-v1.1` @ `7a1e6f1` — mesaj =
+     yukarıdaki paketin tam metni (hash'ler + sayılar + beyanlar).
+  4. Kalibrasyon cümlesi config-değişikliği İSTERSE: süit + kalibrasyon
+     commit'i sete eklenir (6. hash, beyan edilir); istemezse no-op
+     defter satırı.
+  5. N2 #10 push → imzalar (origin/main..HEAD boş; ls-remote=tag-target;
+     tag ls-remote doğrulaması: `git ls-remote origin refs/tags/
+     research-canonical-v1.1`).
+  6. ④ operatör START → smoke (ok:true + DM) → SOAK (72 s sayacı gerçek
+     startup'ta).
+- **Bekleyen:** Forexçi ⑤ cümlesi (ticari onay + t1/t2/t3). Kod yok.
