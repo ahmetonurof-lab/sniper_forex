@@ -1916,3 +1916,27 @@ görünür olur.
   (a) origin/main..HEAD boş, (b) ls-remote main, (c) ls-remote
   refs/tags/research-canonical-v1.1. **TAG sonrası DA START yok** —
   ④ operatör tıkı + smoke (ok:true + DM) beklenir; SOAK ④'te başlar.
+
+## N2 #10 PUSH RECORD — TAG CHAIN LANDED (2026-09-01)
+
+- Pushed set (§9.5 exact): {82fbac4, afe695b, 2c1bf2a, 81edefb, 1f0075e}
+  + tag ref. All chore/ledger — executable tree untouched since 7a1e6f1.
+- **Üç imza (remote'den):**
+  - (a) `origin/main..HEAD` = EMPTY ✓
+  - (b) `ls-remote main` = `1f0075e895924e60d35af6eea13064810e55315e`
+    = local HEAD ✓ — ŞEFFAFLIK NOTU: protokol taslağındaki
+    "main = 7a1e6f1" kısayoluydu; protokolün 1. adımı (defter satırı)
+    kendi commit'ini üretip main'i 1f0075e'ye taşıdı — beklenen
+    sonuç; KANONİK HEDEF değişmedi: TAG tam olarak 7a1e6f1'e
+    (C2-wired executable freeze) basıldı.
+  - (c) `ls-remote refs/tags/research-canonical-v1.1` =
+    `fcb9b88451b5a35ac9e412e9b3be6dd76c0c32dd` = local tag ✓;
+    objecttype=tag (annotated); peel → `7a1e6f10aeaf…29ae` ✓.
+- TAG mesajı: iki-form artifact kimliği (form (i) 70012094… CRLF /
+  form (ii) 1146d7a3… LF, eşdeğerlik ispatlı) + ⑤ onayları + tüm
+  doğrulama sayıları (2302T/+2593.2629R/5.00R/2.24%/PF4.97/WR69.37%/
+  paused=0/79.7s, dataset 24/24, parity 7/7, faz 10/10,
+  2F/495P/1S/0E) — ratify edilen haliyle.
+- Pre-flight (push anı): NO PYTHON PROCS + index.json tracked-clean ✓.
+- **Zincir durumu: TAG LANDED. START YOK — ④ operatör tıkı + smoke
+  bekleniyor. Gate raporu: ayrı kayıt.**
