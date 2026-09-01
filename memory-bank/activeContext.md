@@ -2134,3 +2134,39 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
 - Sıradaki (yetki sırası): runbook clear_safe_mode (operatör
   aksiyonu, §7.2) → `python -u` boot (MT5_EXPECTED_LOGIN export) →
   PROCEED + gate-OPEN + smoke DM kanıtı → SOAK T0.
+
+## N2 #12 SOAK BOOT EVIDENCE — PROCEED + REPLAY + gate-OPEN + DM (2026-09-01)
+
+- who: LUNA — Hakem icra sırasının son halkası (boot → kanıt → SOAK).
+- BOOT: `python -u -m src.live.run_production` (runbook #1),
+  MT5_EXPECTED_LOGIN=53012914 export, state/orchestrator_safe.json
+  runbook clear SONRASI. Log: logs/soak_fix_20260901.out.
+- verdict: PROCEED — "startup proceed: ok (warmup_bars=4338)"
+  (S11; login 53012914 ICMarketsSC-Demo, trade_allowed=True terminal
+  bilgisi audit'te). Safe-file yeniden YAZILMADI (state/ temiz).
+- gate-OPEN: "[SNIPER_ALERT][INFO] entry gate OPEN: monitor_only" —
+  run() döngüsünün İLK iterasyonunda transition-only alert (False→True).
+  "monitor_only" reason kozmetik artefakt: decision.allowed=True iken
+  decision.reason="" → else-dalı sabit fallback (BULGU-3, soak-sonrası).
+- DM kanıtı: TelegramAlert.send her network istisnasında ANINDA görünür
+  tek-seferlik "telegram transport disabled" WARN basar; logda 0 adet →
+  POST başarılı, ilk otomatik DM iletildi (negatif-kanıt zinciri, §3.6
+  seviyesi: transport-exception-free delivery).
+- REPLAY kanıtı (ayrı read-only evidence boot, temp state dir, canlı
+  PID'ye dokunmadan — logs/soak_proof_replay.py): gerçek production
+  startup() yüzeyi verdict=PROCEED + S9 REPLAY event:
+  replay_bars=4237, signals_discarded=24, end_state=flat, next_idx=4338,
+  session_key=2026-09-01, bias=neutral + S11 PROCEED event.
+- SOAK BULGULARI (kod değişmedi, §17 — soak-sonrası fix görevleri):
+  B1: run_production config.audit_path üretiyor ama Orchestrator
+    AuditChain(auto_flush_path=...)e hiç bağlamıyor → production'da
+    disk audit-journal YOK (state/audit.jsonl hiç oluşmadı).
+    Gözlemlenebilirlik boşluğu; §18 audit-continuity iddiasını zayıflatır.
+  B2: AuditChain __len__ nedeniyle BOŞ chain falsy →
+    `audit or AuditChain()` enjekte edilen boş chain'i sessizce düşürür
+    (latent; kanıt run'ında tespit edildi — events iç chain'e gitti).
+  B3: gate-OPEN reason etiket artefaktı (yukarıda).
+- SOAK T0: 2026-09-01T08:07:32Z (log gate-OPEN satırı mtime; lock
+  created_at heartbeat ile güncelleniyor, 08:56Z canlı). PID 11636.
+- TAG: kanıt şartı sağlandı → annotated tag local atıldı (push için
+  ayrı Hakem yetkisi gerekir, §9.2).
