@@ -764,3 +764,21 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
 - **Artifact:** `results/research/c_v1_1_summary.json` (regenerated from
   this run; note: the committed version of this file held DRY-RUN numbers
   (79T) — a disclosure-grade inconsistency now corrected).
+
+---
+
+## R6 CLOSE-OUT — c_v1_1_summary.json DRY-RUN DISCLOSURE (2026-09-01)
+
+- **Scope:** R6 (disclosure kaydı) — canonical artifact ile DRY-RUN tutarsızlığının
+  kapanış onayı. Kod değişmedi; soak tree freeze (§17) dokunulmadı.
+- **Verification (git show HEAD):** `results/research/c_v1_1_summary.json`
+  committed sürümü = **2302T / 79.7s** (re-run). DRY-RUN sayıları (79T)
+  committed blob'da YOK.
+- **Progress.md notu doğrulandı:** "committed version ... held DRY-RUN numbers
+  (79T) — a disclosure-grade inconsistency now corrected" → c66888a commit'inde
+  düzeltildi; mevcut HEAD (244f4c3 üstü) ile tutarlı (worktree=committed=2302T).
+- **Kalan risk (kabul edildi):** `results/research/variant_D_*_dryrun_*.json` gibi
+  dry-run artefaktları untracked (gitignore). Kanonik değil; karışıklık riski
+  düşük ama gelecekte kanonik benchmark üretimi dry-run ile aynı dizine
+  yazılmamalı (dizine göre ayrıştırma korunmalı).
+- **R6 KAPANIŞ: CLOSED.**

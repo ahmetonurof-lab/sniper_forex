@@ -2282,40 +2282,105 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
   soak'u DURDURMAZ. İlk rapor: audit.jsonl satır sayısı + event
   listesi (yukarıda: 5 satır, 5 event).
 
-## R1-R6 P0 REMEDIATION SIRASI (2026-09-01, Hakem hükmü — önceki hükümde verildi, teyit)
+## §12.1 INCIDENT — SOAK T0 WINERROR 5 CRASH (2026-09-01 ~16:12:55)
 
-Soak restart sonrası R1-R6 hâlâ bekliyor. Bunlar soak'ın durdurulmasını
-gerektirmiyor — **analiz + defter işi** (kod-dokunuşu değil), soak koşarken
-paralel yapılabilir. Sıra (Hakem hükmü, exact):
+- **Old conclusion:** Soak T0 (PID 16268, B1b commit 244f4c3) çalışıyordu;
+  audit.jsonl 5 satırla diske yazılmış, B1b kanıtlanmıştı.
+- **New evidence:** Soak T0 exit code 1 ile çöktü — ~28 dk uptime
+  (15:44:18 → 16:12:55). İki PermissionError (WinError 5):
+  1. **Primary:** `orchestrator.lock.tmp → orchestrator.lock` at
+     `orchestrator.py:430` (heartbeat `_write()` → `tmp.replace(self.lock_path)`).
+     Son başarılı heartbeat: 16:12:35 (lock created_at).
+     Başarısız heartbeat: 16:12:55 (lock.tmp created_at).
+  2. **Secondary:** `audit.jsonl.tmp → audit.jsonl` at `audit.py:184`
+     (shutdown `save()` → `tmp.replace(p)`).
+- **B1b proof:** SHUTDOWN event (exit=1, reason=run_exception:PermissionError)
+  `audit.jsonl.tmp`'ye yazıldı (tmp'de bulundu, cleanup'te silindi).
+  Crash bile yakalanıyor — §18 audit-continuity doğrulandı.
+- **Root cause hypotheses (open):**
+  - **(a) Two-process contention:** PowerShell sorgusu iki process
+    gösterdi: PID 1864 (venv launcher, parent 1172) ve PID 16268 (Python312
+    worker, parent 1864). Her ikisi aynı `run_production` command line'a
+    sahipti. Lock `orchestrator.lock.pid=16268`. 1864 olabilir: venv shim
+    pass-through çalışmıyor olabilir → iki Python interpreter aynı
+    lock/audit dosyalarına erişiyor → WinError 5.
+  - **(b) Windows Defender/AV handle lock:** Antivirus tmp dosyasını
+    tararken `os.replace()` çakışıyor. 20dk sessizlikten sonra Defender
+    periyodik taraması tmp'yi kilitlemiş olabilir.
+  - **(c) Transient NTFS handle lock:** Başka bir process (watcher, indexer)
+    lock dosyasını açık tutuyor.
+- **Cleanup actions:**
+  - `rm -f state/orchestrator.lock state/orchestrator.lock.tmp state/audit.jsonl.tmp`
+  - `state/audit.jsonl` (5 satır, 1335 bytes) korundu — B1b kanıtı.
+  - Soak tree (`src/`, `tests/`, `index.json`) FREEZE ihlal edilmedi
+    (state/ izinli dosyalar, §17).
+- **Status:** DETERMINE — kök nedeni bulunmadan soak restart RİSKLİ.
+  Hipotez (a) en muhtemel: venv launcher/python shim Windows'ta çift
+  process yaratıyor. Çözüm: `run_production` girişinde PID log'u +
+  singielton kontrol (zaten çalışan instance varsa exit).
+- **Next:** Kullanıcıya crash raporu → karar: (i) hipotez (a) araştırması
+  mı, (ii) yoksa doğrudan R1/R2 fix → N2 #14 → T0 #3 restart mı?
+
+## R1-R6 P0 REMEDIATION SIRASI (2026-09-01, Hakem hükmü — REVISED per HATA-1/HATA-2)
+
+> **HATA-1 (düzeltildi):** R1+R2 re-benchmark şartı YOK. Fix restart-yolunu
+> düzeltir (benchmark'ın koşmadığı yol); benchmark'lı semantik (A1) değişmez.
+> Re-benchmark YALNIZ owner-strateji değişikliğinde (C-far-side veya
+> A1-dinamik benimsenirse).
+>
+> **HATA-2 (düzeltildi):** "(4) bekle" ayrı bir adım DEĞİL. Soak gözlemi
+> 1+2 ile paralel ZORUNLU — audit-continuity verisi gün-3 raporunun girdisi.
+
+Sıra (Hakem hükmü, REVISED):
 
 ```text
-R1+R2 PR  → soak DURDURULUR (P0 = production-davranışı değiştirir → re-benchmark şart)
-R3 PR     → tek P1, freshness current-bar
-R4 PR     → resample sort-guard (defensive)
-R5/R6     → provenance + disclosure kayıtları
-→ SOAK TEKRAR DURUR (re-benchmark + TAG v1.1-b) → soak restart
+R5/R6     → provenance + disclosure (read-only, defter işi)
+R3        → freshness current-bar analizi (read-only, A2 reproducer + dar-pencere)
+R4        → resample sort-guard konum analizi (read-only, H batch)
+═══════════════════════════════════════════════════════════════
+YUKARIDAKİLER: read-only analiz (kod değişmez). soak yok.
+═══════════════════════════════════════════════════════════════
+R1+R2 PR  → fix tasarımı → HAKEM ONAYI → PLANNED STOP → icra
+            (fix + B2/B3/H batch) → süit → N2 #14 → SOAK RESTART (T0 #3)
 ```
 
 - **R1+R2 (P0, kod)** — ATR restart loss + stale ATR sync:
   - `StrategyRuntime.from_state()` → `self.session.atr = self.atr_val` ekle
-    (restart sonrası sweep algılanamaz, tolerans 10.0 default'a düşer).
-  - `run_test_a` ve `StrategyRuntime.on_bar` → her bar ATR güncellenince
-    `session.atr = atr_val` senkronize et (stale ATR, 2.7Y sweep toleransı
-    hatalı). KIRMIZI parity, P0.
-  - ÜRETİM davranışı değiştirir → RE-BENCHMARK şart → SOAK DURDURULUR.
+    (restart sonrası session.atr=0.0 → sweep toleransı 10.0 default'a düşer,
+    sweep algılanamaz). KIRMIZI parity, P0.
+  - `StrategyRuntime.on_bar` → her bar ATR güncellenince
+    `self.session.atr = self.atr_val` senkronize et (stale ATR, 2.7Y sweep
+    toleransı hatalı).
+  - **RE-BENCHMARK YOK** (HATA-1 düzeltmesi: fix restart-yolunu düzeltir;
+    benchmark'lı semantik A1 değişmez).
+  - Kod kanıtı: `to_state()` session dict'inde "atr" anahtarı yok;
+    `from_state()` `self.atr_val`'ı yükler ama `self.session.atr = self.atr_val`
+    ÇAĞIRMAZ → session.atr konstruktör default'u = 0.0.
 - **R3 (P1, kod)** — freshness current-bar invalidation:
-  - `_is_fresh_fvg()` scan_from:current_index slice'ı current bar'ı dışlıyor;
-    current bar'ın far-side close ile invalidation üretmesi hâlâ "taze"
-    döndürebilir. Düzeltme: current-bar invalidation semantics'i (normal
-    touch izinli; far-side close reddedilir) — blind current_index+1 DEĞİL.
-  - Tek P1 kod değişikliği; soak'a dokunmaz.
+  - `_is_fresh_fvg()` scan_from=fvg.real_index+2, slice `bars_15m[scan_from:current_index]`
+    — Python end-exclusive slice, current bar TARANMAZ. Current bar far-side
+    close ile FVG'yi invalide etse bile "taze" döner.
+  - Düzeltme: current-bar invalidation semantics (normal touch izinli;
+    far-side close reddedilir) — blind current_index+1 DEĞİL.
+  - Nexus `real_index` semantiği (MUST-SEE #1 okuması):
+    `real_index = b_curr.index` (impulse/orta bar). `fvg.py` `detect_fvgs()`
+    ve `models.py` `FVG` dataclass'ı ile uyumlu.
+  - Tek P1 kod değişikliği.
 - **R4 (P2, defensive kod)** — resample sort-guard:
-  - `resample_15m()` öncesi/İçinde timestamp sort guard; M1 sıralama
-    garantisi yok, broker veri gecikmesinde bar boundary riski (SARI).
-- **R5/R6 (provenance + disclosure kayıtları)** — kod değil, defter/doküman
-  işi: benchmark provenance paketi (nexus fvg.py SHA256 hash sabitleme,
-  manifest), silent-change disclosure kayıtları (promotion geçmişi).
-- **Nihai:** SOAK TEKRAR DURUR (re-benchmark + TAG v1.1-b) → soak restart.
-- **Şu an:** T0 (244f4c3) çalışıyor; R1-R6 analiz/def-ter kısmı paralel
-  yürütülebilir. R1+R2 PR uygulaması için ayrı Hakem onayı + re-benchmark
-  gerekir.
+  - `resample_15m()` (`candle_feed.py:43`) bucket-by-grid-aligned-slot
+    kullanır; M1 sıralama garantisi yok, broker veri gecikmesinde bar
+    boundary riski (SARI). Sort guard öncesi/timestamp doğrulama.
+- **R5 (provenance kaydı)** — nexus dependency SHA256 manifest:
+  - `nexus-mcp/sniper/src/fvg.py` → `950578d5caf19514570c42b91e3329ecd269f976ba77eb0a62cb491d91dae1b1`
+  - `nexus-mcp/sniper/src/models.py` → `a95a4bb2ffb109783b3bcd6ebfb643cdc1811dc81d59c8684017c2fa73338faf`
+  - `nexus-mcp/sniper/src/pivot.py` → `0d34822cbeec34ff05c5cb930068072428bb919d20cffaa69387889c49001578`
+  - Bu hash'ler "N2 #13 seti" anındaki bilinen-iyi nexus sürümünü sabitler.
+- **R6 (disclosure kaydı)** — `c_v1_1_summary.json` DRY-RUN tutarsızlığı:
+  - `results/research/c_v1_1_summary.json` HEAD'de 2302T (re-run, 79.7s)
+    — DRY-RUN (79T) committed'de YOK, `progress.md`'deki "corrected" notu
+    doğru. R6: DRY-RUN disclosure'ı progress.md'de zaten kayıtlı, kapanış
+    onayı burada yapıldı.
+- **Nihai:** R1+R2 → onay → PLANNED STOP → icra → süit → N2 #14 → T0 #3.
+- **Şu an:** T0 CRASHED (WinError 5, yukarıdaki §12.1 incident).
+  Soak gözlemi KESİNTİLİ (HATA-2: paralel zorunluydu ama T0 öldü).
+  Crash araştırması R1/R2 öncesi veya sonrası — kullanıcı kararı bekliyor.
