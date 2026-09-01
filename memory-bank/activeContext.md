@@ -1887,3 +1887,32 @@ görünür olur.
   6. ④ operatör START → smoke (ok:true + DM) → SOAK (72 s sayacı gerçek
      startup'ta).
 - **Bekleyen:** Forexçi ⑤ cümlesi (ticari onay + t1/t2/t3). Kod yok.
+
+## ⑤ KABULÜ + İKİ-FORM DÜZELTMESİ (§12.1) + TAG PROTOKOLÜ (2026-09-01)
+
+- **⑤ TİCARİ ONAY (Forexçi, 2026-09-01, aynen):** "Araştırma bitti —
+  production geçişindeyiz." KARAR-1 risk profili OK (2302T /
+  +2593.2629R / MaxDD 5.00R (2.24%) / PF 4.97 / WR 69.37% / paused=0;
+  T1=2R/T2=4R/T3=6R); KARAR-2 sembol-bazlı entry-lock kesin semantik
+  (global YOK; broker-truth; truth yoksa fail-safe; management devam).
+  Yeni optimizasyon/kalibrasyon/araştırma YOK — amaç: dondurulmuş
+  canonical sistemi DEMO'da gözlemlemek. İlk hedef performans değil:
+  bağlantı→data→CBDR/bias→signal→symbol-lock→order→SL/TP→Telegram→
+  exit→restart-continuity zincirinin kendisi.
+- **§12.1 İKİ-FORM DÜZELTMESİ (TAG STEP-1'de ajan pre-flight'ı
+  yakaladı — Hakem ratify, 7. vaka, İLK kendi-kendine-yakalanan):**
+  `70012094ea5e…39ea0` = **form (i)** — working-tree/executed baytlar
+  (CRLF, 741 B; benchmark'ın import edip çalıştırdığı form; provenance
+  convention'a göre re-run için KANONİK). **form (ii)** committed blob
+  (LF, 707 B) = `1146d7a3c2b3…b54e` (re-verify için kanonik).
+  Eşdeğerlik ispatlı: `sha256(strip-CR(form (i))) == form (ii)` ✓.
+  Önceki "committed-blob'dan hesaplandı" etiketim YANLIŞTI — içerik
+  sağlam, etiket yanlış; hata sınıfı = kimlik-yanlışlık, risk = sıfır.
+  TAG mesajı iki-formu birden taşır (Hakem: tek-form reddi — convention
+  sadakati + reproducibility ikiliği + trail-format-kanıtı).
+- **TAG PROTOKOLÜ (icra — bu kayıtla):** annotated
+  `research-canonical-v1.1` @ `7a1e6f1`; mesaj = ön-bağlama paketi +
+  iki-form satırı + ⑤ metni özeti. Push: main + tag ref. Üç imza:
+  (a) origin/main..HEAD boş, (b) ls-remote main, (c) ls-remote
+  refs/tags/research-canonical-v1.1. **TAG sonrası DA START yok** —
+  ④ operatör tıkı + smoke (ok:true + DM) beklenir; SOAK ④'te başlar.
