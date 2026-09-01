@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-09-01T10:45:19",
+  "generated_at": "2026-09-01T13:15:56",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2076,50 +2076,50 @@
         },
         "src.data.mt5_data.MT5DataLayer.__init__": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 28,
-          "line_end": 30,
+          "line_start": 29,
+          "line_end": 31,
           "signature": "def __init__(self):"
         },
         "src.data.mt5_data.MT5DataLayer._capture_error": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 32,
-          "line_end": 39,
+          "line_start": 33,
+          "line_end": 40,
           "signature": "def _capture_error(self, context: str) -> str:"
         },
         "src.data.mt5_data.MT5DataLayer.last_error": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 42,
-          "line_end": 44,
+          "line_start": 43,
+          "line_end": 45,
           "signature": "@property"
         },
         "src.data.mt5_data.MT5DataLayer.get_symbol_info": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 46,
-          "line_end": 74,
+          "line_start": 47,
+          "line_end": 75,
           "signature": "def get_symbol_info(self, symbol_name):"
         },
         "src.data.mt5_data.MT5DataLayer.get_tick": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 76,
-          "line_end": 104,
+          "line_start": 77,
+          "line_end": 105,
           "signature": "def get_tick(self, symbol_name):"
         },
         "src.data.mt5_data.MT5DataLayer.get_rates": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 106,
-          "line_end": 136,
+          "line_start": 107,
+          "line_end": 137,
           "signature": "def get_rates(self, symbol_name, timeframe='M1', count=100):"
         },
         "src.data.mt5_data.MT5DataLayer.get_symbols_list": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 138,
-          "line_end": 153,
+          "line_start": 139,
+          "line_end": 154,
           "signature": "def get_symbols_list(self):"
         },
         "src.data.mt5_data.MT5DataLayer.find_forex_symbols": {
           "file": "src\\data\\mt5_data.py",
-          "line_start": 155,
-          "line_end": 168,
+          "line_start": 156,
+          "line_end": 169,
           "signature": "def find_forex_symbols(self, base='EUR', quote='USD'):"
         },
         "src.live.audit.AuditEvent.to_dict": {
@@ -2599,211 +2599,211 @@
         "src.live.orchestrator.Orchestrator.__init__": {
           "file": "src\\live\\orchestrator.py",
           "line_start": 463,
-          "line_end": 537,
+          "line_end": 549,
           "signature": "def __init__(self, state_dir: str='state', magic: int=9007001, configured_symbols: Optional[List[str]]=None, audit: Optional[AuditChain]=None, config_obj: Optional[OrchestratorConfig]=None, mt5: Any=N"
         },
         "src.live.orchestrator.Orchestrator.startup": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 539,
-          "line_end": 578,
+          "line_start": 551,
+          "line_end": 590,
           "signature": "def startup(self) -> StartupResult:"
         },
         "src.live.orchestrator.Orchestrator._run_phases": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 580,
-          "line_end": 964,
+          "line_start": 592,
+          "line_end": 976,
           "signature": "def _run_phases(self) -> StartupResult:"
         },
         "src.live.orchestrator.Orchestrator.release_lock": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 966,
-          "line_end": 968,
+          "line_start": 978,
+          "line_end": 980,
           "signature": "def release_lock(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator.shutdown": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 970,
-          "line_end": 1042,
+          "line_start": 982,
+          "line_end": 1054,
           "signature": "def shutdown(self, exit_code: int=0, reason: str='shutdown') -> None:"
         },
         "src.live.orchestrator.Orchestrator._safe_path": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1046,
-          "line_end": 1050,
+          "line_start": 1058,
+          "line_end": 1062,
           "signature": "def _safe_path(self) -> Path:"
         },
         "src.live.orchestrator.Orchestrator._read_safe_mode": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1052,
-          "line_end": 1062,
+          "line_start": 1064,
+          "line_end": 1074,
           "signature": "def _read_safe_mode(self) -> Optional[dict]:"
         },
         "src.live.orchestrator.Orchestrator._write_safe_mode": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1064,
-          "line_end": 1075,
+          "line_start": 1076,
+          "line_end": 1087,
           "signature": "def _write_safe_mode(self, reason: str) -> None:"
         },
         "src.live.orchestrator.Orchestrator.clear_safe_mode": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1077,
-          "line_end": 1084,
+          "line_start": 1089,
+          "line_end": 1096,
           "signature": "def clear_safe_mode(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._build_contract": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1088,
-          "line_end": 1138,
+          "line_start": 1100,
+          "line_end": 1150,
           "signature": "def _build_contract(self, symbol: str) -> Optional[ContractSpec]:"
         },
         "src.live.orchestrator.Orchestrator._warmup": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1142,
-          "line_end": 1348,
+          "line_start": 1154,
+          "line_end": 1360,
           "signature": "def _warmup(self, m1_count: int) -> Tuple[bool, int, dict]:"
         },
         "src.live.orchestrator.Orchestrator._restore_stale_slots": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1352,
-          "line_end": 1372,
+          "line_start": 1364,
+          "line_end": 1384,
           "signature": "def _restore_stale_slots(self) -> int:"
         },
         "src.live.orchestrator.Orchestrator._replay_end_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1374,
-          "line_end": 1381,
+          "line_start": 1386,
+          "line_end": 1393,
           "signature": "def _replay_end_state(self) -> str:"
         },
         "src.live.orchestrator.Orchestrator._cbdr_session_key": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1383,
-          "line_end": 1389,
+          "line_start": 1395,
+          "line_end": 1401,
           "signature": "def _cbdr_session_key(self) -> Optional[str]:"
         },
         "src.live.orchestrator.Orchestrator._cbdr_bias": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1391,
-          "line_end": 1397,
+          "line_start": 1403,
+          "line_end": 1409,
           "signature": "def _cbdr_bias(self) -> Optional[str]:"
         },
         "src.live.orchestrator.Orchestrator._begin_cold_rebuild": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1401,
-          "line_end": 1418,
+          "line_start": 1413,
+          "line_end": 1430,
           "signature": "def _begin_cold_rebuild(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._seed_restore_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1422,
-          "line_end": 1449,
+          "line_start": 1434,
+          "line_end": 1461,
           "signature": "def _seed_restore_state(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._warm_bar_count": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1451,
-          "line_end": 1458,
+          "line_start": 1463,
+          "line_end": 1470,
           "signature": "def _warm_bar_count(self) -> int:"
         },
         "src.live.orchestrator.Orchestrator._rates_to_bars": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1462,
-          "line_end": 1505,
+          "line_start": 1474,
+          "line_end": 1517,
           "signature": "def _rates_to_bars(self, rates: Any) -> List[Bar]:"
         },
         "src.live.orchestrator.Orchestrator.produce_new_bars": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1507,
-          "line_end": 1598,
+          "line_start": 1519,
+          "line_end": 1610,
           "signature": "def produce_new_bars(self) -> List[Bar]:"
         },
         "src.live.orchestrator.Orchestrator._check_bar_gaps": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1600,
-          "line_end": 1626,
+          "line_start": 1612,
+          "line_end": 1638,
           "signature": "def _check_bar_gaps(self, new_bars: List[Any]) -> None:"
         },
         "src.live.orchestrator.Orchestrator._fetch_m1_tri_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1630,
-          "line_end": 1672,
+          "line_start": 1642,
+          "line_end": 1684,
           "signature": "def _fetch_m1_tri_state(self, count: int) -> Tuple[str, Any]:"
         },
         "src.live.orchestrator.Orchestrator._safe": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1676,
-          "line_end": 1692,
+          "line_start": 1688,
+          "line_end": 1704,
           "signature": "def _safe(self, condition: str) -> Tuple[bool, str]:"
         },
         "src.live.orchestrator.Orchestrator.on_new_bar": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1696,
-          "line_end": 1700,
+          "line_start": 1708,
+          "line_end": 1712,
           "signature": "def on_new_bar(self, bar: Bar) -> Any:"
         },
         "src.live.orchestrator.Orchestrator.is_connected": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1702,
-          "line_end": 1711,
+          "line_start": 1714,
+          "line_end": 1723,
           "signature": "def is_connected(self) -> bool:"
         },
         "src.live.orchestrator.Orchestrator._install_signal_handlers": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1715,
-          "line_end": 1723,
+          "line_start": 1727,
+          "line_end": 1735,
           "signature": "def _install_signal_handlers(self) -> None:"
         },
         "src.live.orchestrator.Orchestrator._on_signal": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1725,
-          "line_end": 1726,
+          "line_start": 1737,
+          "line_end": 1738,
           "signature": "def _on_signal(self, _signum: Any, _frame: Any) -> None:"
         },
         "src.live.orchestrator.Orchestrator._heartbeat_validated": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1728,
-          "line_end": 1745,
+          "line_start": 1740,
+          "line_end": 1757,
           "signature": "def _heartbeat_validated(self) -> bool:"
         },
         "src.live.orchestrator.Orchestrator._interruptible_sleep": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1747,
-          "line_end": 1762,
+          "line_start": 1759,
+          "line_end": 1774,
           "signature": "def _interruptible_sleep(self, seconds: float, kill_fn) -> bool:"
         },
         "src.live.orchestrator.Orchestrator._recon_decision_for_gate": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1764,
-          "line_end": 1783,
+          "line_start": 1776,
+          "line_end": 1795,
           "signature": "def _recon_decision_for_gate(self) -> ReconciliationDecision:"
         },
         "src.live.orchestrator.Orchestrator._get_spread_state": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1785,
-          "line_end": 1817,
+          "line_start": 1797,
+          "line_end": 1829,
           "signature": "def _get_spread_state(self, now_dt: datetime) -> Tuple[bool, float]:"
         },
         "src.live.orchestrator.Orchestrator._get_account": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1819,
-          "line_end": 1830,
+          "line_start": 1831,
+          "line_end": 1842,
           "signature": "def _get_account(self) -> Optional[Account]:"
         },
         "src.live.orchestrator.Orchestrator._assert_signal_only": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1832,
-          "line_end": 1840,
+          "line_start": 1844,
+          "line_end": 1852,
           "signature": "def _assert_signal_only(self, res: Any) -> Optional[str]:"
         },
         "src.live.orchestrator.Orchestrator._feed_bars": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1842,
-          "line_end": 1874,
+          "line_start": 1854,
+          "line_end": 1886,
           "signature": "def _feed_bars(self, bars: List[Any], account: Account) -> Optional[int]:"
         },
         "src.live.orchestrator.Orchestrator.run": {
           "file": "src\\live\\orchestrator.py",
-          "line_start": 1876,
-          "line_end": 2127,
+          "line_start": 1888,
+          "line_end": 2145,
           "signature": "def run(self, kill_switch_fn: Optional[Callable[[], bool]]=None, sleep_fn: Optional[Callable[[float], None]]=None) -> int:"
         },
         "src.live.paper.PaperPosition.to_position": {
@@ -6520,6 +6520,48 @@
           "line_end": 200,
           "signature": "def test_timeout_cap_enforced():"
         },
+        "tests.test_orchestrator_n2_13_audit.tmp_state": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 40,
+          "line_end": 41,
+          "signature": "@pytest.fixture"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB1AuditPathWiring.test_orchestrator_wires_config_audit_path": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 48,
+          "line_end": 67,
+          "signature": "def test_orchestrator_wires_config_audit_path(self, tmp_state: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB1AuditPathWiring.test_orchestrator_no_audit_path_uses_inmemory": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 69,
+          "line_end": 76,
+          "signature": "def test_orchestrator_no_audit_path_uses_inmemory(self, tmp_state: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB2FalsyEmptyGuard.test_injected_empty_chain_does_not_silently_drop": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 83,
+          "line_end": 108,
+          "signature": "def test_injected_empty_chain_does_not_silently_drop(self, tmp_state: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB2FalsyEmptyGuard.test_injected_nonempty_chain_is_honored": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 110,
+          "line_end": 128,
+          "signature": "def test_injected_nonempty_chain_is_honored(self, tmp_state: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB3GateReasonLabel.test_orchestrator_exposes_decision_for_reason": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 135,
+          "line_end": 178,
+          "signature": "def test_orchestrator_exposes_decision_for_reason(self, tmp_state: Path):"
+        },
+        "tests.test_orchestrator_n2_13_audit.TestB2MirrorInLiveRunner.test_live_runner_uses_injected_audit": {
+          "file": "tests\\test_orchestrator_n2_13_audit.py",
+          "line_start": 191,
+          "line_end": 201,
+          "signature": "def test_live_runner_uses_injected_audit(self):"
+        },
         "tests.test_orchestrator_startup.tmp_state": {
           "file": "tests\\test_orchestrator_startup.py",
           "line_start": 27,
@@ -9633,8 +9675,8 @@
           "hash": "sha256:ff1ecda4f0bfa316"
         },
         "src\\data\\mt5_data.py": {
-          "last_modified": "2026-09-01T10:43:52",
-          "hash": "sha256:bb6c2445d2e9c057"
+          "last_modified": "2026-09-01T10:55:07",
+          "hash": "sha256:a31542978220be60"
         },
         "src\\live\\audit.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9657,8 +9699,8 @@
           "hash": "sha256:b482b17ab38c3339"
         },
         "src\\live\\orchestrator.py": {
-          "last_modified": "2026-09-01T10:32:40",
-          "hash": "sha256:41dbb79671453ae3"
+          "last_modified": "2026-09-01T12:19:24",
+          "hash": "sha256:6a024b83391ed618"
         },
         "src\\live\\paper.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9884,6 +9926,10 @@
           "last_modified": "2026-08-31T16:19:41",
           "hash": "sha256:88be239823ee4f18"
         },
+        "tests\\test_orchestrator_n2_13_audit.py": {
+          "last_modified": "2026-09-01T12:22:41",
+          "hash": "sha256:ce992fa913ff43c4"
+        },
         "tests\\test_orchestrator_startup.py": {
           "last_modified": "2026-09-01T10:32:40",
           "hash": "sha256:05c3fdb5e541773f"
@@ -9985,7 +10031,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-09-01T10:45:19"
+      "last_full_scan": "2026-09-01T13:15:56"
     }
   }
 }

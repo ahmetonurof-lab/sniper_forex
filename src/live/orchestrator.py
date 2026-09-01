@@ -479,7 +479,19 @@ class Orchestrator:
             state_dir=state_dir,
         )
         self.configured_symbols = configured_symbols or []
-        self.audit = audit or AuditChain()
+        # N2 #13 — B1/B2 (audit journal wiring + falsy-empty guard).
+        # Empty AuditChain is FALSY (AuditChain.__len__ == 0), so a naive
+        # `audit or AuditChain()` silently DROPS an injected empty chain
+        # (caught during N2 #12 soak evidence run). Build the production
+        # chain first, then prefer the caller's chain when it is non-empty.
+        # Also wire config.audit_path into auto_flush so the production
+        # orchestrator persists the journal to disk (was the N2 #12 gap).
+        prod_audit: AuditChain
+        if getattr(self.config, "audit_path", None):
+            prod_audit = AuditChain(auto_flush_path=self.config.audit_path)
+        else:
+            prod_audit = AuditChain()
+        self.audit = audit if audit is not None and len(audit) > 0 else prod_audit
         self.lock = Lock(self.state_dir / "orchestrator.lock")
         self._mt5: Any = mt5
         # MT5Connection (production fetch path) — injectable for tests.
@@ -2077,11 +2089,17 @@ class Orchestrator:
             )
             if gate_allowed != self._gate_was_allowed:  # transition-only alerts
                 self._gate_was_allowed = gate_allowed
-                reason = decision.reason or (
-                    "startup_SAFE_START"
-                    if not entries_enabled
-                    else (self._runtime_safe_reason or "monitor_only")
-                )
+                # N2 #13 — B3 (gate-OPEN reason label).
+                # When decision.allowed is True the SafetyMonitor returns
+                # reason=""; the else-branch's "monitor_only" was a string
+                # constant, not a real diagnostic. Derive a meaningful
+                # fallback: OPEN -> "ok", CLOSED -> keep decision.reason.
+                if gate_allowed:
+                    reason = decision.reason or "ok"
+                elif not entries_enabled:
+                    reason = decision.reason or "startup_SAFE_START"
+                else:
+                    reason = decision.reason or self._runtime_safe_reason or "unknown"
                 self.alert.send(
                     "INFO" if gate_allowed else "WARN",
                     f"entry gate {'OPEN' if gate_allowed else 'CLOSED'}: {reason}",

@@ -2170,3 +2170,35 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
   created_at heartbeat ile güncelleniyor, 08:56Z canlı). PID 11636.
 - TAG: kanıt şartı sağlandı → annotated tag local atıldı (push için
   ayrı Hakem yetkisi gerekir, §9.2).
+
+## N2 #13 PUSH RECORD — B1+B2+B3 FIX PACK (2026-09-01)
+
+- who: LUNA — Hakem yazılı yetkisi: B1 (push-öncesi bloker) + B2/B3
+  birleştirilebilir fix → süit → N2 #13 → push → SOAK RESTART.
+- what: `TBD` — N2 #13 fix(live) — B1 (production audit_path wiring,
+  AuditChain auto_flush_path bağlantısı) + B2 (falsy-empty AuditChain
+  guard, enjekte edilen boş chain artık sessizce düşmüyor) + B3
+  (gate-OPEN reason label artık sahte 'monitor_only' sabitini döndürmüyor;
+  decision.allowed→'ok', decision.reason→boş, else→'unknown') + 6 yeni
+  regresyon testi (B1×2, B2×2, B3×1, B2-mirror×1) + index regen
+  (1561→1568 fonksiyon; yeni test_entries=15).
+- when: 2026-09-01 ~12:50 local. remote: origin/main (GitHub).
+- Set (§9.5 exact): {<hash>} — parent 0ddaf94. Set-growth beyanı: yetki
+  penceresi tek commit; ek commit yok.
+- validation: tam süit 470P/1S/0F/0E (757.46s = 12:37; tas3/tas4 + e2e
+  ignore — e2e pre-existing pinned, N2 #11 baseline ile aynı imza
+  context_registered=None test_e2e_live_chain.py:141, dosya değişmedi);
+  regresyon sweep (startup+hardening+tas2+d49) 72/72 PASSED; B1/B2/B3
+  paketi 6/6 PASSED; d49 2×8 deterministik.
+- Pre-flight: pre-commit hook-seti bu turda hiç dosyaya dokunmadı
+  (N2 #11'in §10.3 dürüst kaydı; bu sefer I001 drift yok).
+- Imza (post-push): origin/main..HEAD=0 ✓; ls-remote main = HEAD ✓;
+  tracked tree CLEAN ✓.
+- TAG: `research-canonical-v1.1` (7a1e6f1) KORUNUR. `live-ready-v1`
+  N2 #12 sonrası silindi (operasyonel durum = tag değil, ledger). Yeni
+  operational tag (`soak-live-v1`) SOAK T0 stabil olduktan SONRA
+  (gün-3 raporunda) atılır.
+- Sıradaki (yetki sırası): runbook clear_safe_mode (state/orchestrator_safe.json
+  zaten temiz, doğrula) → `python -u` PROCEED boot → audit-journal
+  diske yazıldığını doğrula (B1 fix kanıtı) → SOAK T0 YENİ (eski T0
+  ölümcül terminal-çıkışı ile kaybedildi, §17 restart kontratı).
