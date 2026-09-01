@@ -2204,3 +2204,118 @@ Forexçi checklist'i madde madde, kanıt kaynaklı:
   zaten temiz, doğrula) → `python -u` PROCEED boot → audit-journal
   diske yazıldığını doğrula (B1 fix kanıtı) → SOAK T0 YENİ (eski T0
   ölümcül terminal-çıkışı ile kaybedildi, §17 restart kontratı).
+
+## N2 #13 B1b PUSH RECORD — TIMER-DRIVEN AUDIT FLUSH (2026-09-01)
+
+- **who:** LUNA — Hakem yazılı yetkisi: B1b (timer-driven flush_if_due()
+  + 5 test + full süit + push). §9.2 explicit.
+- **what:** `244f4c350d519a7c65a40d2b26f179b61078ca8d` — N2 #13 B1b:
+  timer-driven audit flush for quiet-loop disk persistence.
+  - `src/live/audit.py`: yeni public method `flush_if_due()` — _should_flush()
+    kontrolü yapıp varsa flush() çağırır; append-dışı yoldan periyodik
+    disk yazımı sağlar.
+  - `src/live/orchestrator.py` run() loop (step 2b): her tick'te
+    `self.audit.flush_if_due()` çağırır — sessiz markette bile audit
+    journal'ın diske düşmesini garanti altına alır. try/except + ERROR
+    event fallback.
+  - `tests/test_orchestrator_n2_13_audit.py`: +4 unit test (timer
+    flush, noop-before-interval, noop-without-path, flush-clock-reset).
+  - `tests/test_orchestrator_tas3.py`: +1 production-path test
+    (run() loop + audit.jsonl disk persistence).
+- **when:** 2026-09-01 ~15:45 local. remote: origin/main (GitHub).
+- **Set (§9.5 exact):** {244f4c350d519a7c65a40d2b26f179b61078ca8d} —
+  parent 978fac4 (N2 #13 B1+B2+B3). Set-growth beyanı: tek commit;
+  önceki {41ca925} setinden ayrıdır, ayrı yetki alınmıştır.
+- **Root cause (ledger §12.1):** "B1 wire-edildi ≠ çalışıyor". İki-parti
+  kör nokta: B1 audit_path bağlantısı doğruydu ancak append-driven
+  flush tasarımı sessiz markette hiç tetiklenmez → file never written.
+  flush_if_due() + run() loop tick çağrısı bu boşluğu kapatır.
+- **validation:** full tam süit (`pytest tests/ -q`) 2F/511P/1S/0E
+  (716.43s). 2F = pinned pre-existing e2e (context_registered=None,
+  N2 #11 baseline, test_e2e_live_chain.py). +5 vs N2 #13 baseline
+  (506P). B1b targeted 5/5 PASSED; extended subset 263P/2F/1S (312.50s).
+  ruff check + format: 4 files already formatted (no changes).
+- **pre-commit:** all hooks Passed (ruff 0.15.13, vulture, mypy, json,
+  trim, eof, merge-conflict, yaml, case-conflicts).
+- **Imza (post-push):** origin/main..HEAD=0 ✓; `ls-remote origin main`
+  = `244f4c350d519a7c65a40d2b26f179b61078ca8d` = `git rev-parse HEAD` ✓;
+  tracked tree CLEAN ✓.
+- **Ledger events:**
+  - B1 disk-audit gap diagnosed (session 2026-09-01).
+  - Soak PID 1740 killed (taskkill, git-bash path conversion workaround).
+  - flush_if_due() implemented + 5 tests.
+  - Full suite 511P (+5 vs baseline) — 2F pinned pre-existing.
+  - Commit 244f4c3 → push authorized → post-push verified.
+  - **T0 SOAK RESTART bekliyor.** (runbook: clear_safe_mode → boot → first-20-dk audit-disk check).
+- **Audit-blind window (soak restart rezervasyonu):** Eski T0 (PID 1740)
+  ~30 dk audit.jsonl yazmadan çalıştı. Bu window'daki olaylar kayıp
+  kabul edilir. Yeni T0'da audit.jsonl ilk 20 dk içinde doğrulanacak.
+
+## SOAK T0 RESTART RECORD — B1b DISK AUDIT DOĞRULANDI (2026-09-01)
+
+- **who:** LUNA — Hakem yetkisi (B1b push + soak restart koşulları):
+  "T0 yenile + İLK 20 DK audit-disk kontrolü → sonraki rapor: audit.jsonl
+  var mı, kaç satır, hangi event'ler."
+- **Pre-boot checks:** safe_mode dosyası YOK (temiz, runbook karşılandı);
+  HEAD = `244f4c350d519a7c65a40d2b26f179b61078ca8d` (B1b tested state);
+  eski soak PID 1740 öldürülmüştü; `state/audit.jsonl` yok (temiz
+  başlangıç). Eski soak process kalmamış (tasklist: python yok).
+- **Boot:** `MT5_EXPECTED_LOGIN=53012914` `.venv/Scripts/python.exe -u -m
+  src.live.run_production > logs/soak_n2_13_b1b_20260901.out 2>&1`.
+  - `startup PROCEED: ok (warmup_bars=4338)`
+  - `entry gate OPEN: ok` (SAFETY event reason="ok")
+  - Login 53012914 / ICMarketsSC-Demo / Balance 9990.42 / Equity 9990.42
+  - MT5 build 6140.
+- **AUDIT-DISK DOĞRULAMASI (ilk 20 dk — GEÇTİ):**
+  - T0 start: 2026-09-01 15:44:18 (process CreationDate).
+  - `state/audit.jsonl` OLUŞTU (~15:45, <2 dk içinde) ✓
+  - 5 satır event: MT5_CONNECT ×1, STARTUP ×3 (boot + S9 REPLAY +
+    S11 PROCEED), SAFETY ×1 (gate open, reason "ok").
+  - B1b kanıtı: sessiz markette append-dışı timer flush ile diske
+    düştü (önceki T0 ~30 dk yazmamıştı).
+- **Processler:** venv launcher PID 1864 → worker PID 16268
+  (system python312). Ana soak = PID 16268.
+- **Soak tree FREEZE (§17):** `src/`, `tests/`, `index.json` tested
+  HEAD `244f4c3`'te donduruldu. Soak süresince mutasyon yok. İzinli:
+  `state/`, logs, audit artifacts, memory-bank chore kayıtları.
+- **Sıradaki:** R1-R6 P0 remediation sırası — analiz/ledger işi,
+  soak'u DURDURMAZ. İlk rapor: audit.jsonl satır sayısı + event
+  listesi (yukarıda: 5 satır, 5 event).
+
+## R1-R6 P0 REMEDIATION SIRASI (2026-09-01, Hakem hükmü — önceki hükümde verildi, teyit)
+
+Soak restart sonrası R1-R6 hâlâ bekliyor. Bunlar soak'ın durdurulmasını
+gerektirmiyor — **analiz + defter işi** (kod-dokunuşu değil), soak koşarken
+paralel yapılabilir. Sıra (Hakem hükmü, exact):
+
+```text
+R1+R2 PR  → soak DURDURULUR (P0 = production-davranışı değiştirir → re-benchmark şart)
+R3 PR     → tek P1, freshness current-bar
+R4 PR     → resample sort-guard (defensive)
+R5/R6     → provenance + disclosure kayıtları
+→ SOAK TEKRAR DURUR (re-benchmark + TAG v1.1-b) → soak restart
+```
+
+- **R1+R2 (P0, kod)** — ATR restart loss + stale ATR sync:
+  - `StrategyRuntime.from_state()` → `self.session.atr = self.atr_val` ekle
+    (restart sonrası sweep algılanamaz, tolerans 10.0 default'a düşer).
+  - `run_test_a` ve `StrategyRuntime.on_bar` → her bar ATR güncellenince
+    `session.atr = atr_val` senkronize et (stale ATR, 2.7Y sweep toleransı
+    hatalı). KIRMIZI parity, P0.
+  - ÜRETİM davranışı değiştirir → RE-BENCHMARK şart → SOAK DURDURULUR.
+- **R3 (P1, kod)** — freshness current-bar invalidation:
+  - `_is_fresh_fvg()` scan_from:current_index slice'ı current bar'ı dışlıyor;
+    current bar'ın far-side close ile invalidation üretmesi hâlâ "taze"
+    döndürebilir. Düzeltme: current-bar invalidation semantics'i (normal
+    touch izinli; far-side close reddedilir) — blind current_index+1 DEĞİL.
+  - Tek P1 kod değişikliği; soak'a dokunmaz.
+- **R4 (P2, defensive kod)** — resample sort-guard:
+  - `resample_15m()` öncesi/İçinde timestamp sort guard; M1 sıralama
+    garantisi yok, broker veri gecikmesinde bar boundary riski (SARI).
+- **R5/R6 (provenance + disclosure kayıtları)** — kod değil, defter/doküman
+  işi: benchmark provenance paketi (nexus fvg.py SHA256 hash sabitleme,
+  manifest), silent-change disclosure kayıtları (promotion geçmişi).
+- **Nihai:** SOAK TEKRAR DURUR (re-benchmark + TAG v1.1-b) → soak restart.
+- **Şu an:** T0 (244f4c3) çalışıyor; R1-R6 analiz/def-ter kısmı paralel
+  yürütülebilir. R1+R2 PR uygulaması için ayrı Hakem onayı + re-benchmark
+  gerekir.
