@@ -142,6 +142,17 @@ class AuditChain:
         if self._should_flush():
             self.flush(self._auto_flush_path)
 
+    def flush_if_due(self) -> None:
+        """Persist buffered events if auto-flush conditions are met.
+
+        Unlike ``_maybe_flush`` (only reachable from ``append``), this is
+        safe to call from a runtime loop on a timer: it no-ops when no
+        path is configured or no event has crossed the threshold/interval,
+        and guarantees a quiet loop still lands buffered events on disk.
+        """
+        if self._should_flush():
+            self.flush(self._auto_flush_path)
+
     def flush(self, path: Optional[str] = None) -> None:
         """Flush events to JSONL file."""
         target = path or self._auto_flush_path

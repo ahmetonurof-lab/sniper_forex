@@ -410,3 +410,44 @@ def test_d46_interruptible_sleep_kill_during_sleep(monkeypatch, tmp_path):
     # kill-during-sleep → graceful exit: 2 if runtime-safe/not-entries else 0
     assert code in (0, 2)
     assert code != 1  # NOT fatal — kill wins over ownership
+
+
+# --- N2 #13 B1b: quiet-loop audit flush reaches disk (production path) ---
+
+
+def test_run_flushes_audit_to_disk_on_timer(tmp_path, monkeypatch):
+    """B1b production path: run() must persist buffered audit events on a
+    timer even when the market is quiet — no errors, no gate transitions,
+    no new bars. The original B1 wiring (auto_flush inside append only)
+    left state/audit.jsonl absent for an entire quiet soak.
+
+    The orchestrator's chain is built with a short flush interval; we
+    advance the loop's flush clock via monkeypatch so the real
+    flush_if_due() call inside run() performs the disk write.
+    """
+    import time as _time
+
+    audit_path = tmp_path / "audit" / "a.jsonl"
+    r = FakeRunner()
+    orch = make_orch(tmp_path, runner=r)
+    # Wire a flush interval short enough to trigger on the first tick,
+    # and seed the chain with boot events (no further appends occur in a
+    # quiet PROCEED loop with no new bars and a stable gate).
+    orch.audit._flush_interval_sec = 0.0
+    orch.audit._auto_flush_path = str(audit_path)
+    orch.audit.append(0.0, EventType.STARTUP, "EURUSD", {"phase": "boot"})
+    # Force the flush clock into the past so the first flush_if_due() in
+    # run() sees an elapsed interval.
+    orch.audit._last_flush_time = _time.time() - 60.0
+    orch._install_signal_handlers = lambda: None
+    # Interruptible sleep must return True at first call (kill) so the
+    # loop terminates after one tick; keep production path (sleep_fn=None).
+    monkeypatch.setattr("src.live.orchestrator.time.sleep", lambda s: None)
+    monkeypatch.setattr(orch, "_interruptible_sleep", lambda seconds, kf: True)
+
+    code = orch.run(kill_switch_fn=lambda: False, sleep_fn=None)
+    assert code in (0, 2)
+    # The journal must exist on disk after the loop ticked.
+    assert audit_path.exists(), "quiet run() never flushed buffered audit to disk"
+    lines = [ln for ln in audit_path.read_text().splitlines() if ln.strip()]
+    assert any('"phase": "boot"' in ln for ln in lines)

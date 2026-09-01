@@ -1978,6 +1978,23 @@ class Orchestrator:
                 self.shutdown(exit_code=1, reason="ownership_lost")
                 return 1
 
+            # 2b) N2 #13 — B1 disk audit: persist buffered audit events on
+            #     a timer independent of append volume. The journal is
+            #     append-driven by design (flush only inside append()), so a
+            #     quiet market with no errors/gate transitions would never
+            #     reach disk. Calling flush_if_due() once per loop bounds
+            #     the flush interval to poll_interval (<=30s) and guarantees
+            #     "soak starts with the audit on disk".
+            try:
+                self.audit.flush_if_due()
+            except Exception as e:
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol,
+                    {"phase": "audit_flush", "error": str(e)},
+                )
+
             # 3) bar pipeline (D19/D20; fetch fail → internal ERROR counter)
             try:
                 new_bars = self.produce_new_bars()

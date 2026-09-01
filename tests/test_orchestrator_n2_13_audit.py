@@ -74,6 +74,73 @@ class TestB1AuditPathWiring:
         assert orch.audit._auto_flush_path == "state/audit.jsonl"
 
 
+# ── B1b: timer-driven flush (quiet-loop disk persistence) ────────
+
+
+class TestB1bTimerDrivenFlush:
+    """N2 #13 follow-up: the auto-flush is append-driven (only reachable
+    from append()), so a quiet market with no errors/gate transitions
+    would buffer events forever and never create the journal on disk.
+    flush_if_due() makes the timer side effect-free and callable from a
+    runtime loop; these tests pin that behaviour."""
+
+    def test_flush_if_due_persists_on_timer_without_append(self, tmp_path: Path):
+        """The core B1b case: events buffered but no new append for a
+        while MUST still reach disk once the interval elapses. This is
+        exactly the quiet-soak scenario the original B1 wiring could not
+        cover (flush only fired inside append)."""
+        path = tmp_path / "audit.jsonl"
+        chain = AuditChain(auto_flush_path=str(path), flush_interval_sec=0.1)
+        # Buffered events that would never trigger an append-driven flush.
+        chain.append(0.0, EventType.STARTUP, "EURUSD", {"phase": "boot"})
+        chain.append(1.0, EventType.SAFETY, "EURUSD", {"gate": "open"})
+        assert not path.exists()
+        # Advance the flush clock past the interval without appending.
+        import time as _time
+
+        chain._last_flush_time = _time.time() - 5.0
+        chain.flush_if_due()
+        assert path.exists()
+        lines = [ln for ln in path.read_text().splitlines() if ln.strip()]
+        assert len(lines) == 2
+        assert any('"gate": "open"' in ln for ln in lines)
+
+    def test_flush_if_due_noop_before_interval(self, tmp_path: Path):
+        """Control: within the interval and under the threshold,
+        flush_if_due() must not write the file (preserves the buffering
+        contract — it is a *due* flush, not a forced one)."""
+        path = tmp_path / "audit.jsonl"
+        chain = AuditChain(auto_flush_path=str(path), flush_interval_sec=30.0)
+        chain.append(0.0, EventType.STARTUP, "EURUSD", {"phase": "boot"})
+        chain.flush_if_due()  # just constructed -> interval not elapsed
+        assert not path.exists()
+
+    def test_flush_if_due_noop_without_path(self):
+        """Control: an in-memory-only chain (no auto_flush_path) must
+        no-op — flush_if_due() is safe to call from a production loop
+        that may hold a path-less chain."""
+        chain = AuditChain()
+        chain.append(0.0, EventType.STARTUP, "EURUSD", {"phase": "boot"})
+        chain.flush_if_due()  # must not raise, must not need a file
+        assert len(chain) == 1
+
+    def test_flush_if_due_resets_flush_clock(self, tmp_path: Path):
+        """After a due flush, the flush clock must reset so the next
+        call does not immediately flush again (no busy-write loop)."""
+        path = tmp_path / "audit.jsonl"
+        chain = AuditChain(auto_flush_path=str(path), flush_interval_sec=30.0)
+        chain.append(0.0, EventType.STARTUP, "EURUSD", {"phase": "boot"})
+        import time as _time
+
+        chain._last_flush_time = _time.time() - 60.0
+        chain.flush_if_due()
+        assert path.exists()
+        before = path.stat().st_mtime_ns
+        # Immediately flush again: clock reset -> no rewrite expected.
+        chain.flush_if_due()
+        assert path.stat().st_mtime_ns == before
+
+
 # ── B2: falsy-empty AuditChain guard ─────────────────────────────
 
 
