@@ -299,3 +299,40 @@ def test_per_bar_atr_sync():
     for bar in _make_synthetic_bars(5, start=warmup_bars[-1].timestamp + pd.Timedelta(minutes=15)):
         rt.on_bar(bar)
         assert rt.session.atr > 0, f"bar {bar.index} sonrası session.atr 0'a düştü"
+
+
+def test_migration_pre_n14_state_audited_fallback(caplog):
+    """Migration-audit (§19): pre-N2#14 state (no 'session_atr' key) restores
+    with an AUDITED fallback — never silent.
+
+    A state file written before N2 #14 lacks the 'session_atr' key. The
+    fallback (session.atr = atr_val) must be LOGGED as a warning so the
+    degraded path is visible in runtime logs. A silent fallback would violate
+    the contract (§19 silent-fallback).
+    """
+    import logging
+
+    rt = StrategyRuntime("EURUSD")
+    warmup_bars = _make_synthetic_bars(150)
+    rt.warmup(warmup_bars)
+    assert rt._warmed
+    assert rt.atr_val > 0, "warmup sonrası atr_val > 0 olmalı"
+
+    # Simulate a pre-N2#14 state file: drop the 'session_atr' key.
+    state = rt.to_state()
+    assert "session_atr" in state
+    state.pop("session_atr")
+
+    with caplog.at_level(logging.WARNING, logger="src.live.strategy_runtime"):
+        rt2 = StrategyRuntime("EURUSD")
+        rt2.from_state(state)
+
+    # Audited fallback: session.atr == atr_val (NOT the 0.0 default).
+    assert (
+        rt2.session.atr == rt2.atr_val
+    ), f"migration: session.atr ({rt2.session.atr}) != atr_val ({rt2.atr_val})"
+    assert rt2.session.atr > 0, "migration: audited fallback 0'a düşmemeli"
+    # The warning must be visible — silent fallback is prohibited (§19).
+    assert any(
+        "R1/R2" in r.message for r in caplog.records
+    ), "migration: fallback must be logged as a warning (no silent fallback)"

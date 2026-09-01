@@ -47,19 +47,22 @@ def resample_15m(bars_1m: List[Bar]) -> List[Bar]:
     Mirrors the frozen research engine's `resample_15m()` EXACTLY so live
     aggregation is byte-for-byte parity with the backtest boundary.
     """
-    # R4 (H batch): sort-guard. MT5 data lag / clock skew can deliver M1
-    # bars out of order, which would corrupt the bucket's open/close (first/
-    # last bar in insertion order, not time order). Normalize defensively.
+    # R4 (H batch): sort-guard (parity-preserving). The frozen research
+    # engine has NO sort; mutating input order here would break byte-for-byte
+    # parity (§11). Out-of-order M1 input is therefore LOGGED as a data
+    # integrity warning, not silently reordered — an anomaly that the caller
+    # must investigate at the source (MT5 lag / clock skew).
     if len(bars_1m) > 1:
         unsorted = any(
             bars_1m[i].timestamp > bars_1m[i + 1].timestamp for i in range(len(bars_1m) - 1)
         )
         if unsorted:
             logging.getLogger(__name__).warning(
-                "R4 sort-guard: %d M1 bars unsorted, sorting by timestamp before resample",
+                "R4 sort-guard: %d M1 bars out of order (MT5 lag/clock skew) — "
+                "input NOT reordered to preserve research-engine parity; "
+                "investigate feed source",
                 len(bars_1m),
             )
-            bars_1m = sorted(bars_1m, key=lambda b: b.timestamp)
 
     buckets: Dict[int, List[Bar]] = {}
     for b in bars_1m:

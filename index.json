@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-09-01T17:21:47",
+  "generated_at": "2026-09-01T18:16:10",
   "repos": {
     "sniper_forex": {
       "functions": {
@@ -2215,49 +2215,49 @@
         "src.live.candle_feed.resample_15m": {
           "file": "src\\live\\candle_feed.py",
           "line_start": 44,
-          "line_end": 86,
+          "line_end": 89,
           "signature": "def resample_15m(bars_1m: List[Bar]) -> List[Bar]:"
         },
         "src.live.candle_feed.M1CandleFeed.__init__": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 92,
-          "line_end": 97,
+          "line_start": 95,
+          "line_end": 100,
           "signature": "def __init__(self, data_layer: Optional[MT5DataLayer]=None):"
         },
         "src.live.candle_feed.M1CandleFeed.fetch_m1": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 100,
-          "line_end": 123,
+          "line_start": 103,
+          "line_end": 126,
           "signature": "def fetch_m1(self, symbol: str, count: int=100) -> List[Bar]:"
         },
         "src.live.candle_feed.M1CandleFeed.find_duplicates": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 127,
-          "line_end": 132,
+          "line_start": 130,
+          "line_end": 135,
           "signature": "@staticmethod"
         },
         "src.live.candle_feed.M1CandleFeed.find_missing": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 135,
-          "line_end": 152,
+          "line_start": 138,
+          "line_end": 155,
           "signature": "@staticmethod"
         },
         "src.live.candle_feed.M1CandleFeed.is_closed_m1": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 156,
-          "line_end": 165,
+          "line_start": 159,
+          "line_end": 168,
           "signature": "@staticmethod"
         },
         "src.live.candle_feed.M1CandleFeed.warmup": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 168,
-          "line_end": 184,
+          "line_start": 171,
+          "line_end": 187,
           "signature": "def warmup(self, symbol: str, n_15m: int=200) -> List[Bar]:"
         },
         "src.live.candle_feed.M1CandleFeed.update": {
           "file": "src\\live\\candle_feed.py",
-          "line_start": 187,
-          "line_end": 207,
+          "line_start": 190,
+          "line_end": 210,
           "signature": "def update(self, symbol: str, now: Optional[datetime]=None) -> List[Bar]:"
         },
         "src.live.clock._utcnow_naive": {
@@ -4891,91 +4891,97 @@
         "tests.test_live_candle_feed.TestResample15mParity.test_r4_sort_guard_unsorted_input": {
           "file": "tests\\test_live_candle_feed.py",
           "line_start": 121,
-          "line_end": 147,
-          "signature": "def test_r4_sort_guard_unsorted_input(self):"
+          "line_end": 148,
+          "signature": "def test_r4_sort_guard_unsorted_input(self, caplog):"
+        },
+        "tests.test_live_candle_feed.TestResample15mParity.test_r4_sorted_input_no_warning": {
+          "file": "tests\\test_live_candle_feed.py",
+          "line_start": 150,
+          "line_end": 161,
+          "signature": "def test_r4_sorted_input_no_warning(self, caplog):"
         },
         "tests.test_live_candle_feed.TestDetection.test_duplicate_detection": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 154,
-          "line_end": 160,
+          "line_start": 168,
+          "line_end": 174,
           "signature": "def test_duplicate_detection(self):"
         },
         "tests.test_live_candle_feed.TestDetection.test_no_duplicates": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 162,
-          "line_end": 164,
+          "line_start": 176,
+          "line_end": 178,
           "signature": "def test_no_duplicates(self):"
         },
         "tests.test_live_candle_feed.TestDetection.test_missing_detection": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 166,
-          "line_end": 174,
+          "line_start": 180,
+          "line_end": 188,
           "signature": "def test_missing_detection(self):"
         },
         "tests.test_live_candle_feed.TestDetection.test_no_missing": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 176,
-          "line_end": 178,
+          "line_start": 190,
+          "line_end": 192,
           "signature": "def test_no_missing(self):"
         },
         "tests.test_live_candle_feed.TestFormingClosed.test_closed_m1": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 185,
-          "line_end": 191,
+          "line_start": 199,
+          "line_end": 205,
           "signature": "def test_closed_m1(self):"
         },
         "tests.test_live_candle_feed.TestFormingClosed.test_forming_excluded": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 193,
-          "line_end": 200,
+          "line_start": 207,
+          "line_end": 214,
           "signature": "def test_forming_excluded(self):"
         },
         "tests.test_live_candle_feed.TestWarmup.test_warmup_builds_15m": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 207,
-          "line_end": 231,
+          "line_start": 221,
+          "line_end": 245,
           "signature": "def test_warmup_builds_15m(self, monkeypatch):"
         },
         "tests.test_live_candle_feed.TestWarmup.test_warmup_builds_15m.fake_fetch": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 212,
-          "line_end": 223,
+          "line_start": 226,
+          "line_end": 237,
           "signature": "def fake_fetch(symbol, timeframe='M1', count=100):"
         },
         "tests.test_live_candle_feed.TestUpdate.test_update_returns_only_new": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 238,
-          "line_end": 263,
+          "line_start": 252,
+          "line_end": 277,
           "signature": "def test_update_returns_only_new(self, monkeypatch):"
         },
         "tests.test_live_candle_feed.TestUpdate.test_update_returns_only_new.fake_fetch": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 243,
-          "line_end": 254,
+          "line_start": 257,
+          "line_end": 268,
           "signature": "def fake_fetch(symbol, timeframe='M1', count=100):"
         },
         "tests.test_live_candle_feed.TestClock.test_server_utc_offset_summer": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 270,
-          "line_end": 272,
+          "line_start": 284,
+          "line_end": 286,
           "signature": "def test_server_utc_offset_summer(self):"
         },
         "tests.test_live_candle_feed.TestClock.test_server_utc_offset_winter": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 274,
-          "line_end": 276,
+          "line_start": 288,
+          "line_end": 290,
           "signature": "def test_server_utc_offset_winter(self):"
         },
         "tests.test_live_candle_feed.TestClock.test_utc_to_server_roundtrip": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 278,
-          "line_end": 280,
+          "line_start": 292,
+          "line_end": 294,
           "signature": "def test_utc_to_server_roundtrip(self):"
         },
         "tests.test_live_candle_feed.TestClock.test_in_session_spans_midnight": {
           "file": "tests\\test_live_candle_feed.py",
-          "line_start": 282,
-          "line_end": 286,
+          "line_start": 296,
+          "line_end": 300,
           "signature": "def test_in_session_spans_midnight(self):"
         },
         "tests.test_live_execution.FakeResult.__init__": {
@@ -5773,20 +5779,26 @@
         "tests.test_live_strategy_runtime.test_restart_restores_session_atr": {
           "file": "tests\\test_live_strategy_runtime.py",
           "line_start": 192,
-          "line_end": 220,
+          "line_end": 222,
           "signature": "def test_restart_restores_session_atr():"
         },
         "tests.test_live_strategy_runtime.test_restart_sweep_tolerance_uses_restored_atr": {
           "file": "tests\\test_live_strategy_runtime.py",
-          "line_start": 223,
-          "line_end": 277,
+          "line_start": 225,
+          "line_end": 279,
           "signature": "def test_restart_sweep_tolerance_uses_restored_atr():"
         },
         "tests.test_live_strategy_runtime.test_per_bar_atr_sync": {
           "file": "tests\\test_live_strategy_runtime.py",
-          "line_start": 280,
-          "line_end": 299,
+          "line_start": 282,
+          "line_end": 301,
           "signature": "def test_per_bar_atr_sync():"
+        },
+        "tests.test_live_strategy_runtime.test_migration_pre_n14_state_audited_fallback": {
+          "file": "tests\\test_live_strategy_runtime.py",
+          "line_start": 304,
+          "line_end": 338,
+          "signature": "def test_migration_pre_n14_state_audited_fallback(caplog):"
         },
         "tests.test_m1_ingestion_parity.FakeMT5.__init__": {
           "file": "tests\\test_m1_ingestion_parity.py",
@@ -9749,8 +9761,8 @@
           "hash": "sha256:f3038dd61ef351ae"
         },
         "src\\live\\candle_feed.py": {
-          "last_modified": "2026-09-01T17:20:48",
-          "hash": "sha256:bf636742acaa6a6d"
+          "last_modified": "2026-09-01T18:12:11",
+          "hash": "sha256:01cc19b46ca05ca1"
         },
         "src\\live\\clock.py": {
           "last_modified": "2026-08-28T16:12:31",
@@ -9937,8 +9949,8 @@
           "hash": "sha256:3ebe62133bf71630"
         },
         "tests\\test_live_candle_feed.py": {
-          "last_modified": "2026-09-01T17:09:20",
-          "hash": "sha256:71132b3b75978724"
+          "last_modified": "2026-09-01T18:12:11",
+          "hash": "sha256:e538fc11e6a5be6c"
         },
         "tests\\test_live_execution.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -9969,8 +9981,8 @@
           "hash": "sha256:c98a0ce9865dba48"
         },
         "tests\\test_live_strategy_runtime.py": {
-          "last_modified": "2026-09-01T17:21:00",
-          "hash": "sha256:c2605f61dc512d9c"
+          "last_modified": "2026-09-01T18:14:02",
+          "hash": "sha256:cc7cc1726500c530"
         },
         "tests\\test_m1_ingestion_parity.py": {
           "last_modified": "2026-08-31T12:34:03",
@@ -10097,7 +10109,7 @@
           "hash": "sha256:90e3317978e264ac"
         }
       },
-      "last_full_scan": "2026-09-01T17:21:47"
+      "last_full_scan": "2026-09-01T18:16:10"
     }
   }
 }
