@@ -1821,3 +1821,29 @@ görünür olur.
 - **82fbac4 disposition (Hakem):** (A) TAG'le piggyback (N2 #10 2-hash
   set). Ön-yetki: 82fbac4 7 günü doldurmadan TAG düşmezse SOLO push
   önceden yetkilidir (N2 #6 deseni) — icra + defter yeter, söz istemez.
+
+## D53b-RATİFY — Hakem onayı + kalıcı incident-response pattern (2026-09-01)
+
+- **Hakem kararı:** Karantina icrası KABUL (vektör-silme kapsamı emri
+  aştı: vbs/bat, taslak xml, kurulum ps1'leri, pyc, Startup lnk;
+  builder/config/gitignore_utils'a sıfır dokunuş; negatif test
+  §19-kod-kapanışı olarak onaylı).
+- **Kalıcı pattern (Hakem, her incident-response'a):**
+  "Bir vektör bulduğunda, o vektörün AİLESİNİ de tara — servis,
+  planlanmış görev, Startup, Run/RunOnce, cron, WMI, script-in-script.
+  Tarama boşluğu, bulunan sonucun temsili olduğu anlamına gelmez."
+  (D53b'de Startup'ı tarayan mantık pyc'yi de buldu — tekrar eden
+  kalite.)
+- **Aile taraması KAPANIŞ İCRASI (bu kayıtla, aynı gün):**
+  Servis: yok ✓ · Planlanmış görev: yalnız Windows Shell
+  IndexerAutomaticMaintenance (ilgisiz) ✓ · Startup: lnk karantinada,
+  klasör boş ✓ · HKCU Run: yalnız Edge-autolaunch (ilgisiz) ✓ ·
+  HKLM Run: SecurityHealth/WavesSvc/RtkAudUService (ilgisiz) ✓ ·
+  RunOnce: boş ✓ · WMI abonelikleri: SCM + 2×Dell filter,
+  CommandLineEventConsumer yok (ilgisiz) ✓.
+  → watcher ailesinde kalan diriliş vektörü: NONE.
+- **Yeni pre-flight kuralının İLK UYGULAMASI:** tasklist → NO PYTHON
+  PROCS ✓; index.json → tracked-clean ✓. Kural yürürlükte.
+- **PUSH SETİ N2 #10 (TAG anı, Hakem §4):**
+  {82fbac4, afe695b, tag-commit, (ops. kalibrasyon)} — pencere-kuralı:
+  82fbac4 7 günü doldurmadan TAG düşmezse solo-push ÖNCEDEN YETKİLİ.
