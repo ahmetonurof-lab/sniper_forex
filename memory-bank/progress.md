@@ -862,3 +862,4 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
 - **Next (Aşama-5 pin):** Tek-repo çok-index problemi → canonical
   project-name kuralı (tek isim, tek index) kararı; K1'in §14'e fiziksel
   eklenmesi N2 #15 commit'inde.
+- **SRI-001 icra (Cline, 2026-09-02):** breakout-variant araştırması — freeze-dışı `experiment/exp_sri001_breakout_variant.py` (YENİ) + `results/exp_sri001_breakout_variant.json`; DENEY-3 kontrol-çapası **MATCH: 2302T / +2875.00R / WR 69.37% birebir** (run_test_a as-is import); DENEY-1a ZİNCİR-4: 2141T / −85.8R / WR 34.3% / MaxDD 70.4R (USDCAD); DENEY-1b ZİNCİR-6: 512T / +412.0R / WR 64.5% / MaxDD 6.2R; DENEY-2b combined: +3287R (+412 vs kanonik); chain-4 overlap-günleri negatif katkı, chain-6 pozitif; case-study 2026-09-02 EURUSD (canlı MT5, live-restored band): Chain-4 TP +1.8R, Chain-6 TP +1.8R; src/tests/index/experiment-mevcut dosyaları dokunulmadı.
