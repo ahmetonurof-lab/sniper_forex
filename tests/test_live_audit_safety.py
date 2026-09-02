@@ -128,6 +128,41 @@ def test_audit_chain_load_missing_file_returns_zero(tmp_path: Path):
     assert len(chain) == 0
 
 
+def test_audit_save_no_tmp_leftover_and_recovers(tmp_path: Path, monkeypatch):
+    """N2 #15: audit save uses a PID-unique tmp + retry.
+
+    - After a successful save no *.tmp sibling remains (the secondary
+      WinError 5 crash site, audit.py:184).
+    - A transient PermissionError on the rename is retried and the save
+      still lands the full event set on disk.
+    """
+    chain = AuditChain()
+    ts = time.time()
+    chain.append(ts, EventType.CANDLE, "EURUSD", {"close": 1.1})
+    path = str(tmp_path / "audit.jsonl")
+    chain.save(path)
+    assert os.path.exists(path)
+    leftovers = [f.name for f in tmp_path.iterdir() if f.name.endswith(".tmp")]
+    assert leftovers == [], f"leftover tmp files: {leftovers}"
+
+    # Transient rename failure -> retried -> success.
+    real_replace = Path.replace
+    calls = {"n": 0}
+
+    def flaky_replace(self, target, *a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise PermissionError(5, "Access is denied")
+        return real_replace(self, target, *a, **k)
+
+    monkeypatch.setattr(Path, "replace", flaky_replace)
+    chain2 = AuditChain()
+    chain2.append(ts, EventType.SIGNAL, "EURUSD", {"entry": 1.1})
+    chain2.save(path)
+    lines = [ln for ln in Path(path).read_text().splitlines() if ln.strip()]
+    assert any('"event_type": "SIGNAL"' in ln for ln in lines)
+
+
 def test_audit_chain_load_skips_malformed_lines(tmp_path: Path):
     path = tmp_path / "audit.jsonl"
     path.write_text(

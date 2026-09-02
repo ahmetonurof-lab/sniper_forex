@@ -214,12 +214,18 @@ def test_safe_path_is_absolute(tmp_path):
 
 
 def test_write_safe_mode_atomic_no_tmp_leftover(tmp_path):
-    """Atomic write: no .tmp sibling remains after a successful write."""
+    """Atomic write: no tmp sibling remains after a successful write.
+
+    N2 #15: tmp naming is now PID-unique (``<name>.<pid>.tmp``), so the
+    assertion covers both the legacy fixed suffix and any per-pid leftovers.
+    """
     orch = make_orch(tmp_path)
     orch._write_safe_mode("test_reason")
     p = orch._safe_path()
     assert p.exists()
     assert not p.with_suffix(p.suffix + ".tmp").exists()
+    leftovers = [f.name for f in p.parent.iterdir() if f.name.endswith(".tmp")]
+    assert leftovers == [], f"leftover tmp files: {leftovers}"
     data = orch._read_safe_mode()
     assert data is not None and data["reason"] == "test_reason"
 

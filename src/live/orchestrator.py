@@ -72,6 +72,51 @@ def _naive_utc_epoch(ts: Any) -> float:
     return ts.replace(tzinfo=timezone.utc).timestamp()
 
 
+# ── Atomic tmp+rename write (N2 #15 — WinError 5 hardening) ────────
+# The T0 crash (2026-09-01) died at `tmp.replace(...)` with WinError 5
+# (PermissionError) on BOTH the lock heartbeat and the audit shutdown
+# flush. Two root-cause hypotheses point here:
+#   (a) two Python processes (venv shim + worker) racing the same
+#       non-unique `.tmp` sibling path;
+#   (b) transient Windows handle lock (AV/Defender scan or an open
+#       handle) making `os.replace` fail.
+# N2 #15 hardens every persisted-file write in the live loop with:
+#   1. PID-unique tmp sibling (never two processes writing the same tmp),
+#   2. bounded retry with backoff on the rename step (clears transient
+#      handle locks without blocking the trading loop past the heartbeat
+#      window — 3 attempts, ~0.4s max << LOCK_STALE_SEC=900).
+_TMP_WRITE_RETRIES = 3
+_TMP_RETRY_BASE_SLEEP = 0.05
+
+
+def _atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
+    """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
+
+    Crash-safe (never a truncated target) and contention-hardened: the tmp
+    sibling is unique per process/attempt, so two live processes cannot
+    collide on the same tmp path, and a transient handle lock on the rename
+    is retried with backoff before giving up.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding=encoding)
+    last_err: Optional[OSError] = None
+    for attempt in range(_TMP_WRITE_RETRIES):
+        try:
+            tmp.replace(path)
+            return
+        except OSError as e:  # WinError 5 (PermissionError) and friends
+            last_err = e
+            if attempt + 1 < _TMP_WRITE_RETRIES:
+                time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
+    # Best-effort cleanup of our own tmp before surfacing the failure.
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
+    raise last_err  # type: ignore[misc]
+
+
 def _pid_alive(pid: int) -> bool:
     """Windows-safe PID liveness check (Taş 2 lock hardening).
 
@@ -423,11 +468,13 @@ class Lock:
             return None
 
     def _write(self) -> None:
-        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        # N2 #15: PID-unique tmp + retry via _atomic_write_text. The old
+        # fixed ".lock.tmp" sibling was the primary WinError 5 crash site
+        # (two-process contention on the same tmp path, orchestrator.py:430
+        # during heartbeat). Heartbeat cadence (~20s poll) is far above the
+        # bounded retry cost (~0.4s), so lock liveness is unaffected.
         data = LockData(pid=os.getpid(), created_at=time.time(), phase="startup")
-        tmp = self.lock_path.with_suffix(".lock.tmp")
-        tmp.write_text(json.dumps(data.to_dict()), encoding="utf-8")
-        tmp.replace(self.lock_path)
+        _atomic_write_text(self.lock_path, json.dumps(data.to_dict()), encoding="utf-8")
 
     @staticmethod
     def _is_stale(data: LockData) -> bool:
@@ -1074,17 +1121,16 @@ class Orchestrator:
             return None
 
     def _write_safe_mode(self, reason: str) -> None:
-        # D18 + atomic: write to a tmp sibling then rename, so a crash mid-write
-        # never leaves a truncated/corrupt safe-mode file (which would force a
-        # spurious SAFE-START on the next boot). Absolute path via _safe_path().
+        # D18 + atomic: write to a PID-unique tmp sibling then rename (N2 #15
+        # hardening), so a crash mid-write never leaves a truncated/corrupt
+        # safe-mode file (which would force a spurious SAFE-START on the next
+        # boot). Absolute path via _safe_path().
         path = self._safe_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         import json
 
         data = {"safe_mode": True, "reason": reason, "ts": time.time()}
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp.replace(path)
+        _atomic_write_text(path, json.dumps(data, indent=2), encoding="utf-8")
 
     def clear_safe_mode(self) -> None:
         """Clear persisted safe-mode file (manual or after clean reconcile)."""

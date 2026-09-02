@@ -15,8 +15,39 @@ per symbol: `state/<SYMBOL>.json`.
 from __future__ import annotations
 
 import json
+import os
+import time
 from pathlib import Path
 from typing import Optional
+
+# ── Atomic tmp+rename write (N2 #15 — WinError 5 hardening) ────────
+_TMP_WRITE_RETRIES = 3
+_TMP_RETRY_BASE_SLEEP = 0.05
+
+
+def _atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
+    """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
+
+    Identical contract to src.live.orchestrator._atomic_write_text — kept
+    here as a local copy to avoid a circular import.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding=encoding)
+    last_err: Optional[OSError] = None
+    for attempt in range(_TMP_WRITE_RETRIES):
+        try:
+            tmp.replace(path)
+            return
+        except OSError as e:
+            last_err = e
+            if attempt + 1 < _TMP_WRITE_RETRIES:
+                time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
+    raise last_err  # type: ignore[misc]
 
 
 class StateStore:
@@ -30,11 +61,9 @@ class StateStore:
         return self.state_dir / f"{symbol}.json"
 
     def save(self, symbol: str, state: dict) -> None:
-        """Write a runtime state dict to disk (atomic-ish via tmp+rename)."""
+        """Write a runtime state dict to disk (atomic via PID-unique tmp+rename)."""
         path = self._path(symbol)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, indent=2, default=str), encoding="utf-8")
-        tmp.replace(path)
+        _atomic_write_text(path, json.dumps(state, indent=2, default=str), encoding="utf-8")
 
     def load(self, symbol: str) -> Optional[dict]:
         """Load a runtime state dict, or None if absent/corrupt."""

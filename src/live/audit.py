@@ -21,11 +21,42 @@ to call `append(...)` at each lifecycle step.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# ── Atomic tmp+rename write (N2 #15 — WinError 5 hardening) ────────
+_TMP_WRITE_RETRIES = 3
+_TMP_RETRY_BASE_SLEEP = 0.05
+
+
+def _atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
+    """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
+
+    Identical contract to src.live.orchestrator._atomic_write_text — kept
+    here as a local copy to avoid a circular import (audit.py is imported
+    by orchestrator.py).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding=encoding)
+    last_err: Optional[OSError] = None
+    for attempt in range(_TMP_WRITE_RETRIES):
+        try:
+            tmp.replace(path)
+            return
+        except OSError as e:
+            last_err = e
+            if attempt + 1 < _TMP_WRITE_RETRIES:
+                time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
+    raise last_err  # type: ignore[misc]
 
 
 class EventType(str, Enum):
@@ -171,17 +202,17 @@ class AuditChain:
     def save(self, path: str) -> None:
         """Flush events to a JSONL file (one event per line).
 
-        Atomic-ish via tmp+rename. Each line is a self-contained JSON
-        object so partial reads still yield valid events.
+        Atomic-ish via PID-unique tmp + rename (N2 #15: the old fixed
+        ".tmp" sibling was the secondary WinError 5 crash site during
+        shutdown flush at audit.py:184). Each line is a self-contained
+        JSON object so partial reads still yield valid events.
         """
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_suffix(p.suffix + ".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            for evt in self._events:
-                f.write(json.dumps(evt.to_dict(), default=str, sort_keys=True))
-                f.write("\n")
-        tmp.replace(p)
+        lines = "".join(
+            json.dumps(evt.to_dict(), default=str, sort_keys=True) + "\n" for evt in self._events
+        )
+        _atomic_write_text(p, lines, encoding="utf-8")
 
     def load(self, path: str) -> int:
         """Load events from a JSONL file. Returns the number of events loaded.

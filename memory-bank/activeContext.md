@@ -2384,3 +2384,218 @@ R1+R2 PR  → fix tasarımı → HAKEM ONAYI → PLANNED STOP → icra
 - **Şu an:** T0 CRASHED (WinError 5, yukarıdaki §12.1 incident).
   Soak gözlemi KESİNTİLİ (HATA-2: paralel zorunluydu ama T0 öldü).
   Crash araştırması R1/R2 öncesi veya sonrası — kullanıcı kararı bekliyor.
+
+---
+
+## N2 #14 RATIFICATION + FREEZE @ c42040a (2026-09-01)
+
+- **Ratification:** Hakem tam süit sonucunu RATIFY etti → **FREEZE @ c42040a AKTİF**
+  (soak tree: `src/`, `tests/`, `index.json` c42040a'da donmuş, §17).
+- **SÜİT:** `2F/517P/1S/0E` (825.61s) — beklenti birebir; +2 = migration-audit
+  + R4-no-warning testleri.
+- **2F PIN kanıt-zinciri:** `git diff d321f15..c42040a -- test_e2e_live_chain.py`
+  = boş; imza iki geçmiş süitle aynı (`context_registered=None`, N2 #11
+  baseline); root-cause bilinen (broker-verified fill'de set, fixture eksikliği).
+  Disposition: AÇIK — N2 #15 adayı (fill-mock veya test-rewrite), bu batch dışı.
+- **Sayı tutarlılığı:** 515P (d321f15) + 2 yeni test = 517P ✓ · 1S değişmedi ·
+  0 error ✓ · d49 dalı temiz.
+- **Batch içeriği:** R1/R2 `:485/:531-538` ✓ · R4 log-only `:53-62`
+  (parity-preserving, §11) ✓ · 5 test (gerçek zincir: 0.5×ATR tolerance
+  SweepEvent) ✓ · index 1581 fn ✓ · hooks Passed ✓.
+- **MCP entegrasyonu (ERATELENDİ — operatör kararı):** kaynak =
+  codebase-memory-mcp@0.9.0 (`.local/bin/codebase-memory-mcp.exe` + npm
+  global), index HEAD = c42040a. `~/.codegpt/mcp_config.json` merge'i ileri
+  turda, yedek+merge+index-doğrulama şartıyla.
+
+## CLINE + MCP ENTEKRASYONU — RATIFIED (2026-09-01)
+
+- **Cline = üçüncü tam yetkili agent.** Config eklendi:
+  `~/.cline/data/settings/cline_mcp_settings.json` →
+  `codebase-memory-mcp` (stdio, `C:/Users/Administrator/.local/bin/codebase-memory-mcp.exe`).
+  JSON parse ✓ (`type: stdio`).
+- **Handshake canlı:** `initialize` → `serverInfo: codebase-memory-mcp 0.9.0` ✓
+  (§1.3 yükümlülüğü üçüncü oturumda da karşılandı).
+- **Kanıt-sorgu:** `trace_path(_begin_cold_rebuild, outbound)` → 2 callee
+  (`AuditChain.clear`, `StrategyRuntime`) — gerçek kod-ilişki cevabı döndü,
+  yalnız hash-echo değil.
+- **KRİTİK BULGU — bayat-indeks (watcher-olayının ikiz kardeşi):** eski
+  `sniper-forex` (2340 node) ve `sniper-forex-fresh` (2410 node) indeksleri
+  **src'siz, markdown-only** idi — head_sha hash'i doğru görünse de içerik
+  bayattı. Hash CANLI çalışma-ağacından okunuyor olabilir →
+  "index doğru hash gösteriyor" ≠ "index doğru İÇERİK taşıyor."
+  Koruma: hakemin şartı "trace_path ile GERÇEK soru sor" idi — hash alone'a
+  itibar edilmedi, içerik-sorgusu boş döndü → bayatlık yakalandı.
+- **İcra (hakem onayı):** iki bayat indeks `delete_project` ile SİLİNDİ
+  (cache-only, repo koduna dokunmadı). Tek-meşru kalan:
+  `C-Users-Administrator-Desktop-sniper_forex` (5454 node, src'li,
+  head_sha=c42040a=HEAD ✓, içerik-örnekleme: `server_to_utc_historical` ✓).
+- **İCRA RATIFIED (hakem, 2026-09-01):** üç adım, üç kanıt, sıfır sapma.
+  ADIM 1 (silme): 2 bayat indeks → `{"status":"deleted"}` ×2 ✓
+  ADIM 2 (tek-meşru): 5454 node · 21788 edge · head=c42040a=HEAD ✓ ·
+    içerik-örnekleme trace_path→2 callee ✓ · src-varlık grep ✓
+  ADIM 3 (K1): üç hedefe yazıldı (activeContext + progress + system_map) ✓
+  Freeze-breach yok; tek dokunuş memory-bank (§17 istisna). Cline ilk
+  görevinde sıfır hatayla kapattı — üçüncü ajan masada tam yetkili.
+- **K1 → AGENTS.md §14 Preflight'e BAĞLANDI (hakem kararı — Aşama-5/N2
+  #15 commit'ine pinli):** Gerekçe: §1.3 "MCP kullanımı zorunlu" der;
+  K1 ise "MCP EKLENİRKEN ne yapılmalı" — bir kural değil CHECKLIST
+  maddesi. Preflight'ın Context bloğuna yeni madde:
+  `[K1-YENİ] If MCP was newly added (this session/arayüz):`
+  (a) handshake doğrulandı mı? (b) index-currency (head_sha = git HEAD)
+  eşleşiyor mu? (c) içerik-örnekleme (fonksiyon-sorgu gerçek callee
+  döndü mü?) (d) proje-adı doğrulandı mı (list_projects; pattern'e
+  güvenme). Böylece K1 aktif pre-flight — salt documentation değil.
+  (İlk kayıtta §1.3 yazıldı — §12.1: revize edildi, eski atıf görünür.)
+- **Yeni bulgu — tek-repo çok-index:** aynı repo üç farklı adla
+  index'lenmişti (`sniper-forex`, `sniper-forex-fresh`,
+  `C-Users-...-sniper_forex`). Aşama-5'te **tek-meşru-kuralı** (canonical
+  project-name config, örn. `project_name: sniper_forex_canonical` → tek
+  isim, tek index) kararı gerekebilir — freeze + çalışan tek-meşru index
+  gerekçesiyle şimdilik Aşama-5 pin'i olarak kayıt altında.
+- **Masada artık 3 ajan + hakem:** Luna (sentezleyici), Forexci
+  (operatör — soak koşuyor), Cline/GLM-5.3 (implementer), Hakem
+  (ratifikasyon + tahkim). MCP aracı üç oturumun da elinde, tek-meşru
+  index'le.
+
+## SOAK T0#3 — OPERATÖR İCRA PLANI (FINAL)
+
+```
+ÖN-KOŞUL (operatör): O1 terminal64 + ICMarketsSC-DEMO login (Algo Trading ON)
+                    O2 konsol-attached python -u (Ctrl+Enter/killer yok)
+                    O3 safe-file yok (teyit edildi)
+BOOT (Forexci):     B1 python -u -m src.live.run_production
+                    B2 proaktif dual-process PID snapshot → deftere
+                    B3 startup blok: verdict=PROCEED + replay_bars=4237± +
+                       session_key='2026-09-02' (YENİ CBDR-key — D49 canlı
+                       gerçek-takvim geçişi kanıtı)
+                    B4 GATE-OPEN + Telegram DM (D53 transport)
+                    B5 20-dk: audit.jsonl VAR + satır-sayısı + event çeşitleri
+                    B6 heartbeat + lock tek-instance + pid doğrulama
+                    B7 (hakem eki): session.atr CANLI-değeri — restored AT mı
+                       fresh-ATR mı? REPLAY event / audit log / safe-file
+                       okunabilirliğinden canlı-değer not edilir (R1/R2'nin
+                       production-path canlı teyidi; çalıştırılamazsa sorun
+                       değil — test zaten canlı kanıt verdi, ama not edilir)
+T0 = gerçek startup anı → gün-3 sayacı başlar.
+```
+- **GÜN-1 (T0+24h):** startup-blok + audit-continuity + gate dağılımı + ilk
+  CBDR penceresi sonucu (D49 ikinci canlı sınavı).
+- **GÜN-3:** 72s listesi + S10 ölçümü + ladder sayacı + reconcile sıfır +
+  Restart-drill (CTRL+C → from_state → session.atr exact-restore — R1/R2'nin
+  canlı sınavı).
+- **GÜN-14:** tam soak değerlendirmesi → Stage-4 gate masada.
+- **Şu an (2026-09-01):** FREEZE aktif. O1+O2 operatöre iletildi; boot bekleniyor.
+
+### ESKİ-ARTEFAKT ENVANTERİ (pre-boot, gün-1 raporuna eklenecek)
+- `state/BTCUSD.json` (567B, 2026-08-30, session_key `2026-08-29`): EURUSD
+  konfigürasyonunda beklenmeyen dosya — önceki gün farklı test/config koşumundan
+  kalma. StateStore per-symbol; EURUSD'i etkilemez, soak'a engel değil. Kaynak
+  izole; silinmedi (soak tree freeze + kayıtsız mutasyon yasağı).
+- `state/EURUSD.json`: **YOK** → T0#3 fresh-boot beklenir (`restored=false`).
+- `state/audit.jsonl` (1335B): önceki T0#2 startup kanıtı — MT5_CONNECT +
+  STARTUP + S9 REPLAY (replay_bars=4237, session_key='2026-09-01',
+  signals_discarded=24) + S11 PROCEED (warmup_bars=4338, restored=false) +
+  SAFETY gate=open. T0#2 aslında PROCEED+gate-OPEN'a ulaşmış (sonra WinError 5).
+- **B3 beklenti düzeltmesi:** EURUSD.json yokluğu + canonical §6.2
+  (market-history'den deterministik yeniden kurulum) → T0#3'te REPLAY event'i
+  market-history'den gelir: `replay_bars=4237±`, `session_key='2026-09-02'`
+  (YENİ CBDR-key), `restored=false`, `verdict=PROCEED`.
+
+## PAKET-1/2/3 TEYİT KAPANIŞI — RATIFIED 7/7 (2026-09-02 00:11:38 +0300, HEAD c42040a)
+
+> **Kapsam:** Hakem-pin'li backlog (KUSUR-A, KUSUR-B, B1b, R5, R6, Dataset-24/24,
+> AGENTS.md-4-madde). Doğrulama SOAK FREEZE §17 altında: tracked `src/`+`tests/`+
+> `index.json` boyunca **sıfır yazım** (commit/push yok; tek etki untracked `/tmp`
+> ölçüm-logları + pytest cache). Watcher quarantined — arka-plan mutasyonu elendi (§10.1).
+
+**Hüküm tablosu (kanıt-özet; tam dosya:satır zinciri teyit-raporunda):**
+
+| Kalem | Hüküm | En-güçlü kanıt |
+|---|---|---|
+| KUSUR-A `symbol_info_tick` | ✅ KAPANDI (c83f25c, N2 #11) | `mt5_connection.py:216` + `mt5_data.py:91`; `_RealSurfaceMT5` fake (symbol_info_tick VAR / symbol_tick YOK) + paket-surface pin testi (`test_mt5_package_api_surface_pin`) — fake-surface bug-sınıfına kalıcı test |
+| KUSUR-B trade_mode FULL=4 | ✅ KAPANDI (c83f25c) | `orchestrator.py:207` modül-sabiti (`_SYMBOL_TRADE_MODE_FULL=4`, literal-0 yok) + PROCEED@4 gerçek-startup + DISABLED@0 safe_reason |
+| B1b audit disk-persistansı | ✅ **TAMAMLANDI** | `audit.py:86/132-138/145-154/158-184` + `orchestrator.py:1989` flush_if_due kablolaması; 10 test PASSED; **canlı soak T0→T20:** mtime 6 ölçümle ilerledi (23:36:40→23:56:41 +0300, ~30sn aralıklı), boyut/satır sabit (1335B/5 satır) — append YOKKEN timer-flush diske iniyor |
+| R5 nexus SHA256 manifest | ✅ TEYİTLİ | **Bağımsız yeniden-hash 3/3 birebir MATCH** (fvg/models/pivot, external disk) — fixation'dan beri nexus değişmedi, artık ölçülmüş |
+| R6 c_v1_1 disclosure | ✅ TEYİTLİ | blob-inspeksiyon: trades 2302 / +2593.26R / WR 69.37 / PF 4.97 — DRY-RUN(79T) blob'da YOK; son-dokunan c66888a |
+| Dataset manifest | ✅ TEYİTLİ | 18 feather + 6 RAW CSV = 24/24 (manifest + disk-sayımı çift-teyit) |
+| AGENTS.md 4 madde | ✅ TEYİTLİ | §7.2:453 / §7.4:491 / §9.5:627 / §13.5:793; grep -c = 1/1/1/1 (çift-ekleme yok) |
+
+**Regresyon-icra:** pytest (test_mt5_connection_hardening + test_orchestrator_n2_13_audit +
+TestTradeModeEnumRegression) → **25 passed, exit 0, 9.34s** (2026-09-02 ~00:0x +0300).
+
+### ATTRIBUTION DÜZELTMELERİ (Hakem RATIFIED — deftere aynen; §12.1 kalıbı)
+
+```text
+(a) KUSUR-A/B fix commit'i = c83f25c (N2 #11) — Hakem-pin'i "c66888a" YANLIŞTI.
+    c66888a = research arbitration (b) single-curve hardening (31 Ağu, ilgisiz;
+    c_v1_1_summary.json'a son dokunan commit — karışmaya müsait).
+    Kanıt: defter :2114 (N2 #11 push-record set={c83f25c}) +
+    git log -- src/live/orchestrator.py.
+(b) AGENTS.md 4 maddenin eklenme commit'i = b81308b (2026-08-31 13:18,
+    "protocol: agent operating contract") — "N2 #14/c42040a" pin'i YANLIŞTI.
+    c42040a yalnız index.json + candle_feed.py + 2 test dosyasına dokunuyor.
+    Kanıt: git log -- AGENTS.md + git show b81308b diff (+## 7.2, +## 13.5,
+    +persists across restart ×1).
+```
+
+**Ortak-ders (Hakem'in kalıcı maddesi):** İki düzeltmenin ikisinde de **içerik hiçbir
+zaman yanlış değildi — attribution yanlıştı.** "Defter-sayısı vs gerçek-blob" ayrımı:
+*attribution da bir sayıdır — commit-hash doğrulaması olmadan teyit tamamlanmaz.*
+Bu, cross-verification döngüsünün ikinci üretken örneği (VAKA-1: real_index MUST-SEE;
+VAKA-2: bu raporun iki düzeltmesi). AGENTS.md'e yazılacak kural (Aşama-5 batch'e pinli,
+şimdi dokunulmuyor — §17): *"TEYİT görevleri defter-pin'lerinin commit-hash
+doğrulamasıyla İRTİBATLIDIR — attribution sapması saptanırsa kayıt-düzeltmesi
+zorunludur; sessizce geçilmez."*
+
+### BEKLENTİ-NETLEŞTİRMESİ (Hakem kesinleştirdi — gelecek gözlemci için yazılı kanıt)
+
+```text
+YANLIŞ okuma: "audit.jsonl satır sayısı artmıyor → B1b/audit çalışmıyor."
+DOĞRU okuma:  B1b sözleşmesi "buffer'daki eventler APPEND beklemeden diske iner."
+              Sessiz piyasada transition-only mimari yeni event ÜRETMEZ → satır
+              sayısı SABİT kalması BEKLENEN. Kanıt = mtime-ilerlemesi (save()
+              tmp+rename ile ~30sn'de bir yeniden yazar) + event-içeriği.
+              İçerik-büyümesi ancak gate-geçişi/reconcile-anomalisinde beklenir.
+```
+
+Bu not, gün-1/3/14 checkpoint raporlarında aynı yanlış-ALARM'un tekrar üretilmesini
+önler. **B1b hükmü: TAMAMLANDI (yarım DEĞİL).**
+
+### T20 ölçüm-kaydı (ham, tekrarlanabilir)
+
+- T0: 2026-09-01 23:37:07 +0300 — `state/audit.jsonl` 1335 B / 5 satır / mtime 23:36:40.
+- T20: 2026-09-01 23:57:07 +0300 — 1335 B / 5 satır / mtime 23:56:41 (ilerledi).
+- 5 event: 1×MT5_CONNECT (login 53012914, build 6140, trade_allowed=true)
+  + 3×STARTUP (S9 REPLAY replay_bars=4238, session_key='2026-09-01' / S11 PROCEED)
+  + 1×SAFETY (gate open).
+- Liveness: PID 16984 (boot 19:32:05), lock heartbeat ~20sn'de bir güncelleniyor
+  (23:46:20→23:46:40→23:57:01). **Düzeltme (§12.1 devamı):** lock `created_at`
+  alanı boot-zamanı DEĞİL, son-heartbeat-zamanıdır — "boot=created_at" okuması
+  yanlıştır (T0#2 kaydındaki gibi).
+
+
+## N2 #15 CRASH-FIX — PID-UNIQUE TMP + RETRY (2026-09-01)
+
+- **What tested:** T0 WinError 5 crash-fix (N2 #15) — hardening all
+  persisted-file writes in the live loop against the two root-cause
+  hypotheses: (a) two-process contention on non-unique `.tmp` sibling
+  path, (b) transient Windows handle lock on `os.replace`.
+- **Isolated variable:** every `tmp+rename` write path. Changed 3 files:
+  `src/live/orchestrator.py` (Lock._write + _write_safe_mode),
+  `src/live/audit.py` (AuditChain.save), `src/live/state.py`
+  (StateStore.save). Shared contract `_atomic_write_text(path, text)`
+  → PID-unique tmp sibling `<name>.<pid>.tmp` + 3-attempt rename with
+  exponential backoff (0.05s/0.1s/0.2s, ~0.4s max << LOCK_STALE_SEC).
+  Local copies in each file (no circular import).
+- **Result:** 56/56 targeted tests pass (orchestrator_startup +
+  live_audit_safety + orchestrator_tas4). Full `tests/` suite:
+  **519P + 1S + 2F** (2F = pinned pre-existing e2e `context_registered=None`,
+  N2 #11 baseline, unchanged, outside scope). Ruff clean. Index regenerated
+  (1598 fn, up from 1581). 522 collected.
+- **Decision:** §7.2 korunur — safe-mode auto-clear YAPILMADI (hakem
+  onayı: A seçeneği, manuel runbook temizliği). Safe file zaten yok.
+- **Artifacts:** `state/audit.jsonl.tmp` + `state/orchestrator.lock.tmp`
+  (pid 16984, created_at = 2026-09-01 20:59:01 UTC = WinError 5 crash
+  anı) — crash kanıtı belgelendi, fix bu artıkları hedefler.
+- **Open:** e2e 2F (fill-mock) N2 #15 adayı olarak AÇIK kaldı — bu batch
+  dışı. Boot (T0#3 restart) push onayı sonrası.

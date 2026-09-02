@@ -35,9 +35,59 @@
 
 ---
 
+---
+
+### CBDR_TIME_SEMANTIC_ALIGNMENT (2026-09-01) — Hakem Direktifi
+
+- **Hipotez**: Research (server-time) vs production (UTC) zaman-dönüşümü CBDR sinyal-zamanlamasını ve trade sonuçlarını değiştirir.
+- **Değişken**: Tek değişken — timestamp dönüşümü (`server_to_utc_historical`). Engine AYNI (`run_test_a`, frozen v1.0).
+- **Dataset**: 6 major × 15m feather (~65k bar/sembol, 2.7 yıl).
+- **Koşumlar**: 6 sembol × 2 run = 12 koşum.
+
+> ⚠️ **HAKEM TAHKİMİ (2026-09-01) — DENEY YORUMU REVİZE EDİLDİ:**
+> Forensic tespit: `data/icmarket_feather/` = **UTC** (server-time DEĞİL). Kanıt: +0h=%100 OHLC
+> match, Cuma 21:56 kapanış + Cumartesi 0 bar + Pazar 22:01 açılış (yalnızca UTC imzası).
+> `server_to_utc_historical` girdinin UTC olduğunu bilmez; tek naif datetime alır, -2/-3h kaydırır.
+> → RUN_A fiilen **UTC penceresi** çalıştırdı; RUN_B **UTC'yi ikinci kez kaydırdı** (double-conversion).
+> → A/B farkı time-semantik mismatch değil, **sahte dönüşüm artefaktıdır**.
+> **Sonuçlar MASADA TUTULUR, karar-kaynağı sayılmaz.** Detay: `docs/CBDR_TIME_SEMANTIC_ALIGNMENT_RAPORU.md` §9.4.
+> TAG v1.1 KORUNUR, benchmark valid, production pipeline valid (§9.4 parity açıklaması).
+
+#### SONUÇLAR
+
+**RUN_A (server-time, canonical):** 2302T / WR 69.4% / +2875.00R / PF 5.08 / DD 8.00R (2.73%)
+- **Fingerprint: BİREBİR EŞLEŞME ✓** (2302T / +2875.00R / WR 69.37%)
+
+**RUN_B (UTC, production):** 2259T / WR 68.0% / +2946.42R / PF 5.07 / DD 9.87R (5.38%)
+
+**Sembol-bazlı A/B farkı:**
+| Sembol | RUN_A | RUN_B | ΔTrade | ΔPnL |
+|--------|-------|-------|--------|------|
+| EURUSD | 407T/+520.61R | 397T/+533.90R | -10 | +13.29R |
+| AUDUSD | 388T/+443.48R | 382T/+503.20R | -6 | +59.72R |
+| GBPUSD | 378T/+431.84R | 378T/+492.91R | 0 | +61.07R |
+| GBPJPY | 394T/+391.21R | 380T/+348.82R | -14 | -42.39R |
+| USDCAD | 366T/+605.77R | 366T/+668.72R | 0 | +62.95R |
+| USDJPY | 369T/+482.10R | 356T/+398.86R | -13 | -83.24R |
+
+**CRITICAL — Signal Timing Δ (IN_WINDOW entry):**
+- Her 6 sembolde de RUN_B'de IN_WINDOW entry sayısı düştü (USDCAD: -34, GBPJPY: -19)
+- Toplam IN_WINDOW: RUN_A 430 → RUN_B 340 (-90 entry, -20.9%)
+- 3 saatlik yaz saati kayması (server→UTC) CBDR penceresini 16:00→22:00 UTC'ye çeker, bu da bazı geçiş bölgesi sinyallerini OUT_WINDOW'a iter
+
+**Verdict (revised per hakem arbitration 2026-09-01):**
+- Deneyin A/B farkı **time-semantik karşılaştırması GEÇERSİZ** — iki run da UTC veriyle çalıştı, RUN_B double-conversion artefaktı üretti
+- Signal timing shift mutlak değerleri anlamsız; kıyas ancak gerçek server-time veriyle (MT5 canlı stream) veya bilinçli dönüştürülmüş bir UTC→server dataset ile yapılabilir
+- **production pipeline valid**: MT5 canlı stream = gerçek server-time, `server_to_utc_historical` doğru çalışır
+- **research pipeline valid**: feather'ı UTC olarak okur, dönüşüm uygulamaz
+- **Parity restored**: iki pipeline da aynı UTC penceresine oturur (research: UTC feather → UTC CBDR 19→01; production: server-time MT5 → server_to_utc_historical → UTC CBDR 19→01)
+
+---
+
 ## PRODUCTION IMPLEMENTATION LOG (MT5 DEMO)
 
 > Master task list: `docs/MT5_IMPLEMENTATION_ROADMAP.md`.
+
 > This section logs production-transition milestones (separate from research).
 
 ### PHASE 1 — MT5 FOUNDATION (COMPLETE 2026-08-27)
@@ -782,3 +832,33 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
   düşük ama gelecekte kanonik benchmark üretimi dry-run ile aynı dizine
   yazılmamalı (dizine göre ayrıştırma korunmalı).
 - **R6 KAPANIŞ: CLOSED.**
+
+---
+
+## CLINE + MCP ENTEKRASYONU — RATIFIED (2026-09-01)
+
+- **What tested:** codebase-memory-mcp v0.9.0 Cline'a eklendi (üçüncü tam
+  yetkili agent). Config: `~/.cline/data/settings/cline_mcp_settings.json`
+  → stdio, `C:/Users/Administrator/.local/bin/codebase-memory-mcp.exe`.
+- **Handshake:** `initialize` → `serverInfo 0.9.0` canlı ✓.
+- **Kanıt-sorgu:** `trace_path(_begin_cold_rebuild)` → 2 callee (gerçek
+  kod-ilişki cevabı, yalnız hash-echo değil).
+- **Isolated variable / bulgu:** İki bayat MCP indeksi tespit edildi
+  (`sniper-forex` 2340 node, `sniper-forex-fresh` 2410 node — ikisi de
+  src'siz, markdown-only). head_sha hash'i doğru görünse bile İÇERİK bayattı
+  → hash'e güvenmek yetmez, içerik-örnekleme şart.
+- **Result:** Bayat indeksler `delete_project` ile silindi. Tek-meşru kalan:
+  `C-Users-Administrator-Desktop-sniper_forex` (5454 node, src'li,
+  head_sha=c42040a=HEAD).
+- **Decision (hakem revizyonu 2026-09-01):** K1 AGENTS.md §1.3'e değil
+  §14 Preflight Checklist'e bağlandı — K1 bir kural değil checklist
+  maddesi ("MCP EKLENİRKEN ne yapılmalı"). Preflight Context bloğuna
+  `[K1-YENİ]` maddesi: (a) handshake, (b) index-currency (head_sha=git
+  HEAD), (c) içerik-örnekleme (fonksiyon-sorgu gerçek callee), (d)
+  proje-adı doğrulaması (list_projects, pattern'e güvenme). Aşama-5/N2
+  #15 batch'ine işlendi. (İlk kayıtta §1.3 yazıldı — §12.1 revizesi.)
+- **Ratification:** Üç adım üç kanıt sıfır sapma — RATIFIED (hakem).
+  Freeze-breach yok; Cline üçüncü tam yetkili agent, ilk icra sıfır hatayla.
+- **Next (Aşama-5 pin):** Tek-repo çok-index problemi → canonical
+  project-name kuralı (tek isim, tek index) kararı; K1'in §14'e fiziksel
+  eklenmesi N2 #15 commit'inde.
