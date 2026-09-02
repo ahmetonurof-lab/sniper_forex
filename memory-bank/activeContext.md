@@ -2599,3 +2599,39 @@ Bu not, gün-1/3/14 checkpoint raporlarında aynı yanlış-ALARM'un tekrar üre
   anı) — crash kanıtı belgelendi, fix bu artıkları hedefler.
 - **Open:** e2e 2F (fill-mock) N2 #15 adayı olarak AÇIK kaldı — bu batch
   dışı. Boot (T0#3 restart) push onayı sonrası.
+
+## N2 #15 PUSH RECORD — CRASH-FIX PACK LANDED (2026-09-02)
+
+- **who:** Luna (GitHub Copilot / GLM) — hakem yazılı yetkisi ile.
+- **what:** `44d99a1b830c29a70126e240d1e77784ac90b5ae` — N2 #15 crash-fix:
+  PID-unique tmp + 3-attempt backoff retry, 3 tmp+rename noktasında
+  (orchestrator Lock._write + _write_safe_mode; audit.save; state.save).
+- **when:** 2026-09-02 (hakem spot-check sonrası, T0#4 boot öncesi).
+- **commit set:** Tek commit `44d99a1`; parent `c42040a`. Set-growth: YOK
+  (tek-hash yetki, birebir işlendi).
+- **remote:** `origin/main` (https://github.com/ahmetonurof-lab/sniper_forex.git),
+  `c42040a..44d99a1`.
+- **İmzalar (§9.2):** `origin/main..HEAD` = BOŞ ✓ · `ls-remote` = `44d99a1` ✓ ·
+  local HEAD = `44d99a1` ✓ · working tree temiz ✓.
+- **Scope (9 dosya):** orchestrator.py, audit.py, state.py, 3 test dosyası,
+  index.json (1598 fn), activeContext.md, progress.md.
+- **Hakem spot-check (3 grep):** PID-unique tmp satır-101 ✓ · retry
+  `_TMP_WRITE_RETRIES=3` + OSError/PermissionError + backoff satır-88..111 ✓ ·
+  audit.py özdeş desen ✓ → üçü de commit blob'unda doğrulandı.
+- **Süit:** 519P/1S/2F (2F = pin'li e2e `context_registered=None`, N2 #11
+  baseline; `git diff d321f15..c42040a -- test_e2e_live_chain.py` boş; bu
+  batch'te dosya değişmedi).
+- **§7.2 beyanı:** Safe-mode auto-clear YAPILMADI — hakem Option-A (manuel
+  runbook temizliği) seçti; invariant korundu. `state/orchestrator_safe.json`
+  zaten YOK.
+- **Freeze-break kaydı (§17):** src/ + tests/ + index.json soak-freeze'dan
+  çıkarılıp tek batch'te değişti; tam `tests/` süidi koşuldu (581.5s);
+  fail-visible: 2F raporlandı, gizlenmedi.
+- **Crash-artifact kanıtı (T0#3):** `state/orchestrator.lock.tmp` (pid 16984,
+  created_at 2026-09-01 20:59:01 UTC) + `state/audit.jsonl.tmp` — fix'in
+  hedeflediği çift-artık; T0#4'te bu artıklar oluşMAMALI.
+- **Boot-plan referansı:** T0#4 B1-B7 zinciri hakem panosuna göre — B2'de
+  dual-process olsa bile tmp-çakışması beklenmiyor (PID-unique); B3
+  REPLAY `session_key='2026-09-02'` + `bias=NEUTRAL` (bugünkü pencere
+  22:00'den sonra kurulacak); B5 audit-growth crash'siz; B6 heartbeat canlı.
+- **Next:** T0#4 boot (B1-B7) → 22:00 server penceresi fix'li bot ile.
