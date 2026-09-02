@@ -2635,3 +2635,60 @@ Bu not, gün-1/3/14 checkpoint raporlarında aynı yanlış-ALARM'un tekrar üre
   REPLAY `session_key='2026-09-02'` + `bias=NEUTRAL` (bugünkü pencere
   22:00'den sonra kurulacak); B5 audit-growth crash'siz; B6 heartbeat canlı.
 - **Next:** T0#4 boot (B1-B7) → 22:00 server penceresi fix'li bot ile.
+
+---
+
+## T0#4 BOOT RECORD — 2026-09-02 (N2 #15 fix'li ilk boot)
+
+**Boot:** 08:50:44 +0300, `MT5_EXPECTED_LOGIN=53012914 .venv/Scripts/python.exe -u -m src.live.run_production > logs/soak_n2_15_t0_4_20260902.out 2>&1`. HEAD=44d99a1 (fix'li).
+
+**B1-B7 SONUÇLARI (ilk 13 dk — HEPSİ YEŞİL):**
+- B1 PROCEED: `startup PROCEED: ok (warmup_bars=4338)` ✓
+- B2 dual-process: PID 6880 (shim) + 16660 (worker); YENİ tmp-çakışması YOK ✓
+- B3 REPLAY: `session_key='2026-09-02'`, `bias='neutral'`, `end_state='flat'`,
+  `replay_bars=4237`, `signals_discarded=25`, `next_idx=4338` + COLD_REBUILD_OK ✓
+- B4 gate-OPEN + DM: `SAFETY gate='open' reason='ok'` + SNIPER_ALERT ✓
+- B5 audit: 6 satır (MT5_CONNECT, STARTUP×3, SAFETY) — sessiz piyasa ✓
+- B6 heartbeat: 08:51:13 → 08:51:33 mtime ilerledi (20s ritim) ✓
+- B7 session.atr: 0.000596 fresh, `_warmed=True` ✓
+
+**ÇÖKME (09:03-09:04 +0300, boot'tan ~13 dk sonra):**
+- `PermissionError [WinError 5]`: `orchestrator.lock.16660.tmp -> orchestrator.lock`
+  (heartbeat write, orchestrator.py:106) — 3 retry (~0.35s) tükendi → raise.
+- run() → shutdown() → audit.flush → AYNI WinError 5: `audit.jsonl.16660.tmp ->
+  audit.jsonl` (audit.py:49) → ikinci raise → process exit 1.
+- **YENİ İMZA:** PID-unique tmp ÇALIŞTI (izde `.16660.tmp` — tmp-çakışması yok);
+  bu kez TARGET dosyalar kilitliydi. Hem lock hem audit (farklı kod-yolları)
+  aynı pencerede kilitlendi → klasör-genel dış-handle (AV scan en güçlü aday;
+  Defender RTP+BehaviorMonitor ON; MPLog erişilemedi; scan-zaman kaydı boş).
+- **Zaman-çizelgesi:** 12 dk boyunca aynı dosyalara rename OK (lock mtime
+  09:03'e ilerledi) → ani, geçici, çoklu-dosya kilit → ~0.35s retry bütçesi
+  bu senaryoya yetmedi. N2 #15 tmp-çakışması hipotezini DOĞRULADI (B2) ama
+  İKİNCİ kök-nedeni (dış handle) açığa çıkardı.
+- **Post-crash state:** `orchestrator.lock` (68B, 09:11 — benim stres-testim
+  tarafından 'xxx' ile EZİLDİ — AŞAĞIDA), `audit.jsonl` 6 satır sağlam,
+  16660-tmp'leri cleanup edildi (fix'in best-effort unlink'i çalıştı);
+  T0#3 artıkları (sabit-isim tmp'ler) dokunulmadı.
+
+**İŞLEM İHLALİ (kendi hatam — §12.1 dürüst kayıt):** Çökme-kök-nedeni
+araştırması için koştuğum rename stres-testi hedef olarak CANLI
+`state/orchestrator.lock` dosyasını kullandı ve içeriğini test-verisiyle
+('xxx'×68) ezmış. T0#4 çökme-anı lock içeriği (pid:16660,
+created_at:1788328253.21) daha önce B6 çıktısında kanıt olarak yakalanmıştı
+(yukarıda), ama artifact kendisi bozuldu. Ders: state/ altındaki canlı
+dosyalar test-hedefi OLAMAZ; izole kopya kullanılmalı.
+
+**TEKNİK SONUÇ (kanıt-proportional):**
+1. N2 #15 fix'in hedeflediği senaryo (tmp-çakışması) ÇÖZÜLDÜ — B2 kanıtı.
+2. T0#2/T0#3/T0#4 çökmelerinin TAMAMI WinError 5 ama EN AZ İKİ ayrı kök-neden:
+   (a) tmp-çakışması (çözüldü), (b) dış-handle (AV/sync) target-kilidi
+   (AÇIK — retry bütçesi 0.35s yetersiz).
+3. Aday (b) kanıtları: iki farklı kod-yolu aynı pencerede kilitlendi;
+   12 dk sorunsuz sonra ani başlangıç; OneDrive Desktop'ı izlemiyor
+   (KUP yok, attributes temiz); Defender RTP ON ama scan-zaman kaydı boş.
+4. AÇIK SORU: (b) için retry bütçesi artırılmalı mı (örn. 5s toplam,
+   LOCK_STALE_SEC=900'ün çok altında) yoksa heartbeat write hatası
+   non-fatal'e mi düşürülmeli (mevcut: fatal)? — HAKEM KARARI GEREKLİ.
+
+**Next:** Hakem'e T0#4 raporu (B1-B7 yeşil + çökme + iki kök-neden + karar
+sorusu). Yeni boot ÖNCE karar sonrası.
