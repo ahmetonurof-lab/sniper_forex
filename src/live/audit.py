@@ -104,6 +104,7 @@ class EventType(str, Enum):
     MT5_DISCONNECT = "MT5_DISCONNECT"  # MT5 terminal disconnected
     STATE_SAVE = "STATE_SAVE"  # state persisted
     WRITE_BLOCK = "WRITE_BLOCK"  # N2 #15-b: tmp→target rename blocked (AV/sync handle)
+    LOCK_CORRUPT = "LOCK_CORRUPT"  # N2 #17/A9: lock unreadable (torn JSON) — read-path triage
 
 
 @dataclass

@@ -18,11 +18,17 @@ This module locks in the two-part fix:
 D35 invariant (exhaustion stays fatal) is asserted explicitly: exhausting
 the budget re-raises the original OSError and cleans up the tmp sibling —
 the retry layer must never launder a real failure into a silent success.
+
+N2 #17: the LIVE LOCK moved to in-place writes (see
+test_orchestrator_n2_17.py) — the rename-path tests here now exercise the
+audit/state/safe-mode helpers; the lock-path test was retargeted to the
+in-place mechanism with identical D35/K3 semantics.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -209,16 +215,25 @@ class TestWriteBlockSink:
         assert files == ["audit.jsonl", "orchestrator.lock"]
 
     def test_lock_heartbeat_blocked_emits_write_block(self, tmp_path, monkeypatch):
-        """End-to-end: a blocked lock rename surfaces a WRITE_BLOCK event
-        through the wired sink."""
+        """End-to-end: a blocked IN-PLACE lock write (N2 #17 mechanism)
+        surfaces a WRITE_BLOCK event through the wired sink."""
         orch = self._orch(tmp_path)
-        orch.lock.acquire()  # real rename, before we poison Path.replace
-        monkeypatch.setattr(
-            Path, "replace", lambda *a, **k: (_ for _ in ()).throw(PermissionError(5, "denied"))
-        )
+        orch.lock.acquire()  # real in-place write, before we poison os.open
+        real_open = os.open
+
+        def always_fail(path, flags, *a, **k):
+            if str(path).endswith("orchestrator.lock"):
+                raise PermissionError(5, "denied")
+            return real_open(path, flags, *a, **k)
+
+        monkeypatch.setattr(os, "open", always_fail)
         monkeypatch.setattr(time, "sleep", lambda s: None)
-        with pytest.raises(PermissionError):
-            orch.lock.heartbeat()
+        # N2 #17 Katman-4 (FIX-SPEC v1.2): the heartbeat refresh is
+        # NONFATAL — the process lives, the degraded flag latches and
+        # the next tick retries. The WRITE_BLOCK evidence contract is
+        # UNCHANGED: exactly one event, naming the lock target.
+        orch.lock.heartbeat()
+        assert orch.lock._write_degraded is True
         wb = [e for e in orch.audit.events if e.event_type == EventType.WRITE_BLOCK]
         assert len(wb) == 1
         assert wb[0].payload["file"].endswith("orchestrator.lock")

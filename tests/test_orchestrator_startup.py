@@ -89,27 +89,31 @@ class TestLock:
         lock.acquire()  # should succeed (stale)
         assert lock.owned
 
-    def test_write_recovers_from_transient_replace_error(self, tmp_state: Path, monkeypatch):
-        """N2 #15: a transient OSError (WinError 5) on the rename step is
-        retried and the lock write eventually succeeds — the primary crash
-        site of the T0 WinError 5 incident."""
+    def test_write_recovers_from_transient_open_error(self, tmp_state: Path, monkeypatch):
+        """N2 #17: a transient OSError (WinError 5) on the IN-PLACE lock
+        write open is retried and the lock write eventually succeeds — the
+        primary crash site of the T0 WinError 5 incident. (Name continuity
+        from N2 #15; the rename step no longer exists on the lock path.)"""
         lock = Lock(tmp_state / "orch.lock")
         lock.acquire()
         assert lock.owned
 
-        # Simulate the rename failing once (transient handle lock) then
-        # succeeding: monkeypatch Path.replace so the first call raises
+        # Simulate the in-place open failing once (transient handle lock)
+        # then succeeding: patch os.open so the first orch.lock open raises
         # PermissionError, later calls behave normally.
-        real_replace = Path.replace
+        real_open = os.open
         calls = {"n": 0}
 
-        def flaky_replace(self, target, *a, **k):
-            calls["n"] += 1
-            if calls["n"] == 1:
+        def flaky_open(path, flags, *a, **k):
+            if str(path).endswith("orch.lock") and calls["n"] == 0:
+                calls["n"] += 1
                 raise PermissionError(5, "Access is denied")
-            return real_replace(self, target, *a, **k)
+            return real_open(path, flags, *a, **k)
 
-        monkeypatch.setattr(Path, "replace", flaky_replace)
+        monkeypatch.setattr(os, "open", flaky_open)
+        import src.live.orchestrator as _orch
+
+        monkeypatch.setattr(_orch.time, "sleep", lambda s: None)
         lock.heartbeat()  # must not raise despite one transient failure
         assert lock.owned
         assert (tmp_state / "orch.lock").exists()

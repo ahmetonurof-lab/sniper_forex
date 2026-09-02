@@ -75,3 +75,17 @@ def kill_after(n):
 @pytest.fixture
 def fake_runner():
     return FakeRunner()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_n2_17_crash_log(tmp_path, monkeypatch):
+    """N2 #17: the lock writer-diagnostic and the K2 exhausted-rename
+    forensics append to src.live.orchestrator._CRASH_LOG (state/crash_log.txt
+    in production). Without this redirect every lock-acquiring test would
+    append diagnostic lines to the REAL runtime state dir (test-suite →
+    state pollution, §19 background-mutation class). Tests that exercise
+    the crash-log itself re-patch the module attribute explicitly.
+    """
+    from src.live import orchestrator as orch_mod
+
+    monkeypatch.setattr(orch_mod, "_CRASH_LOG", tmp_path / "crash_log.txt")

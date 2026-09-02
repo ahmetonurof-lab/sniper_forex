@@ -25,8 +25,10 @@ Lock contract (Taş 1, hardened Taş 2 — Windows-safe PID liveness + heartbeat
 
 from __future__ import annotations
 
+import ctypes
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -99,6 +101,161 @@ _TMP_WRITE_RETRIES = 8
 _TMP_RETRY_BASE_SLEEP = 0.05
 
 
+# ── N2 #17 — Katman-1: Restart-Manager handle-holder probe ─────────
+# FIX-SPEC v1.2 Katman-1 (Hakem-ratifiye): ilk başarısız lock yazım
+# denemesinden hemen sonra (retry-tükenişini beklemeden) hedef dosyaya
+# açık handle tutan süreçler Restart-Manager API ile listelenir.
+# Stdlib-yalnız (ctypes); handle.exe/admin gerekmez. Ek-A iskeletinin
+# sağlamlaştırılmışı: needed==0 (tutucu yok) ve her adımda rc kaydı —
+# asla sessiz-geçiş yok (prob-hatası da {'probe_error': ...} döner).
+class _FILETIME(ctypes.Structure):
+    _fields_ = [("dwLowDateTime", ctypes.c_ulong), ("dwHighDateTime", ctypes.c_ulong)]
+
+
+class _RM_UNIQUE_PROCESS(ctypes.Structure):
+    _fields_ = [("dwProcessId", ctypes.c_ulong), ("ProcessStartTime", _FILETIME)]
+
+
+class _RM_PROCESS_INFO(ctypes.Structure):
+    # Windows RM_PROCESS_INFO: bRestartable is a C BOOL = 4 bytes
+    # (c_int) — NOT c_bool (1 byte). A undersized field shrinks the
+    # struct and RmGetList then writes past the buffer → heap
+    # corruption (observed as delayed 0xc0000374 in an unrelated
+    # pandas allocation during the N2 #17 test session — fixed).
+    _fields_ = [
+        ("Process", _RM_UNIQUE_PROCESS),
+        ("strAppName", ctypes.c_wchar * 256),
+        ("strServiceShortName", ctypes.c_wchar * 64),
+        ("AppStatus", ctypes.c_ulong),
+        ("TSSessionId", ctypes.c_ulong),
+        ("bRestartable", ctypes.c_int),
+    ]
+
+
+_CCH_RM_SESSION_KEY = 32
+_RM_ERROR_MORE_DATA = 234  # WinError ERROR_MORE_DATA (RmGetList first call)
+
+
+def find_file_holders(path: str) -> list:
+    """List processes holding an open handle on ``path`` (Restart-Manager).
+
+    N2 #17 Katman-1 probe: runs ONLY at write-failure time (never in the
+    heartbeat tick), so the per-call cost is irrelevant in production.
+    Non-Windows → []. Every failure mode returns a ``{'probe_error': …}``
+    dict instead of raising or silently returning [] — the holder name
+    enters the ledger only as named evidence (hüküm-disiplini).
+    """
+    if os.name != "nt":
+        return []
+    try:
+        rm = ctypes.WinDLL("rstrtmgr")
+    except OSError as e:
+        return [{"probe_error": f"load rstrtmgr: {e}"}]
+    # A6-ii (Ek-A Cline-notları): FULL argtypes/restype declarations.
+    # Undeclared prototypes leave marshaling to ctypes defaults; the RM
+    # APIs take pointer/count pairs and silently write caller buffers —
+    # exact prototypes are the bounds check.
+    rm.RmStartSession.argtypes = [ctypes.POINTER(ctypes.c_ulong), ctypes.c_ulong, ctypes.c_wchar_p]
+    rm.RmStartSession.restype = ctypes.c_ulong
+    rm.RmRegisterResources.argtypes = [
+        ctypes.c_ulong,
+        ctypes.c_uint,
+        ctypes.POINTER(ctypes.c_wchar_p),
+        ctypes.c_uint,
+        ctypes.c_void_p,
+        ctypes.c_uint,
+        ctypes.c_void_p,
+    ]
+    rm.RmRegisterResources.restype = ctypes.c_ulong
+    rm.RmGetList.argtypes = [
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_uint),
+        ctypes.POINTER(ctypes.c_uint),
+        ctypes.POINTER(_RM_PROCESS_INFO),
+        ctypes.POINTER(ctypes.c_uint),
+    ]
+    rm.RmGetList.restype = ctypes.c_ulong
+    rm.RmEndSession.argtypes = [ctypes.c_ulong]
+    rm.RmEndSession.restype = ctypes.c_ulong
+    session = ctypes.c_ulong(0)
+    key = ctypes.create_unicode_buffer(_CCH_RM_SESSION_KEY + 1)
+    rc_start = rm.RmStartSession(ctypes.byref(session), 0, key)
+    if rc_start != 0:
+        return [{"probe_error": f"RmStartSession rc={rc_start}"}]
+    try:
+        arr = (ctypes.c_wchar_p * 1)(path)
+        rc_reg = rm.RmRegisterResources(session, 1, arr, 0, None, 0, None)
+        if rc_reg != 0:
+            return [{"probe_error": f"RmRegisterResources rc={rc_reg}"}]
+        # A6-i: the holder count can GROW between the sizing call and the
+        # fill call — retry on ERROR_MORE_DATA with a fresh buffer instead
+        # of writing past a stale-sized array (the delayed heap-corruption
+        # signature observed during the N2 #17 test session).
+        for _attempt in range(3):
+            needed = ctypes.c_uint(0)
+            got = ctypes.c_uint(0)
+            # Sizing call: infos=NULL with *pnProcInfo=0; lpdwRebootReasons
+            # must be NON-NULL or RM returns rc=0/needed=0 (no holders)
+            # instead of ERROR_MORE_DATA with the true count.
+            scratch = (ctypes.c_uint * 4)()
+            rc = rm.RmGetList(session, ctypes.byref(needed), ctypes.byref(got), None, scratch)
+            if rc == 0 and needed.value == 0:
+                return []  # no holders — a legitimate, named result (rc=0)
+            if rc != 0 and rc != _RM_ERROR_MORE_DATA:
+                return [{"probe_error": f"RmGetList rc={rc}"}]
+            n = max(needed.value, 1)
+            infos = (_RM_PROCESS_INFO * n)()
+            got = ctypes.c_uint(needed.value)
+            reasons = (ctypes.c_uint * n)()  # ONE reboot-reason PER PROCESS
+            rc = rm.RmGetList(session, ctypes.byref(needed), ctypes.byref(got), infos, reasons)
+            if rc == _RM_ERROR_MORE_DATA:
+                continue  # list grew — re-size and retry (bounded ×3)
+            if rc != 0:
+                return [{"probe_error": f"RmGetList rc={rc}"}]
+            return [
+                {"pid": int(infos[i].Process.dwProcessId), "name": str(infos[i].strAppName)}
+                for i in range(got.value)
+            ]
+        return [{"probe_error": "RmGetList count kept growing (3 attempts)"}]
+    finally:
+        try:
+            rm.RmEndSession(session)
+        except Exception:
+            pass
+
+
+# ── N2 #17 — K2 crash-log + runtime mechanism flag ────────────────
+# When ``_ATOMIC_WRITE_RUNTIME`` is False (FROZEN production posture),
+# an exhausted tmp+rename budget on the shared helper routes the
+# failure to ``state/crash_log.txt`` BEFORE re-raising: T0#5/T0#6 lost
+# their terminal audit events because the audit flush itself was
+# blocked in the same window — the crash-log is the flush-independent
+# forensic floor. Set True ONLY for a diagnostic/rollback run; the
+# boolean is pinned by tests (never silently flipped).
+_ATOMIC_WRITE_RUNTIME = False
+_CRASH_LOG = Path("state") / "crash_log.txt"
+
+
+def _crash_log_append(path: Path, info: Dict[str, Any]) -> None:
+    """K2 — best-effort forensic append to state/crash_log.txt.
+
+    os.open(O_APPEND|O_CREAT) + single os.write: append-mode needs no
+    tmp/rename (the mechanism under suspicion), is atomic at these
+    sizes, and swallows every exception — forensics must never mask
+    the original failure nor break the caller.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps({"ts": time.time(), **info}, default=str) + "\n"
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND)
+        try:
+            os.write(fd, line.encode("utf-8"))
+        finally:
+            os.close(fd)
+    except Exception:
+        pass
+
+
 def _atomic_write_text(
     path: Path,
     text: str,
@@ -111,6 +268,12 @@ def _atomic_write_text(
     sibling is unique per process/attempt, so two live processes cannot
     collide on the same tmp path, and a transient handle lock on the rename
     is retried with backoff before giving up.
+
+    N2 #17: the live LOCK no longer uses this helper (Lock._write is
+    in-place; see below). This helper remains canonical for the
+    audit/state/safe-mode files, where rename-atomicity (never a torn
+    or truncated target) is a correctness requirement, and its exhausted
+    budget now lands in the K2 crash-log before re-raising.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
@@ -143,6 +306,19 @@ def _atomic_write_text(
         tmp.unlink()
     except OSError:
         pass
+    # K2 (N2 #17): forensics BEFORE the raise — in the T0#5/T0#6 windows
+    # the WRITE_BLOCK audit flush itself was un-flushable, so this
+    # append-only log is the flush-independent floor.
+    if not _ATOMIC_WRITE_RUNTIME:
+        _crash_log_append(
+            _CRASH_LOG,
+            {
+                "kind": "atomic_write_exhausted",
+                "file": str(path),
+                "retries": _TMP_WRITE_RETRIES,
+                "error": f"{type(last_err).__name__}: {last_err}",
+            },
+        )
     raise last_err  # type: ignore[misc]
 
 
@@ -449,20 +625,103 @@ class Lock:
     release()  → no-op if we don't own the lock (pid mismatch)
     heartbeat() → refresh mtime (call from long-running healthy loops)
 
-    ``on_block`` (N2 #15-b K3) is a forensic sink handed to _atomic_write_text
-    so a blocked lock rename emits a WRITE_BLOCK audit event.
+    N2 #17: the write mechanism is IN-PLACE (open + truncate + write +
+    fsync, K1 retry ladder preserved) — the N2 #15 tmp+rename strategy
+    remains ONLY for audit/state/safe-mode files (``_atomic_write_text``),
+    because T0#6 (exclusion ACTIVE) falsified the AV-race hypothesis and
+    implicated the rename-overwrite step itself (dual-process writer).
+
+    ``on_block`` (K3) is the forensic sink invoked once when the in-place
+    lock write exhausts its retry budget — the WRITE_BLOCK audit event.
+    The first successful write also appends a one-shot writer_diagnostic
+    (self/parent process identity) to the K2 crash-log (``_CRASH_LOG``).
     """
 
     def __init__(
         self,
         lock_path: Path,
         on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
+        on_corrupt: Optional[Callable[[Dict[str, Any]], None]] = None,
     ):
         self.lock_path = Path(lock_path)
         self._owned = False
         self._on_block = on_block
+        self._on_corrupt = on_corrupt
+        self._path_attempt_logged = False
+        self._lock_corrupt_logged = False
+        # N2 #17 Katman-4: latched degraded state — a failed heartbeat
+        # refresh keeps the process alive and retries next tick; the flag
+        # is surfaced for tests/monitoring and cleared on next success.
+        self._write_degraded = False
+
+    def _diagnose_path_write(self) -> None:
+        """N2 #17 boot-writer diagnostic (one-shot, non-fatal).
+
+        Fires once per Lock instance (first successful _write window),
+        appending a line to the K2 crash-log with the process command
+        line, parent PID and parent command line — the exact evidence
+        Hakem's dual-instance probe asks for (are BOTH launcher and
+        worker running the orchestrator?). Never raises; failure to
+        diagnose must never fail the lock write.
+        """
+        if self._path_attempt_logged:
+            return
+        self._path_attempt_logged = True
+        try:
+            import sys as _sys
+
+            me = f"{os.getpid()}: {_sys.executable} {' '.join(_sys.argv)}"
+            ppid = os.getppid() if hasattr(os, "getppid") else -1
+            parent = f"{ppid}: <unavailable>"
+            try:
+                if os.name == "nt" and ppid > 0:
+                    import ctypes
+
+                    k32 = ctypes.windll.kernel32
+                    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                    h = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, ppid)
+                    if h:
+                        try:
+                            buf = ctypes.create_unicode_buffer(4096)
+                            # QueryFullProcessImageNameW via kernel32 is
+                            # available on Win8+; fallback keeps '<unavailable>'.
+                            size = ctypes.c_ulong(len(buf))
+                            if k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                                parent = f"{ppid}: {buf.value}"
+                        finally:
+                            k32.CloseHandle(h)
+                else:
+                    with open(f"/proc/{ppid}/cmdline", "rb") as f:
+                        parent = (
+                            f"{ppid}: {f.read().replace(b'\\x00', b' ').decode('utf-8', 'replace')}"
+                        )
+            except Exception:
+                pass
+            _crash_log_append(
+                _CRASH_LOG,
+                {
+                    "kind": "writer_diagnostic",
+                    "self": me,
+                    "parent": parent,
+                },
+            )
+        except Exception:
+            pass
 
     def acquire(self) -> None:
+        """Boot-takeover: FATAL on unresolvable conflicts (Katman-4.1 —
+        fail-fast, no lock-less running). N2 #17 additions:
+        - Fresh TORN lock (A9 triage, mtime < LOCK_STALE_SEC): wait 1s
+          and re-read once — a torn IN-PLACE write heals within seconds
+          when the previous owner still lives (its heartbeat rewrites
+          the full body). Stale-torn → takeover below.
+        - Read-BLOCKED fresh lock (OSError triage): one 1s read-retry;
+          still unreadable → LockError (boot fail-fast). A sharing
+          violation must not be mistaken for "no lock" — writing over
+          a live foreign lock would be the D35 hazard.
+        Stale-torn/stale-readable → takeover _write() (mtime survives
+        the torn write as the fallback identity — spec Katman-3.2).
+        """
         if self._owned:
             return
         if self.lock_path.exists():
@@ -472,6 +731,30 @@ class Lock:
                     f"Lock held by PID {data.pid} (phase={data.phase}, "
                     f"age={time.time() - data.created_at:.0f}s)"
                 )
+            if data is None:
+                # Torn (A9) or read-blocked (A2 OSError) — mtime decides.
+                fresh = True
+                try:
+                    fresh = (time.time() - self.lock_path.stat().st_mtime) < LOCK_STALE_SEC
+                except OSError:
+                    pass  # unreadable mtime → treat as fresh (conservative)
+                if fresh:
+                    self._log_io_guard("acquire_unreadable_fresh", LockError("torn/blocked"))
+                    time.sleep(1.0)
+                    data = self._read()
+                    if data is not None and not self._is_stale(data):
+                        raise LockError(
+                            f"Lock held by PID {data.pid} (phase={data.phase}, "
+                            f"age={time.time() - data.created_at:.0f}s)"
+                        )
+                    if data is None:
+                        # Still unreadable/torn after one heal window:
+                        # boot fails fast (Katman-4.1) — we must not
+                        # write over a possibly-live foreign lock.
+                        raise LockError(
+                            "Lock target unreadable (torn/blocked) and "
+                            "not stale-eligible — boot refused (N2 #17)"
+                        )
         self._write()
         self._owned = True
 
@@ -488,36 +771,212 @@ class Lock:
                 pass
         self._owned = False
 
+    def _log_io_guard(self, op: str, e: Exception) -> None:
+        """Katman-2: LOUD-warn for every lock-file IO anomaly.
+
+        Code invariant (FIX-SPEC v1.2 Katman-2): an open-handle lifetime on
+        a rename-target state file must not outlive the function that
+        opened it — every read/write here is synchronous close-in-scope.
+        Any anomaly (share-blocked read, blocked write) is warned and
+        crash-logged; it never raises out of the lock helpers.
+        """
+        try:
+            _crash_log_append(
+                _CRASH_LOG,
+                {
+                    "kind": "LOCK_IO_GUARD",
+                    "pid": os.getpid(),
+                    "op": op,
+                    "file": str(self.lock_path),
+                    "error": f"{type(e).__name__}: {e}",
+                },
+            )
+        except Exception:
+            pass
+
+    def _emit_lock_corrupt(self, payload: Dict[str, Any]) -> None:
+        """A9: one LOCK_CORRUPT event per Lock instance (no tick spam)."""
+        if self._lock_corrupt_logged:
+            return
+        self._lock_corrupt_logged = True
+        if self._on_corrupt is not None:
+            try:
+                self._on_corrupt(payload)
+            except Exception:
+                pass  # forensics never mask the read-path decision
+
+    def verify_ownership_via_record(self) -> Optional[int]:
+        """N2 #17 A9: salvage the PID from a lock whose JSON body is torn.
+
+        The PID is stored FIRST in the body (``{"pid": N, ...}``), so a
+        regex over the raw text recovers ownership even when json.loads
+        fails on a truncated write. Returns the PID, or None when even
+        the salvage fails (ownership stays unprovable — hüküm katmaz).
+        Diagnostic only; never raises.
+        """
+        try:
+            raw = self.lock_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None
+        m = re.search(r'"pid"\s*:\s*(\d+)', raw)
+        return int(m.group(1)) if m else None
+
     def heartbeat(self) -> None:
         """Refresh lock mtime to prevent false-stale on long healthy runs.
 
         No-op if we do not own the lock. Safe to call from any tick.
+
+        N2 #17 Katman-4 (FIX-SPEC v1.2): a FAILED refresh write is
+        NONFATAL — the heartbeat is a liveness advertisement, not
+        trade-book integrity. The process lives, the failure is LOUD
+        (crash-log + WRITE_BLOCK audit via _write's on_block + latched
+        ``_write_degraded``) and the next tick retries. Boot-takeover
+        write failure (acquire) stays FATAL (fail-fast); the K1
+        8-attempt/~6.4s budget is unchanged.
         """
         if not self._owned:
             return
-        self._write()
+        try:
+            self._write()
+            self._write_degraded = False
+        except OSError as e:
+            self._write_degraded = True
+            self._log_io_guard("heartbeat_write", e)
 
     def _read(self) -> Optional[LockData]:
+        """Read+parse lock data with A2/A9 triage (N2 #17 FIX-SPEC v1.2).
+
+        Failure classes are now DISTINCT — the B1 read-path hole was that
+        OSError and torn-JSON collapsed into the same silent None, which
+        _heartbeat_validated then treated as ownership loss (fatal exit
+        on a transient external read-handle):
+
+        - OSError → read BLOCKED (external handle/permission). A2: this
+          is NOT ownership evidence. LOUD crash-log, then None; the
+          caller (_heartbeat_validated) verifies ownership via
+          ``verify_ownership_via_record()`` before any fatal decision.
+        - json.JSONDecodeError → torn in-place write. A9: one LOCK_CORRUPT
+          audit event carrying the mtime age (fresh-torn vs stale-torn ≥
+          LOCK_STALE_SEC) — the ledger names the anomaly; None returned.
+        - KeyError → schema gap → None (unchanged).
+        """
         try:
             raw = json.loads(self.lock_path.read_text(encoding="utf-8"))
             return LockData.from_dict(raw)
-        except (OSError, json.JSONDecodeError, KeyError):
+        except json.JSONDecodeError as e:
+            age = -1.0
+            try:
+                age = time.time() - self.lock_path.stat().st_mtime
+            except OSError:
+                pass
+            self._emit_lock_corrupt(
+                {
+                    "file": str(self.lock_path),
+                    "mtime_age_s": round(age, 1),
+                    "stale_eligible": bool(age >= LOCK_STALE_SEC),
+                    "error": f"json: {e}",
+                }
+            )
+            self._log_io_guard("read_torn", e)
+            return None
+        except OSError as e:
+            self._log_io_guard("read", e)
+            return None
+        except KeyError as e:
+            self._log_io_guard("read_schema", e)
             return None
 
     def _write(self) -> None:
-        # N2 #15: PID-unique tmp + retry via _atomic_write_text. The old
-        # fixed ".lock.tmp" sibling was the primary WinError 5 crash site
-        # (two-process contention on the same tmp path, orchestrator.py:430
-        # during heartbeat). Heartbeat cadence (~20s poll) is far above the
-        # bounded retry cost (~6.4s worst case, N2 #15-b), so lock liveness
-        # is unaffected.
+        """Persist lock data. N2 #17: IN-PLACE write, not tmp+rename.
+
+        N2 #15/#15-b history: PID-unique tmp + 8×~6.4s retry — T0#6 still
+        crashed with the same rename WinError 5 WITH the Defender
+        exclusion active. Leading hypothesis (Hakem, N2 #17): a
+        dual-process writer (venv launcher + worker) contending on the
+        lock — rename-overwrite collides with the live target handle.
+        The heartbeat therefore writes IN-PLACE (single open handle,
+        truncate+write+fdatasync) — the rename-overwrite mechanism is
+        removed from the hot path entirely. Self-heartbeat is
+        single-writer (this process owns the lock per D35 acquire +
+        Lock.owned); Lock._read()'s JSON tolerance covers torn in-place
+        reads for unrelated processes, and ``created_at`` monotonicity
+        is asserted by tests.
+
+        D35 ownership contract UNCHANGED: Lock._owned gates this method;
+        the PID-in-lock verification stays the ownership proof — this
+        change replaces the WRITE MECHANISM, not the ownership check.
+
+        If an external handle still blocks even the in-place open()
+        (evidence would be a WRITE_BLOCK event naming the lock target),
+        the K2 crash-log diagnostic captures the exact failure for the
+        handle-holder forensics.
+
+        N2 #17 Katman-1 (FIX-SPEC v1.2): on the FIRST failed attempt
+        (not after budget exhaustion) the Restart-Manager probe lists
+        the processes holding an open handle on the lock target; the
+        holder PIDs/names (or the probe error — never silent) are
+        embedded in the WRITE_BLOCK audit event.
+        """
         data = LockData(pid=os.getpid(), created_at=time.time(), phase="startup")
-        _atomic_write_text(
-            self.lock_path,
-            json.dumps(data.to_dict()),
-            encoding="utf-8",
-            on_block=self._on_block,
-        )
+        payload = json.dumps(data.to_dict())
+        # Parent-dir creation matches the N2 #15 helper contract (tests
+        # and callers rely on acquire() working into a fresh state dir).
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._diagnose_path_write()
+        # Single-writer by D35: only the lock owner runs this method
+        # (heartbeat no-ops when not owned). The K1 retry ladder and the
+        # K3 on_block contract are PRESERVED on the in-place path — an
+        # external handle blocking the in-place open must still be
+        # survived (seconds-long AV/indexer handles) and still recorded.
+        last_err: Optional[OSError] = None
+        for attempt in range(_TMP_WRITE_RETRIES):
+            try:
+                fd = os.open(str(self.lock_path), os.O_WRONLY | os.O_CREAT)
+                try:
+                    os.ftruncate(fd, 0)
+                    os.write(fd, payload.encode("utf-8"))
+                    try:
+                        # fdatasync is POSIX-only; fsync is the Windows
+                        # equivalent for this durability intent. A failing
+                        # fsync never breaks the heartbeat (liveness is
+                        # carried by the write + mtime, not durability).
+                        os.fsync(fd)
+                    except OSError:
+                        pass
+                finally:
+                    os.close(fd)
+                return
+            except OSError as e:
+                last_err = e
+                if attempt == 0:
+                    # Katman-1 probe: name the holder at the first failed
+                    # attempt (retry-tükenişi beklemeden — spec §3-K1).
+                    holders: list = []
+                    try:
+                        holders = find_file_holders(str(self.lock_path))
+                    except Exception as probe_err:  # pragma: no cover
+                        holders = [{"probe_error": f"exception: {probe_err}"}]
+                    if self._on_block is not None:
+                        try:
+                            self._on_block(
+                                {
+                                    "file": str(self.lock_path),
+                                    "retries": _TMP_WRITE_RETRIES,
+                                    "error": f"{type(e).__name__}: {e}",
+                                    "probe": "restart_manager",
+                                    "holder_pids": [h["pid"] for h in holders if "pid" in h],
+                                    "holder_names": [h["name"] for h in holders if "name" in h],
+                                    "probe_errors": [
+                                        h["probe_error"] for h in holders if "probe_error" in h
+                                    ],
+                                }
+                            )
+                        except Exception:
+                            pass  # forensics never mask the original failure
+                if attempt + 1 < _TMP_WRITE_RETRIES:
+                    time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
+        assert last_err is not None
+        raise last_err
 
     @staticmethod
     def _is_stale(data: LockData) -> bool:
@@ -604,7 +1063,31 @@ class Orchestrator:
                 pass  # forensics must never mask the original write failure
 
         self._on_write_block = _write_block_sink
-        self.lock = Lock(self.state_dir / "orchestrator.lock", on_block=_write_block_sink)
+
+        # N2 #17 A9: LOCK_CORRUPT forensic sink — a torn in-place lock
+        # write (unreadable JSON) is named once per Lock instance with
+        # its mtime age (fresh-torn vs stale-torn ≥ LOCK_STALE_SEC).
+        def _lock_corrupt_sink(info: Dict[str, Any]) -> None:
+            try:
+                self.audit.append(
+                    time.time(),
+                    EventType.LOCK_CORRUPT,
+                    self._symbol or None,
+                    {
+                        "file": info.get("file"),
+                        "mtime_age_s": info.get("mtime_age_s"),
+                        "stale_eligible": info.get("stale_eligible"),
+                        "error": info.get("error"),
+                    },
+                )
+            except Exception:
+                pass  # forensics must never mask the read-path decision
+
+        self.lock = Lock(
+            self.state_dir / "orchestrator.lock",
+            on_block=_write_block_sink,
+            on_corrupt=_lock_corrupt_sink,
+        )
         self.audit.on_block = _write_block_sink
         self._mt5: Any = mt5
         # MT5Connection (production fetch path) — injectable for tests.
@@ -1092,6 +1575,32 @@ class Orchestrator:
         """Explicit lock release for shutdown (Taş 4)."""
         self.lock.release()
 
+    def _audit_fallback_dump(self, phase: str, err: Exception) -> None:
+        """N2 #17 Katman-5/A8: dump buffered audit events to the K2
+        crash-log when the audit flush target itself is blocked.
+
+        The terminal events must survive the process by SOME channel —
+        the crash-log is the flush-independent forensic floor (same
+        mechanism as the exhausted-budget routing in _atomic_write_text).
+        Never raises.
+        """
+        try:
+            lines = [
+                json.dumps(evt.to_dict(), default=str, sort_keys=True) for evt in self.audit.events
+            ]
+        except Exception:
+            return
+        _crash_log_append(
+            _CRASH_LOG,
+            {
+                "kind": "AUDIT_FALLBACK_DUMP",
+                "pid": os.getpid(),
+                "phase": phase,
+                "error": f"{type(err).__name__}: {err}",
+                "events": lines,
+            },
+        )
+
     def shutdown(self, exit_code: int = 0, reason: str = "shutdown") -> None:
         """Taş 4 (B-a): idempotent graceful teardown, safe to call from ANY
         exit path (kill, ownership-lost, safe-mode, strategy exception).
@@ -1121,11 +1630,20 @@ class Orchestrator:
                 {"reason": reason, "exit": exit_code},
             )
 
-        # Final flush of the audit chain (persist all events).
+        # N2 #17 Katman-5 (FIX-SPEC v1.2): the final flush is a
+        # FATAL-path guarantee — T0#5/T0#6 lost their terminal audit
+        # events because this flush was either blocked or never reached.
+        # audit.shutdown() is synchronous here; if the flush target is
+        # ITSELF blocked, the buffered events are dumped to the K2
+        # crash-log (A8 fallback) so the evidence survives by some
+        # channel — never silently.
         try:
             self.audit.shutdown()
-        except Exception:
-            pass
+        except Exception as e:
+            try:
+                self._audit_fallback_dump("shutdown_flush", e)
+            except Exception:
+                pass
 
         # Release the broker handle (only if we hold it).
         try:
@@ -1852,23 +2370,42 @@ class Orchestrator:
         self._kill_requested = True
 
     def _heartbeat_validated(self) -> bool:
-        """D35: ownership-verified heartbeat. False = another process took
-        over (D36 STALE-ALIVE resurrection) → caller must exit immediately.
+        """D35: ownership-verified heartbeat with N2 #17 A2 read-triage.
 
-        No lock file on disk → ownership NOT provable (external tamper or
-        D36 takeover race window) → False. A lock file owned by a DIFFERENT
-        pid → ownership lost → False. Same pid → refresh heartbeat → True.
+        Returns False ONLY on unprovable/proven-lost ownership (fatal,
+        code 1 — test_ownership_loss_fatal stays valid):
+
+        - Record readable, same pid → refresh → True.
+        - Record readable, DIFFERENT pid → D11 ownership loss → False
+          (FATAL path UNCHANGED).
+        - No lock file on disk → ownership NOT provable (external tamper
+          or D36 takeover race window) → False. Never self-reclaim.
+        - data None but file EXISTS (A2/A9 triage — the B1 hole): the
+          body was read-blocked (OSError, now LOUD crash-logged) or torn
+          (A9 LOCK_CORRUPT). Salvage the pid from the raw record:
+          ours → refresh nonfatally (Katman-4; a failed refresh write
+          stays alive and retries next tick) → True; anything else →
+          ownership unprovable → False (hüküm katmaz).
         """
         data = self.lock._read()
-        if data is None:
+        if data is not None:
+            if int(data.pid) != os.getpid():
+                return False
+            self.lock.heartbeat()
+            return True
+        if not self.lock.lock_path.exists():
             # No lock file on disk — ownership cannot be proven (external
             # tamper or D36 takeover race). Do NOT self-reclaim; report
             # ownership loss so the caller exits (fatal, code 1).
             return False
-        if int(data.pid) != os.getpid():
-            return False
-        self.lock.heartbeat()
-        return True
+        salvaged = self.lock.verify_ownership_via_record()
+        if salvaged == os.getpid():
+            # A2: the JSON body was unreadable (read-blocked or torn)
+            # but the raw record still names US. A sharing violation is
+            # not ownership evidence — refresh (nonfatal write) and live.
+            self.lock.heartbeat()
+            return True
+        return False
 
     def _interruptible_sleep(self, seconds: float, kill_fn) -> bool:
         """D46: chunked interruptible sleep.

@@ -5,7 +5,9 @@ The first place this system runs as a REAL process: born via startup(),
 lives in the Taş 3 runtime loop, and dies cleanly via shutdown().
 
 Exit-code contract (maps run() -> process exit):
-  0 — clean shutdown (kill switch, healthy state)
+  0 — clean shutdown (kill switch, healthy state) OR already-running
+      exit: the N2 #17 dual-instance pre-guard found a live lock owner
+      and this instance deliberately did nothing (not an error)
   1 — fatal runtime anomaly (lock ownership lost) / startup FATAL
   2 — safe-mode shutdown (strategy exception / signal_only violation /
       killed while SAFE-START or runtime-safe)
@@ -23,10 +25,12 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+from pathlib import Path
 
-from src.live.orchestrator import Orchestrator, OrchestratorConfig, StartupVerdict
+from src.live.orchestrator import Orchestrator, OrchestratorConfig, StartupVerdict, _pid_alive
 from src.trading.mt5_connection import MT5Connection
 
 
@@ -86,6 +90,25 @@ def _build_config() -> OrchestratorConfig:
 def main() -> int:
     """Run the production orchestrator. Returns the process exit code."""
     config = _build_config()
+
+    # ── N2 #17: dual-instance enforce (D53b pattern) ────────────
+    # If a live process already owns the lock (file exists + owner PID
+    # alive — Hakem spec verbatim), this instance exits BEFORE anything
+    # heavy. Everything else (stale file, corrupt JSON, dead PID) stays
+    # on the Lock/PID-dead-takeover path, unchanged.
+    lock_path = Path(config.state_dir) / "orchestrator.lock"
+    if lock_path.exists():
+        pre_pid: int | None = None
+        try:
+            pre_pid = int(json.loads(lock_path.read_text(encoding="utf-8"))["pid"])
+        except (OSError, ValueError, KeyError, TypeError):
+            pre_pid = None
+        if pre_pid is not None and _pid_alive(pre_pid):
+            print(
+                f"[run_production] Already running (lock owner PID {pre_pid}) - EXIT",
+                file=sys.stderr,
+            )
+            return 0
 
     # ── mt5_conn ZORUNLU wiring (Taş 4) ─────────────────────────
     # Production ALWAYS injects a real MT5Connection so the canonical
