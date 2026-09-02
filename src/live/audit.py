@@ -26,14 +26,27 @@ import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 # ── Atomic tmp+rename write (N2 #15 — WinError 5 hardening) ────────
-_TMP_WRITE_RETRIES = 3
+# N2 #15-b (T0#4): the original 3-attempt / ~0.35s budget cleared tmp-name
+# contention but NOT the second root-cause layer — a transient EXTERNAL
+# handle (AV/Defender on-access scan) locking the TARGET file for seconds.
+# Budget raised to 8 attempts / ~6.4s worst-case total sleep (0.05·(2^0..2^6)
+# = 6.35s), still 0.7% of LOCK_STALE_SEC=900 (§7.4 invariant preserved).
+# ``on_block`` (K3): forensic callback invoked once per blocked file
+# (first failed rename) with {file, retries, error} — the WRITE_BLOCK
+# audit event.
+_TMP_WRITE_RETRIES = 8
 _TMP_RETRY_BASE_SLEEP = 0.05
 
 
-def _atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
+def _atomic_write_text(
+    path: Path,
+    text: str,
+    encoding: str = "utf-8",
+    on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
+) -> None:
     """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
 
     Identical contract to src.live.orchestrator._atomic_write_text — kept
@@ -50,6 +63,19 @@ def _atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
             return
         except OSError as e:
             last_err = e
+            # Fire once per file (first failed attempt) — the orchestrator
+            # and AuditChain sinks depend on single-event semantics.
+            if on_block is not None and attempt == 0:
+                try:
+                    on_block(
+                        {
+                            "file": str(path),
+                            "retries": _TMP_WRITE_RETRIES,
+                            "error": f"{type(e).__name__}: {e}",
+                        }
+                    )
+                except Exception:
+                    pass  # forensics must never mask the original failure
             if attempt + 1 < _TMP_WRITE_RETRIES:
                 time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
     try:
@@ -77,6 +103,7 @@ class EventType(str, Enum):
     MT5_CONNECT = "MT5_CONNECT"  # MT5 terminal connected
     MT5_DISCONNECT = "MT5_DISCONNECT"  # MT5 terminal disconnected
     STATE_SAVE = "STATE_SAVE"  # state persisted
+    WRITE_BLOCK = "WRITE_BLOCK"  # N2 #15-b: tmp→target rename blocked (AV/sync handle)
 
 
 @dataclass
@@ -115,6 +142,7 @@ class AuditChain:
         auto_flush_path: Optional[str] = None,
         flush_threshold: int = 50,
         flush_interval_sec: float = 30.0,
+        on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> None:
         self._events: List[AuditEvent] = []
         self._auto_flush_path = auto_flush_path
@@ -122,6 +150,13 @@ class AuditChain:
         self._flush_interval_sec = flush_interval_sec
         self._last_flush_time: float = time.time()
         self._last_flush_count: int = 0
+        # N2 #15-b (K3): forensic sink for blocked renames during save.
+        self.on_block = on_block
+        # N2 #15-b: re-entrancy guard. A WRITE_BLOCK append fired from
+        # inside save() must NOT trigger another flush → save recursion
+        # (the T0#4 shutdown death-spiral shape). Events buffered during
+        # a save land on disk with the next successful flush.
+        self._saving = False
 
     # ── Public API ──────────────────────────────────────────────
     def append(
@@ -170,6 +205,8 @@ class AuditChain:
 
     def _maybe_flush(self) -> None:
         """Flush if conditions met."""
+        if self._saving:
+            return  # N2 #15-b re-entrancy guard (see save())
         if self._should_flush():
             self.flush(self._auto_flush_path)
 
@@ -212,7 +249,11 @@ class AuditChain:
         lines = "".join(
             json.dumps(evt.to_dict(), default=str, sort_keys=True) + "\n" for evt in self._events
         )
-        _atomic_write_text(p, lines, encoding="utf-8")
+        self._saving = True
+        try:
+            _atomic_write_text(p, lines, encoding="utf-8", on_block=self.on_block)
+        finally:
+            self._saving = False
 
     def load(self, path: str) -> int:
         """Load events from a JSONL file. Returns the number of events loaded.

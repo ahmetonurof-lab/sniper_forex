@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Callable, Dict, List, Optional
 
 from src.live.state import StateStore
 from src.strategy.models import Bar
@@ -107,8 +107,12 @@ def _fvg_to_dict(fvg: Any) -> dict:
 class RuntimeRecovery:
     """External persistence layer for `StrategyRuntime` state."""
 
-    def __init__(self, state_dir: str = "state"):
-        self.store = StateStore(state_dir)
+    def __init__(
+        self,
+        state_dir: str = "state",
+        on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ):
+        self.store = StateStore(state_dir, on_block=on_block)
 
     def save(self, runtime, symbol: str) -> Path:
         """Serialize runtime incl. bars buffer + FVG-aware pending entry."""

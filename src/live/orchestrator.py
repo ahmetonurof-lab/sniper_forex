@@ -84,12 +84,27 @@ def _naive_utc_epoch(ts: Any) -> float:
 #   1. PID-unique tmp sibling (never two processes writing the same tmp),
 #   2. bounded retry with backoff on the rename step (clears transient
 #      handle locks without blocking the trading loop past the heartbeat
-#      window — 3 attempts, ~0.4s max << LOCK_STALE_SEC=900).
-_TMP_WRITE_RETRIES = 3
+#      window).
+# N2 #15-b (T0#4): T0#4 proved the PID-unique tmp fixed the CONTENTION
+# layer (crash trace showed ``orchestrator.lock.<pid>.tmp``), but the
+# rename still died with WinError 5 on BOTH the lock and the audit
+# target in one window — a transient EXTERNAL handle (AV/Defender
+# on-access scan) locking the TARGET file. The original ~0.35s budget
+# was too small for a seconds-long scan handle. Budget raised to 8
+# attempts / ~6.4s worst-case total sleep (0.05·(2^0..2^6) = 6.35s),
+# still 0.7% of LOCK_STALE_SEC=900 (§7.4 invariant preserved).
+# ``on_block`` (K3): forensic callback invoked on EVERY failed rename
+# with {file, attempt, retries, error} — the WRITE_BLOCK audit event.
+_TMP_WRITE_RETRIES = 8
 _TMP_RETRY_BASE_SLEEP = 0.05
 
 
-def _atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
+def _atomic_write_text(
+    path: Path,
+    text: str,
+    encoding: str = "utf-8",
+    on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
+) -> None:
     """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
 
     Crash-safe (never a truncated target) and contention-hardened: the tmp
@@ -107,6 +122,20 @@ def _atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
             return
         except OSError as e:  # WinError 5 (PermissionError) and friends
             last_err = e
+            # Fire on_block once per file (first failed attempt only) —
+            # the orchestrator and AuditChain sinks both depend on this
+            # being a single forensic signal, not per-retry noise.
+            if on_block is not None and attempt == 0:
+                try:
+                    on_block(
+                        {
+                            "file": str(path),
+                            "retries": _TMP_WRITE_RETRIES,
+                            "error": f"{type(e).__name__}: {e}",
+                        }
+                    )
+                except Exception:
+                    pass  # forensics must never mask the original failure
             if attempt + 1 < _TMP_WRITE_RETRIES:
                 time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
     # Best-effort cleanup of our own tmp before surfacing the failure.
@@ -419,11 +448,19 @@ class Lock:
     acquire()  → raises LockError on conflict (existing live lock)
     release()  → no-op if we don't own the lock (pid mismatch)
     heartbeat() → refresh mtime (call from long-running healthy loops)
+
+    ``on_block`` (N2 #15-b K3) is a forensic sink handed to _atomic_write_text
+    so a blocked lock rename emits a WRITE_BLOCK audit event.
     """
 
-    def __init__(self, lock_path: Path):
+    def __init__(
+        self,
+        lock_path: Path,
+        on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ):
         self.lock_path = Path(lock_path)
         self._owned = False
+        self._on_block = on_block
 
     def acquire(self) -> None:
         if self._owned:
@@ -472,9 +509,15 @@ class Lock:
         # fixed ".lock.tmp" sibling was the primary WinError 5 crash site
         # (two-process contention on the same tmp path, orchestrator.py:430
         # during heartbeat). Heartbeat cadence (~20s poll) is far above the
-        # bounded retry cost (~0.4s), so lock liveness is unaffected.
+        # bounded retry cost (~6.4s worst case, N2 #15-b), so lock liveness
+        # is unaffected.
         data = LockData(pid=os.getpid(), created_at=time.time(), phase="startup")
-        _atomic_write_text(self.lock_path, json.dumps(data.to_dict()), encoding="utf-8")
+        _atomic_write_text(
+            self.lock_path,
+            json.dumps(data.to_dict()),
+            encoding="utf-8",
+            on_block=self._on_block,
+        )
 
     @staticmethod
     def _is_stale(data: LockData) -> bool:
@@ -539,7 +582,30 @@ class Orchestrator:
         else:
             prod_audit = AuditChain()
         self.audit = audit if audit is not None and len(audit) > 0 else prod_audit
-        self.lock = Lock(self.state_dir / "orchestrator.lock")
+
+        # N2 #15-b (K3): WRITE_BLOCK forensic sink. A blocked tmp→target
+        # rename (transient AV/sync handle on the TARGET file — the T0#4
+        # second root-cause layer) leaves a durable audit trail. The
+        # helper fires on_block once per file (first failed rename), so
+        # no filtering is needed here — one event per blocked file.
+        def _write_block_sink(info: Dict[str, Any]) -> None:
+            try:
+                self.audit.append(
+                    time.time(),
+                    EventType.WRITE_BLOCK,
+                    self._symbol or None,
+                    {
+                        "file": info.get("file"),
+                        "retries": info.get("retries"),
+                        "error": info.get("error"),
+                    },
+                )
+            except Exception:
+                pass  # forensics must never mask the original write failure
+
+        self._on_write_block = _write_block_sink
+        self.lock = Lock(self.state_dir / "orchestrator.lock", on_block=_write_block_sink)
+        self.audit.on_block = _write_block_sink
         self._mt5: Any = mt5
         # MT5Connection (production fetch path) — injectable for tests.
         self._mt5_conn: Any = mt5_conn
@@ -811,7 +877,7 @@ class Orchestrator:
         # D33: construct lifecycle + recovery + runtime EARLY so S5 can
         # inject them into the LiveRunner. Restoration happens in S7
         # (mutates the same object the runner already holds by reference).
-        self._recovery = RuntimeRecovery(str(self.state_dir))
+        self._recovery = RuntimeRecovery(str(self.state_dir), on_block=self._on_write_block)
         self._runtime = StrategyRuntime(self._symbol)
         self._lifecycle = TradeLifecycle()
         self._sizer = PositionSizer()
@@ -1130,7 +1196,9 @@ class Orchestrator:
         import json
 
         data = {"safe_mode": True, "reason": reason, "ts": time.time()}
-        _atomic_write_text(path, json.dumps(data, indent=2), encoding="utf-8")
+        _atomic_write_text(
+            path, json.dumps(data, indent=2), encoding="utf-8", on_block=self._on_write_block
+        )
 
     def clear_safe_mode(self) -> None:
         """Clear persisted safe-mode file (manual or after clean reconcile)."""
