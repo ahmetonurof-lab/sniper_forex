@@ -1,0 +1,188 @@
+# D66 OBSERVER TOUCH-LOG — state/audit.jsonl erişimlerinin bağımsız kaydı
+# Amaç (BULGU-11): runtime WRITE_BLOCK'ların ENDONEK mi yoksa GÖZLEMCİ-KİRLİLİĞİ mi
+# olduğunu korelasyonla ayırmak. Her state/audit.jsonl erişiminden ÖNCE buraya satır yazılır.
+# Biçim: <UTC> | <local> | <method> | <araç> | not
+#
+# --- GEÇMİŞ DOKUNMALAR (bu-log oluşturulmadan önceki, hatırlanan/ölçülen) ---
+2026-09-03T11:52Z | 14:52 local | cp (Git Bash)      | run_commands  | BULGU-6 epizodu: WRITE_BLOCK 14:52:40 + ERROR 14:52:46 + WRITE_BLOCK 14:52:46
+2026-09-03T11:58Z | 14:58 local | cp (Git Bash)      | run_commands  | D68-dikişi: audit_prev_2026-09-03.jsonl üretildi (9 satır/2765 B)
+2026-09-03T12:24Z | 15:24 local | cp (Git Bash)      | run_commands  | w1b.jsonl — sigsweep=0
+2026-09-03T12:29Z | 15:29 local | cp (Git Bash)      | run_commands  | k.jsonl — audit=9 sigsweep=0
+2026-09-03T12:41Z | 15:41 local | cp (Git Bash)      | run_commands  | z.jsonl — audit=9 sigsweep=0 err=1
+2026-09-03T12:52Z | 15:52 local | cp (Git Bash)      | run_commands  | f.jsonl — audit=10  ==> YAZIM-BLOĞU 15:51:32 (3. WRITE_BLOCK, retries=8, ERROR YOK)
+2026-09-03T12:52Z | 15:52 local | cp (Git Bash)      | run_commands  | n.jsonl — auditcat ile satır-satır döküm
+#
+# --- YENİ DİSİPLİN (15:58 sonrası, BULGU-11 gereği) ---
+# KURAL O1: state/audit.jsonl artık YALNIZ share-safe Python okumasıyla okunur
+#            (open() -> _SH_DENYNO; delete-share açık -> os.replace'i engellemez).
+# KURAL O2: cp / cat / sha256sum / stat ile audit.jsonl'a DOKUNULMAZ.
+# KURAL O3: Her okuma bu-log'a satır alır; WRITE_BLOCK zamanıyla korelasyon kurulur.
+# KURAL O4: Karar kuralı — O1-only erişimle de WRITE_BLOCK sürerse => ENDONEK (D68-P0 sağlam).
+#            WRITE_BLOCK bir daha hiç olmazsa => BULGU-6 gözlemci-kaynaklıdır, geri çekilir.
+#
+# --- O1 SONRASI DOKUNMALAR ---
+2026-09-03T13:00:57Z | 16:00:57 | python-share-safe | audit_read.py | O1 donemi ilk okuma - baseline
+2026-09-03T13:07:30Z | 16:07:30 | python-share-safe | audit_read.py | O4 korelasyon nöbeti - kapanis kontrolu
+# --- O4 ERKEN DEGERLENDIRMESI (16:07) — gozlemci-hipotezi ALEYHINE kanit ---
+# Uc WRITE_BLOCK da gozlenen node.exe doguslarindan (14:52:48, 14:52:53) 2-8 sn ONCE:
+#   14:52:40, 14:52:46, 15:51:32  =>  o surecler NEDEN olamaz (sonuc ya da ilgisiz).
+# 15:51:32'den onceki son cp 14:41:40 degil 15:41:40 (~10 dk); sonraki cp'ler 15:52'de (OLAYDAN SONRA).
+# Iki share-safe okuma (16:00:53, 16:06:53) YENI blok uretmedi.
+# => Gozlemci-kirlenmesi hipotezi ZAYIFLADI; D68-P0 (endonek) GUCLENDI.
+# KALIN BELIRSIZLIK: 14:52 civari eski/exit etmis bir cp tutamasi kayitli degil
+#    (touch-log ancak 15:58'den sonra otomatik). Bu yuzden O4 tam kapanmadi, n=3.
+# KARAR: O1-O3 disiplini W2 boyunca surdurulur; O4 hukmu W2 sonunda verilir.
+# EK CANLI-TEYIT (Bulgu-1 overwrite): audit.jsonl boyutu 3190 SABIT iken
+#    mtime 15:58:52 -> 16:00:53 -> 16:06:53 ilerledi = iceriksiz-tam-dosya-yazimi x3.
+
+2026-09-03T13:16:34Z | 16:16:34 | python-share-safe | audit_read.py | final pin dogrulama
+2026-09-03T13:53:27Z | 16:53:27 | python-share-safe | audit_read.py | Hukum-uygulamasi sirasinda W1 poll
+# --- O4 DEVAM-DEGERLENDIRMESI (17:08, D72-uygulamasi-sonrasi) ---
+# 4 share-safe okuma (16:00, 16:06, 16:52, 17:08) => SIFIR yeni WRITE_BLOCK, SIFIR yeni ERROR.
+# O2 uyumu tam: bu-pencerede audit.jsonl'a cp/cat/sha256sum/stat ile dokunulmadi.
+# H2 (gozlemci-cp) aleyhine 4-bagimsiz-negatif-ozek; ANCAK H1 (AV/Defender) da
+#   bu-pencerede tarama-yapmamis olabilir => H1/H2 henuz AYRISMIYOR (Hakem hukumriyle-uyumlu).
+# H3 (saatlik-endonek): 15:51 + 59dk = 16:50'de ucuncu blok BEKLENIRDI -> 16:52 ve 17:08 okumalarinda
+#   OLAY YOK. Bu, H3'un en-guclu-karsit-kanitidir (n=2 + 1 basarisiz-tahmin).
+# => Gecici hukum: H3 zayifladi; H1/H2 acik; BULGU-6 asagi-cekilme derecesi DOGRU YONDE.
+# EK CANLI-TEYIT (Bulgu-1 overwrite): boyut 3190 SABIT iken mtime 5-ornek:
+#   15:58:52 / 16:00:53 / 16:06:53 / 16:52:58 / 17:08:20.
+# EK BULGU-3 olcumu: phase="startup" 3 sa 00 dk (created_at-boot = 10804 s) -> H.4 guncellendi.
+# KARAR: O1-O3 W2 boyunca surer; O4 hukmu K3-ikinci-boot sonrasi kesinlesir.
+
+2026-09-03T14:08:32Z | 17:08:32 | python-share-safe | audit_read.py | D72-uygulamasi-sonrasi-W1-poll
+2026-09-03T14:49:10Z | 17:49:10 | python-share-safe | audit_read.py | D72-arb-sonrasi-W2-poll + BULGU-3-duzeltme-teyidi
+# AMAC: W2 sayimi (SIGNAL/SWEEP, ERROR, WRITE_BLOCK) + created_at-heartbeat hipotez testi.
+# HIPOTEZ: created_at = heartbeat-stampi (orchestrator.py:621 dokumante). phase="startup"
+#         boot 14:07:49'dan beri takili -> BULGU-3 ozu DURUYOR, 10804 s aritmetigi DUSTU.
+# SONUC (17:53:44): lines=10 SIGNAL/SWEEP=0 ERROR=1 WRITE_BLOCK=3 -> W1 muhruyle BIREBIR AYNI, degisim YOK.
+#   => O1-altinda YENI WRITE_BLOCK YOK (5-okuma). O4-H3 falsifikasyonu suruyor; H1/H2 ayrismedi.
+# OVERWRITE 6. ORNEK (en-temiz bicim): lines=10 SABIT + size=3190 SABIT + mtime ILERLER (17:53:44).
+#   => D72(c) lambasi BUGUN KIRMIZI: yeni-olay-yokken mtime ilerliyor => append-only henuz kurulmadi.
+# KILIT: pid 3416, phase="startup", created_at 1788446923.92 (~17:48:12), mtime 17:48:43 => ~30 sn heartbeat.
+# => BULGU-3 DUZELTILDI (D73): created_at = heartbeat-stampi (orchestrator.py:621 belgeledigi TASARIM).
+#    10804 s uretmi GECERSIZ (uptime olcuyordu, stuck-age degil). Gecerli-cipa = StartTime 14:07:49.
+#    phase="startup" dizisi 14:58 / 15:29 / 17:08 / 17:48 -> 4/4. Sure 3h00m -> 3h41m. OZ DURUYOR, guclendi.
+# KARAR: O1-O3 W2 boyunca surer; O4 hukmu K3-ikinci-boot sonrasi kesinlesir.
+
+
+2026-09-03T14:53:57Z | 17:53:57 | python-share-safe | audit_read.py | routine W1 poll
+2026-09-03T15:02:40Z | 18:02:40 | python-share-safe | audit_read.py | D73-kapanis-oncesi-W2-yoklamasi
+# AMAC: O4 izlemesi - share-safe okuma altinda yeni WRITE_BLOCK var mi + overwrite ornek sayisi.
+# SONUC (olculen 18:50:28): lines=10 SIGNAL/SWEEP=0 ERROR=1 WRITE_BLOCK=3 -> W1 muhruyle AYNI (6. okuma, degisim YOK).
+#   => O4: share-safe okuma altinda HENUZ yeni WRITE_BLOCK YOK. H1/H2 ayrismedi; H3 falsifikasyonu suruyor.
+# OVERWRITE 7. ORNEK: size=3190 SABIT, mtime 17:53:44 -> 18:50:28 ILERLEDI (yeni olay yok).
+# KILIT: phase="startup" (5. gozlem), hb_age 20 s, mtime 18:50:48 => ~30 sn heartbeat TEYITLI.
+#   => BULGU-3 suresi 3h41m -> 4h43m (boot 14:07:49 -> 18:50:48). Oz aynen duruyor.
+# [**GERI ALINDI — D74**] ZAYIFLIK (O3'de, kendime kayit): yukaridaki-dokunma-damgalari (17:49:10 / 18:02:40) BENIM TAHMINIM,
+#   saat-olcumu DEGIL - agent'in kendi saati yok. Olay-muhurunu-olculen-degerle (audit_mtime) karsilastirmak
+#   YANILTICIDIR. ONERILEN DUZELTME: audit_read.py dokunma-satirini KENDI yazsin (machine-timed), O3 boylece
+#   kendiliginden-dogrulanabilir-olsun. Kod-dokunusu-yetkisi-olmadigi-icin YAPILMADI; N2 #21 madde-6'ya aday.
+
+
+2026-09-03T15:51:08Z | 18:51:08 | python-share-safe | audit_read.py | routine W1 poll
+2026-09-03T16:18:41Z | 19:18:41 | python-share-safe | audit_read.py | D74-faz-kokusu-onesi-makine-damgali
+2026-09-03T16:20:43Z | 19:20:43 | python-share-safe | audit_read.py | D74-olay-payi-share-safe-kurtarma-okumasi
+# --- D74 OLAY PAYI + (D)'NIN GERI ALINMASI ---
+# D74-1 (KENDI-ĐDDIAMĐ ÇÜRÜTTÜM): audit_read.py satir-14-23 `log_touch()` okumadan-ONCE makine-damgali
+#   satiri KENDI yaziyor. Yani "arac kendi satirini yazmiyor" iddiam YANLISTI - araci ACMADAN iddia ettim
+#   (ADER-9 bana dondu). Kalan-dogru-kisim: ELLE-yazilan aciklama-satirlari tahmindir, MAKINE satirlari
+#   yetkilidir. Kanit: el-satirim 18:02:40 dedi; ayni-okumanin makine-satiri 18:51:08 => 49 dk sapma.
+#   => Hakem-N2#21 madde-6b bu arac icin ZATEN KARSILANMIYOR; ya dusurulsun ya "elle-damga-yasak,
+#      argv-notu-zorunlu" seklinde yeniden-yazilsin.
+# D74-2 (OLAY - SAYIM DEGĐSTĐ, KÖKENĐ DIŞ): 18:51:08 => lines=10 size=3190 0/1/3.
+#   19:18:41 => lines=6 size=1622 0/0/0 - ICERIK YENI BOOT DIZISI (MT5_CONNECT, STARTUP x4, SAFETY).
+#   PID 3416 OLDU (Get-Process count 0). Yeni kilit-sahibi PID 11476, StartTime 19:17:10,
+#   parent 16660 (.venv launcher) => TEK BOOT, cift-instance DEGIL (crash_log satir-3).
+#   d66_boot_stdout.log 14:07:56'da dondu => bu bootu BEN baslatmadim.
+#   => 3416-devri 10 satIR TAMAMEN SILINDI (3 WRITE_BLOCK + 1 ERROR + 3416 SHUTDOWN kaydi).
+#      O4 sayim-tabani SIFIRLANDI; W2'nin-izlenen-oznesi DEGĐSTĐ.
+#   => Kurtarma: state/audit_prev_2026-09-03.jsonl (9 satir) + 10.satir bu-log-dokumunde.
+#      Yeni bayt-ozdes kopya: results/D74_audit_snapshot_2026-09-03_1919.jsonl (1622 B,
+#      sha256 184a95c450713eca20c6519e..., kaynakla BAYT-OZDES). state/'e YAZILMADI.
+#   => O2 ihlal EDILMEDI: cp/cat/sha256sum/stat kullanilmadi; kurtarma io.open('rb') ile.
+#      (Ilk kopyam io.open('r') idi -> 1616 B, CRLF->LF kaybı; D74-4 olarak duzeltildi.)
+# D74-3 (BULGU-3 KOK-DEGISIKLIGI): kilit `phase` ALANI BIR SABITTIR - orchestrator.py:920
+#   `_write()` icinde `phase="startup"` hardcoded uretiyor; `_write()` yalniz acquire():758 ve
+#   heartbeat():840'tan geliyor; `git grep '\.phase\s*='` src/'de 0 sonuc.
+#   CANLI-KARSI-ORNEK: audit 19:17:25'te S11/SAFE_START tamamlandi, kilit 19:19:26'da hala "startup".
+#   => "phase 4h43dk takili" ifadesi GECTERSIZ: olculen sey bir literal'in n=5 tekraridir.
+#      BULGU-3'un ozu DURUYOR ama mekanizmasi degisti: alan hicbir-seyi ayirt-edemez.
+# KARAR: O1-O3 disiplini YENI ozne (PID 11476) icin surdurulur; W2 sayim-tabani sifirdan alinir.
+
+2026-09-03T16:27:23Z | 19:27:23 | python-share-safe | audit_read.py | D74-yeni-ozne-PID11476-ilk-W2-yoklamasi
+2026-09-03T16:43:40Z | 19:43:40 | python-share-safe | audit_read.py | D75-reis-boot-dogrulama
+2026-09-03T16:49:44Z | 19:49:44 | python-share-safe | audit_read.py | D75-kapanis-yoklamasi
+2026-09-03T16:53:10Z | 19:53:10 | python-share-safe | audit_read.py | D76-crash-sonrasi-ilk-okuma
+2026-09-03T17:16:52Z | 20:16:52 | python-readonly-post-mortem (ozne-olu) | state/audit.jsonl+state/EURUSD*.json+state/k3_boot_stdout.log | D77-reis-ctrlc-aciklamasi-sonrasi-audit-tam-dokum
+2026-09-03T17:16:52Z | 20:16:53 | python-readonly-post-mortem (ozne-olu) | state/audit.jsonl+state/EURUSD*.json+state/k3_boot_stdout.log | D77-audit-ham-satir-7-12-reason-alani
+2026-09-03T17:16:53Z | 20:16:53 | python-readonly-post-mortem (ozne-olu) | state/audit.jsonl+state/EURUSD*.json+state/k3_boot_stdout.log | D77-close-save-dogrulama-EURUSD-json
+2026-09-03T17:16:53Z | 20:16:53 | python-readonly-post-mortem (ozne-olu) | state/audit.jsonl+state/EURUSD*.json+state/k3_boot_stdout.log | D77-lifecycle-json-dogrulama
+2026-09-03T17:16:53Z | 20:16:53 | python-readonly-post-mortem (ozne-olu) | state/audit.jsonl+state/EURUSD*.json+state/k3_boot_stdout.log | D77-stdout-KI-ayirt-edici-kontrol
+
+--- D79 TURU (20:31-21:05) ---
+20:31:18 WRITE state/D77_preserve/ (6 dosya, cp -p) — Hakem-§3 batch, boot-ONCESI koruma
+20:31:44 BOOT T0#8 base-python PID 11468 (Cline) — TEK-SUREC deneyi; stdout state/t08_basepython_boot.log
+20:33:13 READ state/orchestrator.lock — in-place {pid:11468,created_at:1788456892.93,phase:startup}
+20:33:xx READ state/audit.jsonl — 1665B/6satir (K3-oncesi 3812B/12satir idi; BULGU-1 overwrite 4. kanit)
+20:53:xx READ %TEMP%/d66_detect.py (3758B @13:57) — harness mevcut; :17 = 60000 hardcoded
+20:53:xx WRITE %TEMP%/d66_detect_60000_baseline.json + _60000.py (cp -p) — baseline korundu
+20:53:xx WRITE %TEMP%/d66_detect_65000.py — tek-degisken diff (2 satir)
+20:56:42 WRITE %TEMP%/d66_detect_65000.json (168196B) — 65k tarama DONE, 6 sembol
+20:56:xx READ state/D77_preserve/EURUSD.json — session_atr 0.0004935714285714741 dogrulandi
+21:01:xx READ state/audit.jsonl — WB=0, uptime 29m17s, safe_reasons payload-bozulmasi (D79-b)
+21:05:12 READ state/orchestrator.lock — WB=0, uptime 33m28s, CANLI, 1 python sureci
+Erisim-kipi: python-readonly + yetkili-additive-preserve (ozne-olu)
+
+--- D81 TURU (21:28-21:45) — SALT OKUMA + KORUMA ---
+21:28:49 READ state/audit.jsonl — WB=3, 11 satir, lock GONE, 0 python => T0#8 OLÜ (21:06:48)
+21:28:xx READ state/t08_basepython_boot.log — fatal WinError 5 audit.jsonl.11468.tmp dogrulandi
+21:29:xx WRITE state/D77_preserve/t08_audit.jsonl + t08_basepython_boot.log + t08_crash_log.txt (cp -p) — OLUM-ONCESI-KORUMA, 3-nesil
+21:30:xx READ state/crash_log.txt — 4 satir, hepsi writer_diagnostic, atomic_write_exhausted=0
+21:31:xx READ src/live/audit.py:98-300 — AuditChain.save/flush/load (SALT OKUMA)
+21:32:xx READ src/live/state.py:32-80, orchestrator.py:259-320 — uc-kopya _atomic_write_text (SALT OKUMA)
+21:35-21:45 READ src/**.py AST-tarama (bellek-ici, dosyalar DEGISMEDI) — 11 kopya-grubu, 6 irakak/4 birebir
+21:45:xx WRITE memory-bank/progress.md D81 bolumu
+Erisim-kipi: python-readonly(ast.parse) + yetkili-additive-preserve (ozne-olu)
+
+--- T0#9 TURU (22:01-22:03) — REIS-EMRIYLE BOOT ---
+22:01:24 BOOT-LAUNCH (base Python312, tek-surec, nohup > t09_boot_stdout.log) — koruma-ONCE (5-dosya, 4-nesil)
+22:02:22 VERIFY: PID 14940 tek / lock 68B phase=startup pid=14940 / audit=6-satir(ezildi) / COLD_REBUILD_OK replay=4237 / gate CLOSED startup_SAFE_START
+Erisim-kipi: process-observation + additive-preserve (once) + boot (Reis-yetkisi)
+
+--- T0#9-OLUM-TURU (22:08-22:13) ---
+22:08:13 TESPIT: 0-python (Reis-boot-sonrasi-ilk-kontrol) — T0#9 SESSIZ OLMUS (+4m30s)
+22:08:44 READ t09_boot_stdout.log — UCLU-WRITE_BLOCK (audit.py:85->62 x3); stale-lock + T7era-orphan tesbiti
+22:12:10 PRESERVE-5.-NESIL (8-dosya, hash'li; stale-lock + orphan-tmp dahil) — state/D77_preserve/
+22:12:xx WRITE progress.md — T0#9-olum-kaydi + TASHIH (ADER-15, 6d, AM-T7-14) + D64-§5-cift-pin
+Erisim-kipi: process-observation + additive-preserve (olum-sonrasi) — REIS-EMRIYLE-BOOT-sonrasi-olum-kaydi
+
+--- HAKEM-HUKMU-TURU (22:21-22:25) — T0#9-olum-raporu-onunde ---
+22:21:56 READ surec=0 / T7era-tmp-cekisi (audit.jsonl.tmp 1483B + lock.tmp 68B, dun-23:59) / atomic_write_exhausted=0 (BULGU-14-TEYIT) / SHUTDOWN-stdout=0 (exit-kanitsizligi)
+22:2x:xx PRESERVE-6.-nesil-tamamlama: t09_T7era_orphan_audit_tmp (T7-era-audit-tmp)
+22:2x:xx WRITE progress.md — pencere-MOOT + n=4-bant-falsifiyesi + ping-MOOT + stale-borc-duzeltmesi (D64-§5-onceden-odendi)
+Erisim-kipi: process-observation + additive-preserve (olu-artifact) — src/tests/index.json DOKUNULMADI
+
+--- HAKEM-CENAZE-TURU (22:30-22:35) ---
+22:3x READ progress.md N2#21-madde-kayitlari (grep-derlem; madde-icerikleri-defterden)
+22:3x WRITE results/N2_21_owner_batch_prereg.md (v1-TASLAK; mini-set-2-disi; 12/13-uydurulmadi)
+22:3x WRITE progress.md — ADER-16 + ADER-16b + κ-3-sinif + merdiven-tamam + madde-9-iki-aday
+Erisim-kipi: defter-kaynakli-derleme + yeni-taslak-dosya (results/) — src/tests/index.json DOKUNULMADI
+
+
+--- HAKEM-RATIFIYE-TURU (23:20-23:25) ---
+23:1x EDIT results/N2_21_owner_batch_prereg.md v1->v1.1 (ratifiye-notlari; 12/13-kaynagi=D72-embed) [ilk-deneme-cift-heredoc-hatasi: appendler-calistirilamadi; 23:2x onarildi]
+23:2x WRITE progress.md — ADER-16-nihai + borc-liderligi-gecisi + acik-borc-envanteri
+Erisim-kipi: defter+pre-reg-edit — src/tests/index.json DOKUNULMADI
+
+
+--- HAKEM-BEKLEME-REJIMI-TURU (23:35) ---
+23:3x WRITE progress.md — ADER-17-kayit(aday) + masa-muhafazasi-borc-envanteri + v2-derleme-notu
+23:3x PIN-ozet: progress f690f57e / touchlog eb625aa0 / prereg a4f9b6ca / D64 1688aaee (push-oncesi-son-pin-olcumu-hazirda)
+Erisim-kipi: defter-append + touchlog — src/tests/index.json DOKUNULMADI; bekleme-rejimi
+
+
+--- SET-2-PUSH-ICRA (23:4x; Reis-yetkili) ---
+23:4x Reis-koullari-kayit: sweep-YARIN (seans-04:00-kapanim) + checkpoint-kosulu-YANLIS (bot-olumlu) -> SESSION_CHECKPOINT.md-set-disi
+23:4x STAGE-explicit-8-path (git add -A YASAK; path-liste-uzerinden) -> diff --cached denetimi
+Erisim-kipi: push-icrasi — src/tests/index.json diff=0 korundu
