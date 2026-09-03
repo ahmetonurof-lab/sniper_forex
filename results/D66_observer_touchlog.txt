@@ -186,3 +186,10 @@ Erisim-kipi: defter-append + touchlog — src/tests/index.json DOKUNULMADI; bekl
 23:4x Reis-koullari-kayit: sweep-YARIN (seans-04:00-kapanim) + checkpoint-kosulu-YANLIS (bot-olumlu) -> SESSION_CHECKPOINT.md-set-disi
 23:4x STAGE-explicit-8-path (git add -A YASAK; path-liste-uzerinden) -> diff --cached denetimi
 Erisim-kipi: push-icrasi — src/tests/index.json diff=0 korundu
+
+
+--- SET-2-PUSH-TAMAM (23:5x) ---
+23:4x COMMIT-denesme-1: end-of-file-fixer 2-dosyada-EOF-duzeltmesi (1-silme-dogrulandi; pin-rotasyon-kaydedildi)
+23:5x COMMIT 72cd154 + PUSH OK (893c1fe..72cd154; origin..HEAD=0; ls-remote==local; hooks-Passed)
+23:5x PUSH-KAYDI-4-deftere (SI 9.3) + borc-envanteri-guncel (SET-2-kapisi-GECTI)
+Erisim-kipi: push-icrasi+ledger — src/tests/index.json diff=0 korundu; checkpoint-ERTELENDI (Reis-kosulu-yok)

@@ -1810,3 +1810,20 @@ Ping-1-@22:35-hedefi-yok: **0-süreç-22:08'den-beri.** İki-ping-düşürüldü
 **Set-dışı-kalanlar (bilinçli):** `M AGENTS.md` (paralel-hat) · pre-reg `results/N2_21_owner_batch_prereg.md` (post-Set-2-hattı) · `state/` (koruma-zinciri-hash'leri-defterde) · diğer-untracked-docs · index.json.
 
 **PUSH-SONRASI-§9.3-KAYDI-YERİ:** aşağıda (post-Set-2-artifacts-hattı).
+
+## PUSH-KAYDI-4 (SI 9.3) — SET-2 (2026-09-03 23:5x)
+
+- **who:** Reis (yazili-yetki 23:4x) / Cline (icra) / Hakem: onay-bekleyen-hukum-yok (bekleme-rejiminde-set-zaten-muhurluydu)
+- **what:** SET-2 kampanya-teslimi — 8-dosya / 2555-satir / 7-yeni-dosya (create-mode) + progress.md
+- **commits:** push-seti = {0081c64 (onceden-yetkili-kalanti), 72cd154 (bu-teslim)}; remote-aralik 893c1fe..72cd154
+- **remote:** origin/main (github.com/ahmetonurof-lab/sniper_forex)
+- **verification:** origin..HEAD=0 (bosh) · ls-remote 72cd1549c660 == local 72cd154 · status "## main...origin/main" (ahead-0) · pre-commit ikinci-tur hepsi-Passed
+- **pin-rotasyonu:** checklist 4f119c5a->12b2ca96 · D72 5ca5dc5f->cba04377 (end-of-file-fixer; 1-silme-dogrulandi; commit-mesajinda)
+- **sapma-kaydi:** SESSION_CHECKPOINT.md-setten-cikti — Reis-koulu (bot-stabil) YANLIS; kompozisyon-farki-Reis-kozulundan-kayitli
+- **bu-kaydin-kendisi:** local-commit; push'u-sonraki-yazili-yetkiye-tabi (sessiz-ikinci-push-yok)
+
+## BORC-ENVANTERI-GUNCEL (push-sonrasi)
+- **REIS kalan:** 2 B1r-yayin · 3 N2#21-scope-onay (madde-8=olum-ilaci) · 4 R1/R2-iletim · 5 moratoryum (suruyor)
+- **REIS tamamlandi:** 1 SET-2-push (72cd154) — tek-kapi-GECTI
+- **CLINE:** post-push-teyit TAMAM · pre-reg-v2 (12/13) Reis-3-sonrasi · sweep-kontrolu YARIN (Reis-emri; seans-04:00-kapanim-sonrasi) · D80/D81-zinciri-kapanisi-devam
+- **HAKEM:** 3-altinci-parca (masa-acilisinda)
