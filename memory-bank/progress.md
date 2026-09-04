@@ -2087,3 +2087,25 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **Pre-reg-v1.1:** `results/N2_23_prereg_R3_R1.md`-güncellendi (amendmanlar-işlendi; ratifikasyon-durumu-bölümü-yenilendi).
 - **Charter-bloğu-Reis'te** (Hakem-§3-aynen); Reis-✓-sonrası: sentetik-test→implementasyon(≤4-dosya)→süit-yeşil→Boot-C-doğal-watch→commit→hash-bound-push-talebi {`06ff37b` + N2#23-commitleri}→push-kayıt-9→R-2+R-5→R-4→R-6.
 - **LOCAL:** unpushed-set {`06ff37b` + bu-commit} — nihai-push-Reis-yazılı-yetkisiyle. Boot-C-canlı-dokunulmadı.
+
+## PUSH-KAYDI-9 — N2#23-SET-PUSHİ (2026-09-04 ~20:15 +03)
+
+- **Yetki:** Hakem-hükmü N2#23-İCRA-RATİFİYESİ — **hash-bound {`06ff37b`, `cf1cc1a`, `3e443dd`}** (§9.5: set-büyümesi-re-auth-kuralı-uygulandı, Hakem-onayı-gate-şartlı).
+- **Gate-öncesi:** çalışma-ağacı-temiz (tracked) · `origin/main..HEAD` = yalnız-3-commit · remote-`9b4af59`-beklenen-taban · staged/unstaged-diff-yok.
+- **Push:** `9b4af59..3e443dd  main -> main` → origin: `github.com/ahmetonurof-lab/sniper_forex.git`.
+- **Post-push-teyit (§16):** `origin/main..HEAD` BOŞ ✓ · `ls-remote` == `git rev-parse HEAD` == `3e443dd830fe4b8daf73f6e83462063c9a89785e` ✓ · ağaç-temiz ✓.
+- **Set-içeriği:** `06ff37b` (D89-defter) · `cf1cc1a` (D94-pre-reg-ratifiye) · `3e443dd` (**N2#23-icra**: R-3-live-SIGNAL-emit + R-1-CBDR-STATE-emit + e2e-fake-contract-fix; 7-dosya: 4-src + 3-test — 5.-dosya-e2e-charter-deklarasyonlu).
+- **Validation-özeti:** ilk-tam-koşum **594P/1S/9F/0-crash** — 9-F-tamamı-pre-existing-diferansiyel-kanıtlı (D90'da-üçlü-sınıflandırma).
+- **Bu-kayıt-kendisi:** local-commit — **sonraki-push-setine-ertelendi** (Hakem-deseni).
+
+## D90 — SUITE-İCRA-KABUL + 9-F-ÜÇLÜ-SINIFLANDIRMA + SUIT-OKUMA-KURALI (Hakem-hükmü; 2026-09-04 20:1x +03)
+
+- **SUITE-İCRA-KABUL:** ilk-tam-koşum 594P/1S/9F/0-crash; born-red-e2e-fixi-tam-süitte-doğrulandı (run7/8/9-%11-sıfır-F). RED-YOK. **Waiver-listesi-güncellemesi: e2e-2-üye-KAPANIR** (D57-üçlüsünden-çıkış); kalan-9-F-pre-existing-olarak-ayrıştırıldı.
+- **9-F-üçlü-sınıflandırma (her-biri-ayrı-rotada):**
+  1. **tas4×8 = ÇEVRE-İHTİLAFI** — canlı-Boot-C-lock (`Already running (PID 18460)`-kanıtı). **Kod-debt-değil, test-env-telemetrisi.** Çözüm: süit-öncesi-canlı-stop (Reis-runbook) VEYA izole-SNIPER_STATE_DIR. **tas4-lock-path-hardening → N2#21-kuyruğu.** Runbook-satırı: test-süit-uyumlu-saat-penceresi (D70-launch-dersi-karşılığı).
+  2. **d49-C3×1 = EXACTLY-ONCE-FLAKE** — 4×COLD_REBUILD_OK/beklenen-1; run2-PASS/run9-FAIL (flaky); stash-diferansiyeli-FAILED → pre-existing. **N2#21-kuyruğuna: emit-exactly-once-auditi.** Şimdilik: waiver-dışı-izleme-borcu — üreten-koşum-aralığı-notlanır, kalıcı-izleme.
+  3. **native 0xc0000374 = non-det** — 2→4-görünüm (run1,6,7,8); run9-crashsiz; salt-import-5/5-temiz. Şüphe: canlı-MT5+full-suite-eşzamanlılığı. **D82-dosyası-güncellenir: izleme-sürer, pin-açma-yok, iki-bağımsız-oturum-izinde-değil.**
+- **YENİ-SÜİT-OKUMA-KURALI (deftere):** *"Süit-çıkışı üç-katmanlı-okunur: (i) kod-hataları (fix), (ii) çevre-ihtilafı (runbook/izole-state), (iii) native-dış-çevre (D82) — hepsi-ayrı-rotada; tek-sayıda-birleştirme-yasak."*
+- **N2#21-kuyruğuna-eklenen-borçlar:** tas4-lock-path-hardening · emit-exactly-once-audit · **LiveRunner-falsy-guard** (`audit or AuditChain()`) · D82-izleme-(kuyruk-dışı, gözlem).
+- **T0#10-RESTART-GATE = REİS-KARARI:** iki-canlı-süreci (PID 5580-venv + 18460-base, ~11:12-boot, **eski-kod**) → R-3+R-1-canlı-emissyonlar-restart-olmadan-görünemez. Hakem-önerisi **(A) restart-şimdi** (D86-protokolü; (A)-alınırsa-yeni-boot-log-alanı-örn. t10d- + safe-reason-kayıtları-BULGU-13-devamı) / (B) ertele. Çift-süreç-ihtilafı-taarrüz-riski-notlu.
+- **LOCAL:** bu-defter-commiti-unpushed — sonraki-hash-bound-sete-biner.
