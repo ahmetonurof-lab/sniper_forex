@@ -1984,3 +1984,16 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **Menşei:** Reis'in-"sweep-olanı-koştur"-emri (D85) usulleşti; D85-icrası-protokolün-ilgili-tam-örneği (coruma-10-nesil → ATTACH_FAIL→κ-taskkill → env-override → t10c_reis_notice.txt → satır-21-match-mührü → D85_live_symbol_swap.md).
 - **İlk-uygulama-kararı:** Boot-C-akıbeti=**ÇALIŞMAYA-DEVAM** (Hakem-§4.2): sweep'li-AUDUSD-üzerinde-SINIF-2-izleme (bias-end-state-kararlılığı, funnel-olaylar, WB=0-sürekliliği); motivasyon: canlı-bias'lı-instance-kaç-pencere-yaşar → FAZ-B-önem-ölçümü. Akıbet-kararı-ertesi-pencerede-Reis'te.
 - **FAZ-B/N2-#20-bağlantısı:** BOOT-C-deseni ("her-sembol-bir-boot") + D86-sıralı-swap → 6-parite-canlı-ATLAS yolu; 3/6-sembol-bias'lı-gün (2026-09-04-scan) = 5.6×-çarpanın-ilk-kenar-örneği.
+
+## D87 — N2#21-ZAMAN-KESMESİ + N2#22-FAZ-A=ÖNCELİK-1 + HANDOFF-PAKETİ (Hakem-hükmü-icrası)
+
+**Hakem-hükmü:** *"N2 #22-FAZ-A'yı ÖNE AL (yeni-ajana-ver); N2 #21-kalan-maddeleri ERTELE"* — gerekçeler: (a) motor-hazır (madde-8-düzeltmesi-`d36856f`-canlı; T0#10-devralma-kanıtlı; D86-usul), (b) Reis-FAZ-B'ye-döndü, (c) Boot-C-canlı-veri-topluyor → N2#22-çıktısı-birleşir, (d) Cline-yorgunluk-reali.
+
+**N2#21-ERTELENEN-DÖRT-KALEM (deftere-işlendi; Boot-C-akıbet-kararıyla-birlikte-açılır):** ① kalan-maddeler-4/2/5/6 (4=telemetri+RM-probe-en-yüksek-gain) · ② kalan-6-dosya-full-suite · ③ D82-izleme-borcu (aynen-yaşar) · ④ 12/13-D72-tamamlama-onayı (Reis'te-bekler).
+
+**HANDOFF-PAKETİ (tüm-bağlam-tek-dosya; Reis-elinden-yeni-ajana):**
+- **A-paketi:** `results/N2_22_fazA_handoff.md` = **80-satır / 10,170-B / sha256-ön-eki `cc9647bdf274e99a0a3a`** — kapsam (frozen-2.7Y/6-major-V0..V5 + downstream-sütunlar) · kod-çapaları (dataset-pin, BREAKOUT-aday-tanımı-N2#19-frozen-üçlüsü, AM-N22-1..4-etiketleri) · sınırlar (S-a..S-e + SINIF-1-etiketi + Faz-3-wire-in-YASAK) · bootstrap-protokolü + checkpoint-mini-delta + erteleme-tablosu.
+- **B-paketi:** `results/n2_22_fazA_dataset_pin.md` = **61-satır / 4,837-B / sha256-ön-eki `b4b00f1b8d26e284054b`** — 24-artifact-tam-hash + ölçülen-span + doğrulama-protokolü + WinError-yok-beyanı.
+- **⚠ PIN-PENDING-İFYASI (§13.5):** "V0..V5"-etiketlerinin-bağlı-tanımı repo-defterinde-BULUNAMADI (grep-0-isabet: memory-bank/+results/); Hakem-hükmü-etiketleri-handoff'a-aynen-alındı, **işletme-tanımları-pre-reg'de-pinlineşir; belirsizlikte-koşum-öncesi-Hakem-arbitrajı**. Downstream-sütun-listesi = Reis-amendmanı-iletimi-bekler.
+- **Dataset-ölçüm-canlı-kanıtı (2026-09-04):** manifest-protokolü-koşuldu → 24/24-tam-hash-diff'i-BOŞ ✓; 15m-span-ölçüldü (6-sembol-birebir: 2024-01-01 22:01:00 → 2026-08-21 20:45:00; kolonlar timestamp/o/h/l/c/v).
+- **Commit:** bu-girdi + iki-handoff-dosyası tek-commit — **LOCAL-ONLY** (push-yazılı-yetkiye-tabi; SET-2-sıra-modeli).
