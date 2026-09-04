@@ -1897,6 +1897,7 @@ Ping-1-@22:35-hedefi-yok: **0-süreç-22:08'den-beri.** İki-ping-düşürüldü
 | 6 | A8-fallback-olayı-görünürse: stdout-kanal | SINIF-2 |
 | 7 | crash_log.txt: floor-ateşi-görünürse diagnostik | BULGU-14-üç-yol-floor |
 | 8 | t10_boot_stdout.log: en-güncel-adla-okunur (rider-uyumu) | okuma-disiplini |
+| 9 | Sonraki-stop: **foreground-PowerShell-lansmanından** (konsol-var → gerçek-SIGINT → SHUTDOWN-audit-satırı-yazılır + D78-exit-degradasyon-ölçülür; D70-kesfinin-kapanış-adımı) | planlı-adım (Hakem-D85-ratifiye-§4.3) |
 
 **SIRA-BEYANI:** T0#10-canlı-icra-KARARI-Reis'te (canlı-katman-Reis-bildirimli); Cline-masa-hazır — "BAŞLA" bildirimi-üzerine-boot-A-adımı-Reis-ile-beraber (coruma-sırası-yukarıda-pinned).
 
@@ -1975,3 +1976,11 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **Validation-mirası:** tüm-commitler-hook-Passed (057da7a: Passed×10; 7a9e7a4/460640d-kendi-zamanında).
 - **Sıra-modeli:** SET-2-aynen — bu-kayıt-AYRI-local-commit (onun-push'u-sonraki-sette-yazılı-yetkiyle).
 - **Canlı-katman:** push-sırasında-Boot-C (PID-18460, AUDUSD) canlı + heartbeat-döngüsünde — runtime-dosyalarına-git-dokunmadı (state/-gitignore-hattı).
+
+## D86 — CANLI-SEMBOL-SWAP-PROTOKOLÜ (Hakem-ratifiye; bundan-böyle-yazılı-usul)
+
+> **D86:** *"Sembol-değişimi-boot-intervanyonu-dur: (1) coruma-N+1 · (2) mevcut-stop (graceful-dene / konsol-yok→taskkill, κ-etiketi) · (3) `SNIPER_SYMBOLS` env-override (`.env`-dokunulmaz) · (4) Reis-bildirimi · (5) S9-replay-bias-end-state ↔ SINIF-1-tahmin karşılaştırma-ZORUNLU (uyum=match-mühürü, ayrışma=parity-bulgusu; ikisi-de-kanıt) · (6) sınıf-etiketli-rapor."*
+
+- **Menşei:** Reis'in-"sweep-olanı-koştur"-emri (D85) usulleşti; D85-icrası-protokolün-ilgili-tam-örneği (coruma-10-nesil → ATTACH_FAIL→κ-taskkill → env-override → t10c_reis_notice.txt → satır-21-match-mührü → D85_live_symbol_swap.md).
+- **İlk-uygulama-kararı:** Boot-C-akıbeti=**ÇALIŞMAYA-DEVAM** (Hakem-§4.2): sweep'li-AUDUSD-üzerinde-SINIF-2-izleme (bias-end-state-kararlılığı, funnel-olaylar, WB=0-sürekliliği); motivasyon: canlı-bias'lı-instance-kaç-pencere-yaşar → FAZ-B-önem-ölçümü. Akıbet-kararı-ertesi-pencerede-Reis'te.
+- **FAZ-B/N2-#20-bağlantısı:** BOOT-C-deseni ("her-sembol-bir-boot") + D86-sıralı-swap → 6-parite-canlı-ATLAS yolu; 3/6-sembol-bias'lı-gün (2026-09-04-scan) = 5.6×-çarpanın-ilk-kenar-örneği.
