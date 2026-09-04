@@ -43,7 +43,21 @@ SCENARIO: dict = {
     167: (1.10300, 1.10310, 1.10180, 1.10200),  # fill bar (open = entry)
 }
 
-EXPECTED_KEYS = {"symbol", "side", "entry", "sl", "tp", "reason", "ts", "fvg_id"}
+# N2 #23-b AM-N23-3: kapalı-set 8 → 12 alan (fvg-ölçüleri id-yanda)
+EXPECTED_KEYS = {
+    "symbol",
+    "side",
+    "entry",
+    "sl",
+    "tp",
+    "reason",
+    "ts",
+    "fvg_id",
+    "fvg_top",
+    "fvg_bottom",
+    "fvg_size_pip",
+    "direction",
+}
 
 
 def _base_bar(k: int) -> Bar:
@@ -132,6 +146,13 @@ def test_signal_payload_schema_pins_prereg_contract():
     # fvg_id (Hakem AM-v1.1): trace-bağlanabilirliği — sembol + zone kimliği
     assert payload["fvg_id"] == f"{sig.symbol}:zone{sig.zone_index}"
     assert str(EXPECTED_ZONE_INDEX) in payload["fvg_id"]
+    # AM-N23-3: fvg-ölçüleri gerçek Signal alanlarının birebir yansıması;
+    # senaryo-geometrisinden kalibre: zone_top=l(164)=1.10515,
+    # zone_bottom=h(166)=1.10475 → boyut 0.0004 = 4.0 pip (0.0001/tooltip)
+    assert payload["fvg_top"] == sig.zone_top == pytest.approx(1.10515)
+    assert payload["fvg_bottom"] == sig.zone_bottom == pytest.approx(1.10475)
+    assert payload["fvg_size_pip"] == pytest.approx(4.0)
+    assert payload["direction"] == sig.direction == "bearish"
 
 
 def test_signal_payload_json_serializable_roundtrip():

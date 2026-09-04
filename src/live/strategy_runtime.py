@@ -84,7 +84,9 @@ def signal_audit_payload(sig: Signal) -> Dict[str, Any]:
     """N2 #23 R-3: SIGNAL audit payload builder (schema test ile sabit).
 
     Şema (pre-reg ``results/N2_23_prereg_R3_R1.md`` v1.1 + Hakem AM-v1.1
-    FVG-id): ``symbol/side/entry/sl/tp/reason/ts + fvg_id`` — KAPALI set.
+    FVG-id; N2 #23-b AM-N23-3 genişlemesi): ``symbol/side/entry/sl/tp/
+    reason/ts + fvg_id + fvg_top/fvg_bottom/fvg_size_pip/direction`` —
+    KAPALI set (12 alan; fvg_id trace-bağı korunur, ölçüler id-yanda).
 
     Pure: I/O yok, audit-bağımlılığı yok. Emit noktası (LiveRunner.on_bar,
     runtime-signal-dönüşünün canlı tüketim noktası) adım-2'de bu builder'ı
@@ -99,7 +101,22 @@ def signal_audit_payload(sig: Signal) -> Dict[str, Any]:
         "reason": "cbdr_sweep_fvg_fill",
         "ts": sig.timestamp.isoformat(),
         "fvg_id": f"{sig.symbol}:zone{sig.zone_index}",
+        # N2 #23-b AM-N23-3: insan-okunur fvg-ölçüleri (id-yanda; trace-bağı
+        # korunur). fvg_size_pip: sembol-pip-boyutuna normalize ölçü.
+        "fvg_top": sig.zone_top,
+        "fvg_bottom": sig.zone_bottom,
+        "fvg_size_pip": sig.zone_size / _pip_size(sig.symbol),
+        "direction": sig.direction,
     }
+
+
+def _pip_size(symbol: str) -> float:
+    """Pip-boyutu (N2 #23-b AM-N23-3): JPY-quote çifti 0.01, aksi 0.0001.
+
+    Pure yardımcı: majörler + sentetik-test sembolleri. JPY olmayan her
+    sembol (``TEST`` dahil) standart 0.0001 pip alır.
+    """
+    return 0.01 if symbol.upper().endswith("JPY") else 0.0001
 
 
 def _to_nexus_bar(bar: Bar) -> NexusBar:
@@ -240,6 +257,43 @@ class StrategyRuntime:
             )
         except Exception:
             _LOG.warning("N2 #23 R-1: CBDR STATE emit failed", exc_info=True)
+
+    def _emit_fvg_armed(self, fvg, i: int) -> None:
+        """N2 #23-b: STATE emit at the FVG arm moment (pending entry created).
+
+        R-1 deseninin ikinci momenti: sweep-onay-STATE'i ile SIGNAL arasında
+        motor arm-fazındayken SESSİZ kalıyordu (t10d-boot canlı-gözlemi:
+        boot-sonrası 0 STATE). Arm anında tek STATE satırı yazılır.
+        Observation layer ONLY: session.py body untouched; strategy flow
+        unaffected (emit failures are logged, never raised). Payload
+        AM-N23-3 dilini kullanır (fvg-ölçüleri + direction + bar_ts).
+        Ts-disiplini AM-N23-2: satır-ts=emit-anı (audit epoch), bar_ts=
+        içerik-momenti (touch bar) — ikili ayrık-by-design.
+        """
+        if self.audit is None or self.last_sweep is None:
+            return
+        try:
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self.symbol,
+                {
+                    "moment": "fvg_armed",
+                    "fvg_top": float(fvg.top),
+                    "fvg_bottom": float(fvg.bottom),
+                    "fvg_size_pip": float(fvg.size) / _pip_size(self.symbol),
+                    "direction": fvg.direction,
+                    "sweep_bar_index": int(self.last_sweep.bar_index),
+                    "sweep_price": float(self.last_sweep.sweep_price),
+                    "touch_bar_index": int(i),
+                    "entry_bar_index": int(i + 1),
+                    "sl_pre": float(self.pending_entry["sl"]) if self.pending_entry else None,
+                    "bar_ts": self.bars[i].timestamp.isoformat(),
+                    "bar_index": int(i),
+                },
+            )
+        except Exception:
+            _LOG.warning("N2 #23-b: fvg_armed STATE emit failed", exc_info=True)
 
     # -- Warmup -----------------------------------------------------------
     def warmup(self, bars_15m: List[Bar]) -> None:
@@ -489,6 +543,10 @@ class StrategyRuntime:
             "fh": fh,
             "direction": fvg.direction,
         }
+        # N2 #23-b: FVG-arm anı emit — sweep-onay-STATE'i ile SIGNAL
+        # arasındaki sessizlik-delik kapanır (pre-reg: observation-layer,
+        # akış-değişmez; emit fail=logged never raised).
+        self._emit_fvg_armed(fvg, i)
 
     def _fill_pending(self, bar: Bar) -> bool:
         """Fill pending entry at `bar.open`; create active_trade + Signal.

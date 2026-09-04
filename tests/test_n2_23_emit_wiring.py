@@ -14,6 +14,7 @@ Sentetik senaryo geometrisi test_n2_23_emit_schema ile aynıdır (gerçek kod
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from src.live.audit import AuditChain, EventType
 from src.live.execution import Execution
@@ -24,7 +25,21 @@ from src.strategy.models import Bar
 
 T0 = pd.Timestamp("2026-01-02 19:00:00")  # Cuma 19:00 UTC — CBDR pencere-başı
 WARM = 160
-EXPECTED_KEYS = {"symbol", "side", "entry", "sl", "tp", "reason", "ts", "fvg_id"}
+# N2 #23-b AM-N23-3: kapalı-set 8 → 12 alan (şema-testiyle AYNI sözleşme)
+EXPECTED_KEYS = {
+    "symbol",
+    "side",
+    "entry",
+    "sl",
+    "tp",
+    "reason",
+    "ts",
+    "fvg_id",
+    "fvg_top",
+    "fvg_bottom",
+    "fvg_size_pip",
+    "direction",
+}
 
 # k -> (open, high, low, close) — schema testiyle AYNI geometri
 SCENARIO: dict = {
@@ -176,6 +191,11 @@ def test_r3_live_runner_emits_signal_before_risk_chain():
     assert payload["side"] == "short"
     assert payload["symbol"] == "TEST"
     assert payload["fvg_id"] == "TEST:zone165"
+    # N2 #23-b AM-N23-3: fvg-ölçüleri canlı-zincirde (LiveRunner emitında) da taşınır
+    assert payload["fvg_top"] == pytest.approx(1.10515)
+    assert payload["fvg_bottom"] == pytest.approx(1.10475)
+    assert payload["fvg_size_pip"] == pytest.approx(4.0)
+    assert payload["direction"] == "bearish"
     # zincir-şekli: SIGNAL, RISK'ten ÖNCE (risk-geçidi görünürlüğü)
     idx_signal = chain.events.index(signal_evts[0])
     risk_evts = [e for e in chain.events if e.event_type == EventType.RISK]
