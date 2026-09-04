@@ -2059,3 +2059,21 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **Kural:** arşive-yeni-giriş = SHA256SUMS-satırı-eklenmesiyle (mühür-zinciri-kopmaz); README `archive/README.md`.
 - **Git-realiite-notu (kabul-beyanı):** `logs/adli/`-kanıtı `logs/`-ignore-gölgesinde → remote-yedek-DIŞI; Bulgu-6a-hükmü "KANIT-aynen-durur" yer-karı-budur.
 - **FAZ-3-kalanı:** N2#23 (R-3+R-1 temiz-log-inşası) + log-bütçeleri — ayrı-charter. **LOCAL** (set-yukarıda).
+
+## PUSH-KAYDI-8 (§9.3) — D89-kampanyası-teslimi (2026-09-04 15:2x +03)
+
+**Yetki:** Hakem-hükmü — "PUSH ONAY: {`f2fc17b`, `4faa3b4`, `9b4af59`} — hash-bound-gate (origin..HEAD=yalnız-3)" (Reis-eli-tek-blok).
+**Hash-seti (§9.5, 3-commit):** `f2fc17b1db069e100b5ccb84b535a75ac930b986` (Reis-D90-defteri; PUSH7-birleşik-içerik) · `4faa3b4697c6c08066d4806d9e6755df2dbf6f19` (D91-FAZ-2-karantina; 22-dosya) · `9b4af59ec518343db4659da62d7cfa4511c105f7` (D91+D92-defter + arşiv-mühür-defteri).
+**Pre-gate:** origin..HEAD = tam-3-birebir · `f2fc17b.parent` == origin/main `87b74dc` (temiz-ff) · tracked-çalışma-ağacı-temiz.
+**Push:** 2026-09-04 15:2x +03 · origin/main (github.com/ahmetonurof-lab/sniper_forex) · `87b74dc..9b4af59`.
+**Post-teyit (dört-dörtlük):** origin..HEAD=0 (BOŞ) · ls-remote main == local-HEAD == `9b4af59ec518343db4659da62d7cfa4511c105f7` · tracked-temiz · untracked-dokunulmadı. *Not: hüküm-metnindeki "ls-remote==f2fc17b" ibaresi set-sıra-beyanıdır; setin-tepe-commiti `9b4af59` remote'a-vardı — zincir-bütünlüğü-aynıdır.*
+**Canlı-katman:** Boot-C (PID-18460, AUDUSD) push-boyunca-canlı — state/-dokunuş-yok.
+**Bu-kaydın-kendisi:** AYRI-local-commit (üçüncü-tur; push-kayıt-kuralı-kendini-işletiyor) — push'u-sonraki-yazılı-yetkiye-tabi.
+
+## D89-KAPANIŞ — TEMİZ-ZEMİN-İLANI (2026-09-04; Hakem-hükmü-deftere-birebir)
+
+> **D89-KAPANIŞ (2026-09-04):** Repo-hijyen-kampanyası-tamam — konsey-kalıntısı-worktree-protokollü-remove (diferansiyel-SIFIR), üç-kök-artığı-silinmiş, stub-arşivi-imzalı-arşive-girdi, kanıt-adli-bölmeye-tevkil-edildi, cache-hijyeni-ignored, `logs/adli/`+`archive/`-yapısı-Reis-onaylı-kuruldu. **"Temiz-sayfa" fiziksel-olarak-açıldı.**
+> **Ders-satırı:** *"Hijyen-işlemlerinin-de-kanıt-bütçesi-vardır: silinen-dosya-imzalı, taşınan-dosya-hash'li, korunan-dosya-bahaneli."*
+- **N2#23-BAŞLANGICI-SERBEST:** temiz-zeminde-R-3+R-1 (canlı-SIGNAL-emiti + CBDR-özet) — **pre-reg-Reis-onayıyla-icra**; taslak: `results/N2_23_prereg_R3_R1.md`.
+- **Kalan-maddeler 4→2→5→6** (N2#21) — temiz-zemin-sonrası-sıradaki-iş-bloğu.
+- **Kapı-zinciri:** N2#23-pre-reg-ratifikasyonu (Reis+Hakem) → icra → Boot-C-canlı-izleme-sürüyor (ilk-RISK-emiti-watch) ∥ Reis-borçları: R1/R2-iletim · 12/13-D72-onay · Boot-C-akıbet-kararı.
