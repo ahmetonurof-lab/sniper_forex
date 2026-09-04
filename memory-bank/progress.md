@@ -1786,6 +1786,19 @@ Ping-1-@22:35-hedefi-yok: **0-süreç-22:08'den-beri.** İki-ping-düşürüldü
 
 **REİS-bekler (Cline-takibinde):** ① SET-2-hash-bound-onayı → commit+push → origin..HEAD-boş-teyidi (tek-kapı; bileşim-mühürlü — push-anında-progress.md-taze-pin-için-son-ölçüm) ② B1′-iki-bülten-tek-yayın ③ N2#21-scope-onayı (13-madde; 8→1→4; 12/13-D72-embed'den) ④ R1/R2-düz-yazı-iletimi ⑤ boot-moratoryumu (N2#21-execution'a-dek; owner).
 **CLINE-bekler (tetik-bekleyen):** post-push-teyit · pre-reg-v2 (12/13-tamamlı) + execution-plan · D80/D81-çağrı-zinciri-kapanışı · tetik-saati (mini-set-2-onayına-bağlandı).
+
+## D90 — HAKEM-İKİ-ACTİF-İKİ-ASKIDA-KABULÜ + BOOT-C-SINIF-2-İZLEME-DEVAM + DESTEK-MODU (2026-09-04)
+
+**Hakem-cevabı-deftere-alındı:** AKTİF-1 Boot-C-SINIF-2-izleme (devam) · AKTİF-2 handoff-sonrası-destek (yeni-ajan-ilk-72h) · ASKIDA-1 push-kaydı-6 + D86/D87 {`173be24`, `100160d`, `7874470`} hash-bound-yazılı-yetki-bekliyor · ASKIDA-2 D82-izleme-borcu-Cline'da-kalır. *"izleme-devam, destek-modunda-bekle"* — hüküm-gerektirmediği-için-deftere-kendim-girdi.
+
+- **AKTİF-1-sağlık-snapshot (14:53–14:55 local, copy-then-read):** PID-**18460-CANLI** (python, start 11:12:57, CPU 11.7s) · audit.jsonl = **23-sabit** (yeni-satır-YOK; snapshot `state/D82_preserve/audit_copy_20260904.jsonl` — untracked, D77/D85_preserve-precedenti) · **WB=0** ✓ · heartbeat-lock-mtime-yaş **6.1s** (<15s-periyot, canlı) · bias=**BEARISH-kararlı** (son-REPLAY-11:13; sonrası-olay-yok).
+- **FAZ-B-pencere-sayacı (tanım-pin; hakem-düzeltmeye-açık):** pencere = 15m-grid-sınırı-checkpoint (ince) + CBDR-gün-penceresi (kaba) — ikisi-tutulur. Sayaç-sıfır-noktası = Boot-C-lansmanı 11:12:57. Bu-girdi-itibarıyla: 15m-sınır ≈ **14-geçti** (11:15→14:45; per-window-bias-attestasyonu-yalnız-gözlenen-checkpoint'lerde: 11:13-D85-replay-BEARISH → 14:53-bu-girdi alive+audit-23+WB=0; ara-dönem-dolaylı-kanıt = süreç-alive + audit-sabit) · CBDR-pencere = **1** (session_key=2026-09-04-replay'de-kuruldu; sonraki-sınır 19:00-UTC/22:00-local). **Akıbet-kararı-Reis'te** — sayaç-sadece-ölçüm, karar-üretmez.
+- **Sapma-protokolü-AKTİF:** her-yeni-audit-satırı-olayı (SIGNAL/FUNNEL/ERROR/WB) → copy-then-read-deftere; **WB≠0-görülürse-etiketlenir** (H1/H2-yeniden-kasıt-kanıtı-adayı; D82-izleme-sınırıyla-aynı-disiplin). Şu-ana-tetik-YOK.
+- **AKTİF-2-destek-modu-AÇIK:** yeni-ajan-STOP-çağırırsa (24/24-hash-uyuşmazlık · pre-reg-belirsizlik · koşum-hatası) → **tek-döngü-yükümlülük**: cevap *"paket-bu-bilgiyi-içeriyor-mu/içer-miyordu"* formatında-kısa; içeriyorsa-o-oku-yeniden; içermiyorsa-handoff-paketine-append (yeni-ajan-tahmin-etmez-kuralı-aynen). **Sınır:** N2 #22-sorusuna-kendim-cevap-üretme-YOK (bilgi-üretimi-yeni-ajanda; arbitraj-hakemde). Şu-ana-STOP-çağrısı-YOK.
+- **ASKIDA-1-git-realiite (14:54):** unpushed-set **5-commit'e-büyüdü**: {`173be24`, `100160d`, `7874470`} + `b59f2c2` (D88) + `87b74dc` (D89 = HEAD); origin/main = `057da7a`. §9.5: set-büyümesi = push-zamanı-tam-sonuç-set-yeniden-teyidi-gerektirir. Dokunulmadı — Reis-tetikler.
+- **ASKIDA-2-kayıt:** D82-borcu-devir-şerhi: tekil-native-crash = D82-aday-etiketi; iki-oturum-aynı-iz = pin-açılır; **borç-yeni-ajana-GEÇMEDİ** (suite-yürüyen-tek-bilgi-Cline'da). Bu-oturumda-native-crash-gözlemi-YOK → yeni-aday-yok.
+- **Preflight (§10.1):** tasklist-python = {5580-venv-launcher, 18460-Boot-C} — watcher-YOK; index.json-dokunulmadı (kod-değişikliği-yok → index-yeniden-üretim-gereksiz).
+- **Commit:** bu-girdi tek-commit (ledger-only; rapor-dosyası-yok) — **LOCAL-ONLY** (push-yazılı-yetkiye-tabi; bekleyen-set yukarıda-5-commit).
 **HAKEM-bekler:** ③-altıncı-parça (③-zaman-semantic-değerlendirmesi; beşi-D72-embed'de) · R1/R2-iletimi-Reis'te.
 
 ## HAKEM-HÜKMÜ — BEKLEME-REJİMİ (23:35) — masa-yeni-hüküm-üretimini-duraklattı
@@ -2020,3 +2033,13 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **FAZ-2-öneri-ekleri:** `.gitignore`+`.mypy_cache/` ve `.pytest_cache/` (36-MB-cache + untracked-cache); arşiv-hedefleri `archive/logs_20260904/{pytest,fix_stub_package}/` + `archive/results_20260904/`.
 - **Boot-C-dokunulmaz:** PID-18460-alive, audit=23-sabit — envanter-boyunca-runtime-dokunuşu-YOK.
 - **Commit:** bu-girdi + envanter-raporu tek-commit — **LOCAL-ONLY** (push-yazılı-yetkiye-tabi; bekleyen-set {`173be24`, `100160d`, `7874470`, `b59f2c2`} + bu-commit).
+
+## PUSH-KAYDI-7 (§9.3) — FAZ-0-borç-mührü (2026-09-04 15:0x +03)
+
+**Yetki:** Hakem-hükümü 2026-09-04 — BLOK-A: "FAZ-0 PUSH ONAY: {`173be24`, `100160d`, `7874470`, `b59f2c2`, `87b74dc`} — hash-bound-gate: origin/main..HEAD = yalnız-5" (§9.5-birebir; Reis-eli-tek-blok-onayı).
+**Hash-seti (§9.5, 5-commit):** `173be24c2e0b0d77df55798dc2b32060363a0feb` (push-kaydı-6 {057da7a}; KAÇINILMAZ-ATA) · `100160dbcabc3532b80d56f8c446930a07e441a7` (D86-canlı-swap-protokolü) · `78744707a010ee69154c73e40c73c6e182d006d5` (D87-N2#21/22+handoff) · `b59f2c2a01b6e7a12adc351ab0b84f0483f422b1` (D88-LOG-census) · `87b74dcb534cffd9444eb7dab549f16896b7a00b` (D89-FAZ-1-envanter+worktree-protokolü).
+**Pre-gate:** origin/main..HEAD = tam-5-birebir (log-dörtlü-beyan) · `173be24.parent` == origin/main `057da7a` (temiz-ff) · tracked-çalışma-ağacı-temiz.
+**Push:** 2026-09-04 15:0x +03 · origin/main (github.com/ahmetonurof-lab/sniper_forex) · `057da7a..87b74dc`.
+**Post-teyit (dört-dörtlük):** origin..HEAD=0 (BOŞ) · ls-remote main == `87b74dcb534cffd9444eb7dab549f16896b7a00b` == local-HEAD · tracked-çalışma-ağacı-temiz · untracked-kit-dokunulmadı.
+**Canlı-katman:** Boot-C (PID-18460, AUDUSD) push-boyunca canlı — state/ audit-dokunulmadı.
+**Bu-kaydın-kendisi:** AYRI-local-commit (SET-sıra-modeli) — push'u-sonraki-yazılı-yetkiye-tabi (sessiz-ikinci-push-yok).
