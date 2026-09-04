@@ -2043,3 +2043,19 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 **Post-teyit (dört-dörtlük):** origin..HEAD=0 (BOŞ) · ls-remote main == `87b74dcb534cffd9444eb7dab549f16896b7a00b` == local-HEAD · tracked-çalışma-ağacı-temiz · untracked-kit-dokunulmadı.
 **Canlı-katman:** Boot-C (PID-18460, AUDUSD) push-boyunca canlı — state/ audit-dokunulmadı.
 **Bu-kaydın-kendisi:** AYRI-local-commit (SET-sıra-modeli) — push'u-sonraki-yazılı-yetkiye-tabi (sessiz-ikinci-push-yok).
+
+## D91 — FAZ-2-KARANTİNA-İCRASI (Hakem-BLOK-B-birebir; tek-commit; 2026-09-04 15:0x +03)
+
+- **Commit `4faa3b4`:** git-rm root `test_causality_extended.py` (`409fc17`-eski-variant; scripts/`2bff15b`-kanonik) + `.gitignore`+`.mypy_cache/`+`.pytest_cache/` + arşiv-taşımaları (stub-paketi→`archive/logs_20260904/fix_stub_package`, results-eski-artefaktlar→`archive/results_20260904/`) + manifest `results/D91_karantina_manifest.md` — **22-dosya / +86,611 / −223**, hooks-Passed.
+- **Commit-dışı-silme:** `nul` (MSYS-rm ✓), `%EXPERTS_DIR%/` (mq5-ikiz-kanıtla ✓), `-p/` (boş ✓); `pytest_*.log×6`→`archive/logs_20260904/pytest/` (ignored-kalıyor).
+- **DOKUNULMADI:** `logs/benchmark` C-v1.1-kanıtı (Bulgu-6a; BLOK-C'ye-kanıt-bölmesine-tevkil) + `.vscode/`+`data/`+`docs/`-kitlesi + Boot-C-PID-18460 (audit=23).
+- **Sapma-kayıtları (§12.1):** (1) **Eşzamanlı-yazıcı:** Reis-commit `f2fc17b` (D90, 15:03:57) benim-PUSH-KAYDI-7-eklememin-stagelanmasıyla-aynı-anda-düştü → PUSH7-ayrı-commit-gereksizleşti (içerik-`f2fc17b`-içinde-TAM; çift-commit-yok). (2) **İlk-D91-commit-aborte** (§10.3-normal): kancalar-stub'ları+manifesti-"Fixing"-ile-değiştirdi → fixed-bloblar-re-staged → 2.-denemede-Passed (mühür-hash'leri-D92'de). (3) **D90-başlığı-1790-satırında** (D88/D89-öncesi) — Reis-yerleşimi; gözlem-olarak-kayıtlı, dokunulmadı.
+- **LOCAL:** unpushed-set {`f2fc17b` (Reis-D90+PUSH7), `4faa3b4` (D91)} — nihai-push-Reis-yazılı-yetkisiyle.
+
+## D92 — FAZ-3-İLK-ADIM: ARŞİV-MÜHÜR-DEFTERİ (Hakem-BLOK-C; 2026-09-04 15:1x +03)
+
+- **Yapı:** `archive/{logs,results}_20260904/` (tracked; `SHA256SUMS`-mühürlü) + `logs/adli/` (kanıt-bölmesi) + `logs/runtime/` (soak-yapı-iskeleti). Kanıt-tevkili: `logs/benchmark/bench_bfix_rerun_34232a1.out`→`logs/adli/` (sha256 `de4c621fd4528692` — **taşındı-içerik-değişmedi**).
+- **Mühür:** `archive/SHA256SUMS` = tüm-arşiv-dosyaları-manifesti (`sha256sum -c archive/SHA256SUMS`-doğrulanabilir); örnekler: pytest_full.log `fb0b947fc94ac01c` · abfix_eq_trades.json `e85311c9c5975088` · expA_concurrent_cap_trades.json `b0c462125896b9ee`.
+- **Kural:** arşive-yeni-giriş = SHA256SUMS-satırı-eklenmesiyle (mühür-zinciri-kopmaz); README `archive/README.md`.
+- **Git-realiite-notu (kabul-beyanı):** `logs/adli/`-kanıtı `logs/`-ignore-gölgesinde → remote-yedek-DIŞI; Bulgu-6a-hükmü "KANIT-aynen-durur" yer-karı-budur.
+- **FAZ-3-kalanı:** N2#23 (R-3+R-1 temiz-log-inşası) + log-bütçeleri — ayrı-charter. **LOCAL** (set-yukarıda).
