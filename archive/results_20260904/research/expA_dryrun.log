@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\Users\Administrator\Desktop\sniper_forex\experiment\exp_maxdd_A_concurrent_cap.py", line 37, in <module>
+    from experiment.main_research_c_v1_0 import (  # noqa: E402
+ModuleNotFoundError: No module named 'experiment'

@@ -1,0 +1,42 @@
+{
+  "baseline": {
+    "trades": 2302,
+    "wins": 1597,
+    "losses": 705,
+    "open": 0,
+    "win_rate": 69.37445699391833,
+    "total_pnl": 2874.9976,
+    "avg_r": 1.2489,
+    "max_dd": 8.0,
+    "max_dd_pct": 2.73,
+    "profit_factor": 5.08,
+    "trailing_trades": 1553,
+    "total_hops": 2093,
+    "avg_hops": 1.35,
+    "avg_mfe": 3.4137,
+    "avg_mae": 0.8293,
+    "median_mfe": 0.0,
+    "median_mae": 0.0
+  },
+  "capped_maxparallel": 3,
+  "capped": {
+    "trades": 2302,
+    "wins": 1597,
+    "losses": 705,
+    "open": 0,
+    "win_rate": 69.37445699391833,
+    "total_pnl": 2874.9976,
+    "avg_r": 1.2489,
+    "max_dd": 8.0,
+    "max_dd_pct": 2.73,
+    "profit_factor": 5.08,
+    "trailing_trades": 1553,
+    "total_hops": 2093,
+    "avg_hops": 1.35,
+    "avg_mfe": 3.4137,
+    "avg_mae": 0.8293,
+    "median_mfe": 0.0,
+    "median_mae": 0.0
+  },
+  "blocked_entries": 0
+}
