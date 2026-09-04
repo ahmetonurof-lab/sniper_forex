@@ -38,6 +38,7 @@ from pathlib import Path
 
 import pytest
 
+from src.live import atomic_write as aw_mod
 from src.live import orchestrator as orch_mod
 from src.live import run_production as rp_mod
 from src.live.orchestrator import _ATOMIC_WRITE_RUNTIME, Lock, _atomic_write_text
@@ -65,9 +66,13 @@ def _fail_lock_opens(monkeypatch, fail_times: int) -> dict:
 
 @pytest.fixture
 def crash_log(tmp_path, monkeypatch) -> Path:
-    """Explicit crash-log redirect for tests that READ the log."""
+    """Explicit crash-log redirect for tests that READ the log.
+
+    N2 #21 madde-8: the K2 floor lives in atomic_write.py — patch the
+    canonical location (and the orchestrator re-export) together."""
     log = tmp_path / "crash_log.txt"
     monkeypatch.setattr(orch_mod, "_CRASH_LOG", log)
+    monkeypatch.setattr(aw_mod, "_CRASH_LOG", log)
     return log
 
 
@@ -189,8 +194,11 @@ class TestK2CrashLog:
 
     def test_runtime_true_skips_crash_log(self, tmp_path, monkeypatch, crash_log):
         """The frozen boolean is the diagnostic/rollback switch: when it is
-        True the K2 append is skipped (legacy posture, forensics off)."""
-        monkeypatch.setattr(orch_mod, "_ATOMIC_WRITE_RUNTIME", True)
+        True the K2 append is skipped (legacy posture, forensics off).
+
+        N2 #21 madde-8: the flag lives in atomic_write.py (the primitive
+        reads its own module global) — patch the canonical location."""
+        monkeypatch.setattr(aw_mod, "_ATOMIC_WRITE_RUNTIME", True)
         monkeypatch.setattr(
             Path,
             "replace",
@@ -205,6 +213,9 @@ class TestK2CrashLog:
         """Production posture: K2 crash-log routing is ACTIVE. Flipping
         this must be an explicit, reviewed decision — never silent."""
         assert _ATOMIC_WRITE_RUNTIME is False
+        # N2 #21 madde-8: the orchestrator re-exports the SAME flag object
+        # from the primitive module — one pin covers both names.
+        assert aw_mod._ATOMIC_WRITE_RUNTIME is _ATOMIC_WRITE_RUNTIME
 
     def test_crash_log_append_never_raises(self, tmp_path, monkeypatch):
         """Forensics must never mask the original failure nor break the

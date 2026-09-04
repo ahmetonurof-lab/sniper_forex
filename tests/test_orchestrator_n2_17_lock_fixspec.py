@@ -118,8 +118,13 @@ def _no_real_sleep(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _crash_log_to_tmp(monkeypatch, tmp_path):
-    """Route the K2 crash-log into the test tmp dir (no repo pollution)."""
+    """Route the K2 crash-log into the test tmp dir (no repo pollution).
+
+    N2 #21 madde-8: patch the canonical location (atomic_write) too."""
+    from src.live import atomic_write as aw_mod
+
     monkeypatch.setattr(orch_mod, "_CRASH_LOG", tmp_path / "state" / "crash_log.txt")
+    monkeypatch.setattr(aw_mod, "_CRASH_LOG", tmp_path / "state" / "crash_log.txt")
 
 
 # ── Fixture 1: test_lock_collision — hold handle → degraded, alive ──

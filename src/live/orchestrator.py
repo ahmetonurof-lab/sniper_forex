@@ -40,6 +40,16 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import pandas as pd
 
 from src.config.mt5_config import get_mt5_config
+from src.live.atomic_write import (  # noqa: F401 — re-export for tests/compat
+    _ATOMIC_WRITE_RUNTIME,
+    _CRASH_LOG,
+    _TMP_RETRY_BASE_SLEEP,
+    _TMP_WRITE_RETRIES,
+    _crash_log_append,
+)
+from src.live.atomic_write import (
+    atomic_write_text as _atomic_write_text,
+)
 from src.live.audit import AuditChain, EventType
 from src.live.candle_feed import _15M_MS, M1CandleFeed, resample_15m
 from src.live.clock import _utcnow_naive, server_to_utc_historical
@@ -97,8 +107,8 @@ def _naive_utc_epoch(ts: Any) -> float:
 # still 0.7% of LOCK_STALE_SEC=900 (§7.4 invariant preserved).
 # ``on_block`` (K3): forensic callback invoked on EVERY failed rename
 # with {file, attempt, retries, error} — the WRITE_BLOCK audit event.
-_TMP_WRITE_RETRIES = 8
-_TMP_RETRY_BASE_SLEEP = 0.05
+# N2 #21 madde-8: the constants are the re-exported shared ones (see the
+# atomic_write import above) — NO local shadow copies (tek-modül).
 
 
 # ── N2 #17 — Katman-1: Restart-Manager handle-holder probe ─────────
@@ -222,104 +232,6 @@ def find_file_holders(path: str) -> list:
             rm.RmEndSession(session)
         except Exception:
             pass
-
-
-# ── N2 #17 — K2 crash-log + runtime mechanism flag ────────────────
-# When ``_ATOMIC_WRITE_RUNTIME`` is False (FROZEN production posture),
-# an exhausted tmp+rename budget on the shared helper routes the
-# failure to ``state/crash_log.txt`` BEFORE re-raising: T0#5/T0#6 lost
-# their terminal audit events because the audit flush itself was
-# blocked in the same window — the crash-log is the flush-independent
-# forensic floor. Set True ONLY for a diagnostic/rollback run; the
-# boolean is pinned by tests (never silently flipped).
-_ATOMIC_WRITE_RUNTIME = False
-_CRASH_LOG = Path("state") / "crash_log.txt"
-
-
-def _crash_log_append(path: Path, info: Dict[str, Any]) -> None:
-    """K2 — best-effort forensic append to state/crash_log.txt.
-
-    os.open(O_APPEND|O_CREAT) + single os.write: append-mode needs no
-    tmp/rename (the mechanism under suspicion), is atomic at these
-    sizes, and swallows every exception — forensics must never mask
-    the original failure nor break the caller.
-    """
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps({"ts": time.time(), **info}, default=str) + "\n"
-        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND)
-        try:
-            os.write(fd, line.encode("utf-8"))
-        finally:
-            os.close(fd)
-    except Exception:
-        pass
-
-
-def _atomic_write_text(
-    path: Path,
-    text: str,
-    encoding: str = "utf-8",
-    on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
-) -> None:
-    """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
-
-    Crash-safe (never a truncated target) and contention-hardened: the tmp
-    sibling is unique per process/attempt, so two live processes cannot
-    collide on the same tmp path, and a transient handle lock on the rename
-    is retried with backoff before giving up.
-
-    N2 #17: the live LOCK no longer uses this helper (Lock._write is
-    in-place; see below). This helper remains canonical for the
-    audit/state/safe-mode files, where rename-atomicity (never a torn
-    or truncated target) is a correctness requirement, and its exhausted
-    budget now lands in the K2 crash-log before re-raising.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    tmp.write_text(text, encoding=encoding)
-    last_err: Optional[OSError] = None
-    for attempt in range(_TMP_WRITE_RETRIES):
-        try:
-            tmp.replace(path)
-            return
-        except OSError as e:  # WinError 5 (PermissionError) and friends
-            last_err = e
-            # Fire on_block once per file (first failed attempt only) —
-            # the orchestrator and AuditChain sinks both depend on this
-            # being a single forensic signal, not per-retry noise.
-            if on_block is not None and attempt == 0:
-                try:
-                    on_block(
-                        {
-                            "file": str(path),
-                            "retries": _TMP_WRITE_RETRIES,
-                            "error": f"{type(e).__name__}: {e}",
-                        }
-                    )
-                except Exception:
-                    pass  # forensics must never mask the original failure
-            if attempt + 1 < _TMP_WRITE_RETRIES:
-                time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
-    # Best-effort cleanup of our own tmp before surfacing the failure.
-    try:
-        tmp.unlink()
-    except OSError:
-        pass
-    # K2 (N2 #17): forensics BEFORE the raise — in the T0#5/T0#6 windows
-    # the WRITE_BLOCK audit flush itself was un-flushable, so this
-    # append-only log is the flush-independent floor.
-    if not _ATOMIC_WRITE_RUNTIME:
-        _crash_log_append(
-            _CRASH_LOG,
-            {
-                "kind": "atomic_write_exhausted",
-                "file": str(path),
-                "retries": _TMP_WRITE_RETRIES,
-                "error": f"{type(last_err).__name__}: {last_err}",
-            },
-        )
-    raise last_err  # type: ignore[misc]
 
 
 def _pid_alive(pid: int) -> bool:
@@ -1038,6 +950,17 @@ class Orchestrator:
         prod_audit: AuditChain
         if getattr(self.config, "audit_path", None):
             prod_audit = AuditChain(auto_flush_path=self.config.audit_path)
+            # N2 #21 madde-1 (Hakem N1-a): boot LOADS the existing journal
+            # BEFORE any flush. Combined with delta-append save() this
+            # restores prior boots' events into the chain AND keeps them
+            # on disk — the whole-file overwrite that erased every prior
+            # boot's chain (BULGU-1 / D77-ezilme / T0#9 κ) is gone.
+            # Continuity must never block the boot: a failed load degrades
+            # to counter=0 (delta-append still preserves prior lines).
+            try:
+                prod_audit.load(self.config.audit_path)
+            except Exception:
+                pass
         else:
             prod_audit = AuditChain()
         self.audit = audit if audit is not None and len(audit) > 0 else prod_audit

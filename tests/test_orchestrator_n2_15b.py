@@ -55,13 +55,16 @@ from src.live.state import StateStore
 
 class TestRetryBudget:
     def test_all_three_helpers_share_budget(self):
-        """§2.2: the three local helper copies stay on the same budget."""
-        assert audit_mod._TMP_WRITE_RETRIES == 8
-        assert orch_mod._TMP_WRITE_RETRIES == 8
-        assert state_mod._TMP_WRITE_RETRIES == 8
-        assert audit_mod._TMP_RETRY_BASE_SLEEP == 0.05
-        assert orch_mod._TMP_RETRY_BASE_SLEEP == 0.05
-        assert state_mod._TMP_RETRY_BASE_SLEEP == 0.05
+        """§2.2 — N2 #21 madde-8: the three consumers now share ONE
+        primitive module (src/live/atomic_write.py); the budgets are the
+        SAME objects re-exported, not equal copies (identity > equality)."""
+        from src.live import atomic_write as aw_mod
+
+        for mod in (audit_mod, orch_mod, state_mod):
+            assert mod._TMP_WRITE_RETRIES is aw_mod._TMP_WRITE_RETRIES
+            assert mod._TMP_RETRY_BASE_SLEEP is aw_mod._TMP_RETRY_BASE_SLEEP
+        assert aw_mod._TMP_WRITE_RETRIES == 8
+        assert aw_mod._TMP_RETRY_BASE_SLEEP == 0.05
 
     def test_worst_case_sleep_under_stale_window(self):
         """§7.4: total backoff (0.05·(2^0..2^6)=6.35s) << LOCK_STALE_SEC."""
@@ -247,24 +250,24 @@ class TestWriteBlockSink:
 class TestAuditChainReentrancy:
     def test_write_block_during_save_does_not_recurse(self, tmp_path, monkeypatch):
         """A WRITE_BLOCK append fired from inside save() must NOT trigger a
-        nested flush→save recursion; it buffers and lands on the next flush."""
+        nested flush→save recursion; it buffers and lands on the next flush.
+
+        N2 #21 retarget: save() is now delta-append via append_line — the
+        fault is injected at the append primitive (same monkeypatch
+        fault-injection usul; the rename no longer exists on this path)."""
         audit_path = tmp_path / "audit" / "a.jsonl"
-        chain = AuditChain(auto_flush_path=str(audit_path), flush_threshold=1, flush_interval_sec=0)
-        # Seed one event so save() has content.
-        chain.append(time.time(), EventType.STARTUP, "EURUSD", {})
-        chain.clear()
+        chain = AuditChain(auto_flush_path=str(audit_path))
         chain.append(time.time(), EventType.STARTUP, "EURUSD", {})
 
-        real_replace = Path.replace
-        state = {"n": 0}
+        real_open = os.open
+        state = {"fail": True}
 
-        def flaky(self, target, *a, **k):
-            state["n"] += 1
-            if state["n"] == 1:  # only the first save's rename fails
+        def flaky_open(path, flags, *a, **k):
+            if str(path).endswith("a.jsonl") and state["fail"]:
                 raise PermissionError(5, "Access is denied")
-            return real_replace(self, target, *a, **k)
+            return real_open(path, flags, *a, **k)
 
-        monkeypatch.setattr(Path, "replace", flaky)
+        monkeypatch.setattr(os, "open", flaky_open)
         monkeypatch.setattr(time, "sleep", lambda s: None)
 
         # Wire the sink to append a WRITE_BLOCK event into this same chain.
@@ -272,16 +275,23 @@ class TestAuditChainReentrancy:
             chain.append(time.time(), EventType.WRITE_BLOCK, None, {"file": info["file"]})
 
         chain.on_block = sink
-        # save() with a transient failure: the sink append must not recurse.
-        chain.save(str(audit_path))  # first rename fails → WRITE_BLOCK buffered
+        # save() with a blocked target: the full K1 ladder exhausts, the
+        # sink's WRITE_BLOCK append must not recurse (guard), and the
+        # failure re-raises (D35).
+        with pytest.raises(PermissionError):
+            chain.save(str(audit_path))
+        state["fail"] = False
         # The buffered WRITE_BLOCK was NOT flushed during save (guard);
         # it is in memory and lands on the next successful flush.
         assert len([e for e in chain.events if e.event_type == EventType.WRITE_BLOCK]) == 1
-        # Next flush writes both events to disk.
+        # Next flush writes BOTH events to disk (delta from the failed save).
         chain.flush()
         lines = [json.loads(l) for l in audit_path.read_text(encoding="utf-8").splitlines()]
         types = [l["event_type"] for l in lines]
         assert EventType.WRITE_BLOCK.value in types
+        # No duplicates: the failed delta was retried exactly once.
+        assert len(lines) == 2
+        assert types.count(EventType.WRITE_BLOCK.value) == 1
 
     def test_saving_flag_resets_after_success(self, tmp_path):
         """_saving must be False again after a clean save (no sticky guard)."""
@@ -294,8 +304,12 @@ class TestAuditChainReentrancy:
 
     def test_saving_flag_resets_after_failure(self, tmp_path, monkeypatch):
         """Even when save() raises, the guard is released (finally)."""
+        from src.live import audit as audit_mod
+
         monkeypatch.setattr(
-            Path, "replace", lambda *a, **k: (_ for _ in ()).throw(PermissionError(5, "denied"))
+            audit_mod,
+            "append_line",
+            lambda *a, **k: (_ for _ in ()).throw(PermissionError(5, "denied")),
         )
         monkeypatch.setattr(time, "sleep", lambda s: None)
         audit_path = tmp_path / "a.jsonl"

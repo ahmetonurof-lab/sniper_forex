@@ -86,6 +86,10 @@ def _isolate_n2_17_crash_log(tmp_path, monkeypatch):
     state pollution, §19 background-mutation class). Tests that exercise
     the crash-log itself re-patch the module attribute explicitly.
     """
+    from src.live import atomic_write as aw_mod
     from src.live import orchestrator as orch_mod
 
     monkeypatch.setattr(orch_mod, "_CRASH_LOG", tmp_path / "crash_log.txt")
+    # N2 #21 madde-8: the K2 floor lives in atomic_write.py — patch the
+    # canonical location too (orchestrator re-exports the same name).
+    monkeypatch.setattr(aw_mod, "_CRASH_LOG", tmp_path / "crash_log.txt")

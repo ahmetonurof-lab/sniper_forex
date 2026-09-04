@@ -596,6 +596,13 @@ class TestC2EndStateReport:
                 symbols=["EURUSD"],
                 state_dir=str(tmp_state),
                 expected_login="53012914",
+                # N2 #21 madde-1: boot now LOADS the journal at
+                # config.audit_path — the dataclass default is the REPO-ROOT
+                # state/audit.jsonl (real T0#9 runtime artifact, incl. a
+                # REPLAY event). This test needs a CLEAN boot: isolate the
+                # journal in tmp_state (fixture isolation, not a behavior
+                # change — production wiring is untouched).
+                audit_path=str(tmp_state / "audit.jsonl"),
             ),
         )
         orch._mt5 = FakeMT5Full(_recent_naive() - timedelta(minutes=1700), length_minutes=1600)

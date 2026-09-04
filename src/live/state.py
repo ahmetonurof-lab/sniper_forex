@@ -15,61 +15,19 @@ per symbol: `state/<SYMBOL>.json`.
 from __future__ import annotations
 
 import json
-import os
-import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-# ── Atomic tmp+rename write (N2 #15 — WinError 5 hardening) ────────
-# N2 #15-b (T0#4): retry budget raised 3→8 (~6.4s worst case, still 0.7%
-# of LOCK_STALE_SEC=900) to clear a transient EXTERNAL handle (AV/sync)
-# locking the TARGET file. ``on_block`` (K3) is a forensic sink emitting
-# the WRITE_BLOCK audit event once per blocked file.
-_TMP_WRITE_RETRIES = 8
-_TMP_RETRY_BASE_SLEEP = 0.05
-
-
-def _atomic_write_text(
-    path: Path,
-    text: str,
-    encoding: str = "utf-8",
-    on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
-) -> None:
-    """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
-
-    Identical contract to src.live.orchestrator._atomic_write_text — kept
-    here as a local copy to avoid a circular import.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    tmp.write_text(text, encoding=encoding)
-    last_err: Optional[OSError] = None
-    for attempt in range(_TMP_WRITE_RETRIES):
-        try:
-            tmp.replace(path)
-            return
-        except OSError as e:
-            last_err = e
-            # Fire once per file (first failed attempt) — matches
-            # orchestrator.py and audit.py single-event contract.
-            if on_block is not None and attempt == 0:
-                try:
-                    on_block(
-                        {
-                            "file": str(path),
-                            "retries": _TMP_WRITE_RETRIES,
-                            "error": f"{type(e).__name__}: {e}",
-                        }
-                    )
-                except Exception:
-                    pass  # forensics must never mask the original failure
-            if attempt + 1 < _TMP_WRITE_RETRIES:
-                time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
-    try:
-        tmp.unlink()
-    except OSError:
-        pass
-    raise last_err  # type: ignore[misc]
+# ── Shared write primitive (N2 #21 madde-8 — tek-modül) ────────────
+# The former local tmp+rename copy (N2 #15/#15-b) is gone: the single
+# primitive lives in src/live/atomic_write.py with the K2 crash-log
+# floor standard (BULGU-14). Budget constants are re-exported so the
+# §2.2 same-budget pin (test_orchestrator_n2_15b) holds by identity.
+from src.live.atomic_write import (  # noqa: F401 — budget-pin re-export
+    _TMP_RETRY_BASE_SLEEP,
+    _TMP_WRITE_RETRIES,
+    atomic_write_text,
+)
 
 
 class StateStore:
@@ -89,9 +47,10 @@ class StateStore:
         return self.state_dir / f"{symbol}.json"
 
     def save(self, symbol: str, state: dict) -> None:
-        """Write a runtime state dict to disk (atomic via PID-unique tmp+rename)."""
+        """Write a runtime state dict to disk (atomic via the shared
+        tmp+rename primitive — never a torn JSON document)."""
         path = self._path(symbol)
-        _atomic_write_text(
+        atomic_write_text(
             path,
             json.dumps(state, indent=2, default=str),
             encoding="utf-8",

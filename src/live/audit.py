@@ -21,68 +21,24 @@ to call `append(...)` at each lifecycle step.
 from __future__ import annotations
 
 import json
-import os
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-# ── Atomic tmp+rename write (N2 #15 — WinError 5 hardening) ────────
-# N2 #15-b (T0#4): the original 3-attempt / ~0.35s budget cleared tmp-name
-# contention but NOT the second root-cause layer — a transient EXTERNAL
-# handle (AV/Defender on-access scan) locking the TARGET file for seconds.
-# Budget raised to 8 attempts / ~6.4s worst-case total sleep (0.05·(2^0..2^6)
-# = 6.35s), still 0.7% of LOCK_STALE_SEC=900 (§7.4 invariant preserved).
-# ``on_block`` (K3): forensic callback invoked once per blocked file
-# (first failed rename) with {file, retries, error} — the WRITE_BLOCK
-# audit event.
-_TMP_WRITE_RETRIES = 8
-_TMP_RETRY_BASE_SLEEP = 0.05
-
-
-def _atomic_write_text(
-    path: Path,
-    text: str,
-    encoding: str = "utf-8",
-    on_block: Optional[Callable[[Dict[str, Any]], None]] = None,
-) -> None:
-    """Atomically write ``text`` to ``path`` via a PID-unique tmp + rename.
-
-    Identical contract to src.live.orchestrator._atomic_write_text — kept
-    here as a local copy to avoid a circular import (audit.py is imported
-    by orchestrator.py).
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    tmp.write_text(text, encoding=encoding)
-    last_err: Optional[OSError] = None
-    for attempt in range(_TMP_WRITE_RETRIES):
-        try:
-            tmp.replace(path)
-            return
-        except OSError as e:
-            last_err = e
-            # Fire once per file (first failed attempt) — the orchestrator
-            # and AuditChain sinks depend on single-event semantics.
-            if on_block is not None and attempt == 0:
-                try:
-                    on_block(
-                        {
-                            "file": str(path),
-                            "retries": _TMP_WRITE_RETRIES,
-                            "error": f"{type(e).__name__}: {e}",
-                        }
-                    )
-                except Exception:
-                    pass  # forensics must never mask the original failure
-            if attempt + 1 < _TMP_WRITE_RETRIES:
-                time.sleep(_TMP_RETRY_BASE_SLEEP * (2**attempt))
-    try:
-        tmp.unlink()
-    except OSError:
-        pass
-    raise last_err  # type: ignore[misc]
+# ── Shared write primitive (N2 #21 madde-8 — tek-modül) ────────────
+# The former local tmp+rename copy (N2 #15/#15-b) is gone: the single
+# primitive lives in src/live/atomic_write.py with the K2 crash-log
+# floor standard (BULGU-14). The audit path uses its NEIGHBOR
+# append_line() for delta-appends (Hakem N1-e — komşu fonksiyon, kopya
+# değil). Budget constants are re-exported so the §2.2 same-budget pin
+# (test_orchestrator_n2_15b) holds by identity.
+from src.live.atomic_write import (  # noqa: F401 — budget-pin re-export
+    _TMP_RETRY_BASE_SLEEP,
+    _TMP_WRITE_RETRIES,
+    append_line,
+)
 
 
 class EventType(str, Enum):
@@ -223,13 +179,15 @@ class AuditChain:
             self.flush(self._auto_flush_path)
 
     def flush(self, path: Optional[str] = None) -> None:
-        """Flush events to JSONL file."""
+        """Flush events to JSONL file. The delta watermark is owned by
+        save() (advances to its pre-snapshot on success) — flush() only
+        resets the flush CLOCK. Overwriting the watermark here would
+        silently swallow events buffered during save (N2 #21)."""
         target = path or self._auto_flush_path
         if not target:
             return
         self.save(target)
         self._last_flush_time = time.time()
-        self._last_flush_count = len(self._events)
 
     def shutdown(self) -> None:
         """Final flush at session end."""
@@ -238,32 +196,57 @@ class AuditChain:
 
     # ── Persistence ─────────────────────────────────────────────
     def save(self, path: str) -> None:
-        """Flush events to a JSONL file (one event per line).
+        """Persist the delta since the last flush to the JSONL journal
+        (one event per line) — N2 #21 madde-1, Hakem N1-a.
 
-        Atomic-ish via PID-unique tmp + rename (N2 #15: the old fixed
-        ".tmp" sibling was the secondary WinError 5 crash site during
-        shutdown flush at audit.py:184). Each line is a self-contained
-        JSON object so partial reads still yield valid events.
+        DELTA-APPEND via the shared primitive's ``append_line``: the
+        whole-file tmp+rename overwrite (the BULGU-1 root cause — every
+        flush rewrote and thus erased the on-disk chain) is GONE. The
+        flushed count starts from the boot-time load, so each flush
+        appends exactly the events flushed so far minus the loaded
+        history — prior boots' lines stay on disk. Each line is a
+        self-contained JSON object so a torn tail never destroys
+        recoverable history (load() skips the malformed tail).
         """
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
+        # Delta snapshot: everything after the watermark, up to THIS call's
+        # length (events appended mid-save belong to the NEXT delta).
+        pre = len(self._events)
         lines = "".join(
-            json.dumps(evt.to_dict(), default=str, sort_keys=True) + "\n" for evt in self._events
+            json.dumps(evt.to_dict(), default=str, sort_keys=True) + "\n"
+            for evt in self._events[self._last_flush_count : pre]
         )
         self._saving = True
         try:
-            _atomic_write_text(p, lines, encoding="utf-8", on_block=self.on_block)
+            append_line(p, lines, encoding="utf-8", on_block=self.on_block)
+            # Watermark advances to the DELTA SNAPSHOT (pre), not the live
+            # length: events appended DURING save (the re-entrancy-guarded
+            # WRITE_BLOCK) stay above the watermark and land on the next
+            # flush — never silently swallowed, never duplicated.
+            self._last_flush_count = pre
         finally:
             self._saving = False
 
     def load(self, path: str) -> int:
-        """Load events from a JSONL file. Returns the number of events loaded.
+        """Load events from a JSONL file into the chain.
 
-        Missing file -> 0. Malformed lines are skipped.
+        Returns the number of events loaded. Missing file -> 0. Malformed
+        lines are skipped — a torn last line (crash mid-append) drops on
+        the floor while all intact prior lines are recovered (Hakem
+        N1-b: torn-line tolerance, TESTLE MÜHÜRLENDİ).
+
+        N2 #21 madde-1 integration: the flush watermark
+        (``_last_flush_count``) is initialized to the loaded count so
+        the first post-load save delta-appends ONLY new events — the
+        loaded history is never rewritten or duplicated. Last-write-wins
+        is the declared boundary (single-writer O1 topology, Hakem
+        N1-c); events buffered BEFORE the load are preserved.
         """
         p = Path(path)
         if not p.exists():
             return 0
+        pre = len(self._events)
         n = 0
         with open(p, "r", encoding="utf-8") as f:
             for line in f:
@@ -283,4 +266,5 @@ class AuditChain:
                     n += 1
                 except Exception:
                     pass
+        self._last_flush_count = pre + n
         return n
