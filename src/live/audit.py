@@ -59,6 +59,7 @@ class EventType(str, Enum):
     MT5_CONNECT = "MT5_CONNECT"  # MT5 terminal connected
     MT5_DISCONNECT = "MT5_DISCONNECT"  # MT5 terminal disconnected
     STATE_SAVE = "STATE_SAVE"  # state persisted
+    STATE = "STATE"  # N2 #23 R-1: CBDR özet/transition (window/lock/sweep/bias)
     WRITE_BLOCK = "WRITE_BLOCK"  # N2 #15-b: tmp→target rename blocked (AV/sync handle)
     LOCK_CORRUPT = "LOCK_CORRUPT"  # N2 #17/A9: lock unreadable (torn JSON) — read-path triage
 

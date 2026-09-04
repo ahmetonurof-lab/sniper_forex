@@ -36,7 +36,7 @@ from src.live.portfolio_dd import PortfolioDD
 from src.live.reconciliation import Reconciler
 from src.live.risk import Account, RiskManager
 from src.live.sizing import ContractSpec, PositionSizer
-from src.live.strategy_runtime import Signal, StrategyRuntime
+from src.live.strategy_runtime import Signal, StrategyRuntime, signal_audit_payload
 from src.live.trade_lifecycle import (
     OpenTradeContext,
     TradeLifecycle,
@@ -116,6 +116,13 @@ class LiveRunner:
         self.contract = contract
         self.audit = audit or AuditChain()
         self.runtime = runtime or StrategyRuntime(symbol)
+        # N2 #23 R-1: the runtime owns the CBDR STATE observation layer;
+        # wire THIS runner's audit sink into it (covers both the runtime
+        # created here and an injected one without a sink — e.g. the
+        # orchestrator handoff path). Idempotent; never overwrites a
+        # sink that is already attached.
+        if getattr(self.runtime, "audit", None) is None:
+            self.runtime.audit = self.audit
         self._position_to_ctx: Dict[int, OpenTradeContext] = {}
         self._last_poll_ts: float = time.time()
         self._known_position_ids: set = set()
@@ -420,6 +427,12 @@ class LiveRunner:
         res.signal = sig
         if sig is None:
             return res
+        # N2 #23 R-3: SIGNAL emit at the runtime-signal RETURN point — the
+        # single live consumption point of strategy output (pre-reg v1.1
+        # AM-R3; census §2 root-cause: the live path had NO SIGNAL emitter).
+        # Emits BEFORE the entry-lock/risk gating so a blocked signal stays
+        # visible as a SIGNAL -> RISK(approved=False) pair, never silent.
+        self._audit(EventType.SIGNAL, signal_audit_payload(sig))
         if entry_locked:
             res.blocked_reason = "c2_symbol_entry_lock_active_trade"
             self._audit(

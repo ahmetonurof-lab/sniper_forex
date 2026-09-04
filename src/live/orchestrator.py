@@ -1284,7 +1284,10 @@ class Orchestrator:
         # inject them into the LiveRunner. Restoration happens in S7
         # (mutates the same object the runner already holds by reference).
         self._recovery = RuntimeRecovery(str(self.state_dir), on_block=self._on_write_block)
-        self._runtime = StrategyRuntime(self._symbol)
+        # N2 #23 R-1: the runtime carries the audit sink so the CBDR STATE
+        # observation layer (strategy_runtime.on_bar consumption point) can
+        # emit into the SAME chain the orchestrator owns.
+        self._runtime = StrategyRuntime(self._symbol, audit=self.audit)
         self._lifecycle = TradeLifecycle()
         self._sizer = PositionSizer()
         self._risk_manager = RiskManager()
@@ -1861,7 +1864,8 @@ class Orchestrator:
             self._global_bar_index += 1
 
         if self._runtime is None:
-            self._runtime = StrategyRuntime(self._symbol)
+            # N2 #23 R-1: audit sink wired (same chain) — see S3 construction.
+            self._runtime = StrategyRuntime(self._symbol, audit=self.audit)
 
         if not reindexed:
             smoke_result["reason"] = "no_15m_after_close_filter"
@@ -1981,7 +1985,9 @@ class Orchestrator:
         self._seen_bar_slots.clear()
         self._global_bar_index = 0
         self._last_15m_ts = None
-        self._runtime = StrategyRuntime(self._symbol)
+        # N2 #23 R-1: fresh rebuild keeps the audit sink (same chain) so the
+        # CBDR STATE observation layer survives the identity swap.
+        self._runtime = StrategyRuntime(self._symbol, audit=self.audit)
         self._runtime_restored = False
 
     # ── D33 restore seeding helpers (redelivery 2) ──────────────────

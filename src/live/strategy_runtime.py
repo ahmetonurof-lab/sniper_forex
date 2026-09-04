@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -47,6 +48,7 @@ from experiment.trailing_adapter import (  # noqa: E402
     apply_trailing,
     check_exit,
 )
+from src.live.audit import AuditChain, EventType  # N2 #23 R-1 (observation layer)
 from src.strategy.models import Bar, Direction, SweepEvent
 from src.strategy.session import SessionManager
 
@@ -76,6 +78,28 @@ class Signal:
     zone_bottom: float
     zone_size: float
     timestamp: pd.Timestamp
+
+
+def signal_audit_payload(sig: Signal) -> Dict[str, Any]:
+    """N2 #23 R-3: SIGNAL audit payload builder (schema test ile sabit).
+
+    Şema (pre-reg ``results/N2_23_prereg_R3_R1.md`` v1.1 + Hakem AM-v1.1
+    FVG-id): ``symbol/side/entry/sl/tp/reason/ts + fvg_id`` — KAPALI set.
+
+    Pure: I/O yok, audit-bağımlılığı yok. Emit noktası (LiveRunner.on_bar,
+    runtime-signal-dönüşünün canlı tüketim noktası) adım-2'de bu builder'ı
+    çağırır; şema testi (test_n2_23_emit_schema) bu sözleşmeyi sabitler.
+    """
+    return {
+        "symbol": sig.symbol,
+        "side": sig.side,
+        "entry": sig.entry_price,
+        "sl": sig.sl,
+        "tp": sig.tp,
+        "reason": "cbdr_sweep_fvg_fill",
+        "ts": sig.timestamp.isoformat(),
+        "fvg_id": f"{sig.symbol}:zone{sig.zone_index}",
+    }
 
 
 def _to_nexus_bar(bar: Bar) -> NexusBar:
@@ -135,7 +159,7 @@ class StrategyRuntime:
     `on_bar()`. State is recoverable via `to_state()` / `from_state()`.
     """
 
-    def __init__(self, symbol: str):
+    def __init__(self, symbol: str, audit: Optional[AuditChain] = None):
         self.symbol = symbol
         self.session = SessionManager(
             symbol=symbol,
@@ -158,6 +182,64 @@ class StrategyRuntime:
         self._next_idx = 0
         self._start_idx = 0
         self._warmed = False
+        # N2 #23 R-1: CBDR STATE emit observation state. The audit sink is
+        # injected (LiveRunner/orchestrator); None -> emits disabled (zero
+        # behavior change for all existing callers/tests). Timestamps are
+        # LIVE-OBSERVED transition stamps — NOT persisted via to_state (no
+        # second source of truth): after a restart they read None until the
+        # next sweep/cycle, an honest gap, never a silent fake.
+        self.audit: Optional[AuditChain] = None
+        self._last_in_window: Optional[bool] = None
+        self._sweep_ts: Optional[str] = None
+        self._bias_lock_ts: Optional[str] = None
+        if audit is not None:
+            self.audit = audit
+
+    def _emit_state(
+        self,
+        moment: str,
+        bar: Bar,
+        *,
+        in_window: bool,
+        sweep_tol: Optional[float],
+    ) -> None:
+        """N2 #23 R-1: single STATE-type emit at CBDR transition moments.
+
+        Pre-reg payload: pencere-in/out · locked · sweep{level,direction,
+        tolerans} · bias + AM-N23-1 d4 alanları (sweep_yes, bias_lock_ts,
+        sweep_ts), S9-startup-payload-şemasıyla sayı-uyumlu. Observation
+        layer ONLY: session.py body untouched; strategy flow unaffected
+        (emit failures are logged, never raised).
+        """
+        if self.audit is None:
+            return
+        c = self.session.cbdr
+        try:
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self.symbol,
+                {
+                    "moment": moment,
+                    "in_window": bool(in_window),
+                    "locked": bool(c.locked),
+                    "bias_locked": bool(c.bias_locked),
+                    "sweep_yes": bool(c.sweep_confirmed),
+                    "sweep_direction": (c.sweep_direction.value if c.sweep_direction else None),
+                    "sweep_level": c.sweep_level,
+                    "sweep_tol": sweep_tol,
+                    "sweep_ts": self._sweep_ts,
+                    "bias_lock_ts": self._bias_lock_ts,
+                    "bias": c.daily_bias.value,
+                    "body_high": c.body_high,
+                    "body_low": c.body_low,
+                    "session_key": self.session.current_cbdr_key,
+                    "bar_ts": bar.timestamp.isoformat(),
+                    "bar_index": int(bar.index),
+                },
+            )
+        except Exception:
+            _LOG.warning("N2 #23 R-1: CBDR STATE emit failed", exc_info=True)
 
     # -- Warmup -----------------------------------------------------------
     def warmup(self, bars_15m: List[Bar]) -> None:
@@ -259,11 +341,46 @@ class StrategyRuntime:
             self._next_idx = i + 1
             return None
 
+        # ── N2 #23 R-1: CBDR lifecycle observation (consume-point emits) ──
+        # The four silent session.py moments (window in/out, lock, sweep
+        # accept, bias lock) become visible HERE, at the runtime consumption
+        # point — session.py body untouched (pre-reg katman-ayrımı).
+        _dt = bar.timestamp.to_pydatetime()
+        _in_w = self.session.in_window(_dt)
+        _pre_locked = self.session.cbdr.locked
+        _pre_sweep_confirmed = self.session.cbdr.sweep_confirmed
+        _sweep_tol = (
+            self.session.atr * self.session.sweep_atr_tolerance_mult
+            if self.session.atr > 0
+            else self.session.sweep_default_tolerance
+        )
+
         # -- Sweep detection --
         sweep = self.session.update(bar)
         if sweep is not None:
             self.sweep_detected = True
             self.last_sweep = sweep
+            # AM-N23-1: canlı-gözlem mühürleri — sweep kabul + bias kilit
+            # aynı barda (session._confirm_sweep ikisini birden kurar).
+            self._sweep_ts = bar.timestamp.isoformat()
+            self._bias_lock_ts = bar.timestamp.isoformat()
+
+        _post = self.session.cbdr
+        if self._last_in_window is not None and _in_w != self._last_in_window:
+            if _in_w:
+                self._emit_state("window_in", bar, in_window=_in_w, sweep_tol=_sweep_tol)
+            else:
+                self._emit_state("window_out", bar, in_window=_in_w, sweep_tol=_sweep_tol)
+        self._last_in_window = _in_w
+        if _post.locked and not _pre_locked:
+            self._emit_state("locked", bar, in_window=_in_w, sweep_tol=_sweep_tol)
+        if sweep is not None:
+            self._emit_state("sweep", bar, in_window=_in_w, sweep_tol=sweep.tolerance)
+        elif _pre_sweep_confirmed and not _post.sweep_confirmed:
+            # yeni-çevrim-reseti (session.update içi) — gözlem-tarihleri sıfırla
+            self._sweep_ts = None
+            self._bias_lock_ts = None
+            self._emit_state("cycle_reset", bar, in_window=_in_w, sweep_tol=_sweep_tol)
 
         if not self.sweep_detected or self.last_sweep is None:
             self._next_idx = i + 1

@@ -36,15 +36,20 @@ class E2EBroker:
     ORDER_TIME_GTC = 1
     ORDER_FILLING_IOC = 1
     TRADE_RETCODE_DONE = 10009
+    MAGIC = 9007001  # mirrors execution.DEFAULT_MAGIC
 
     def __init__(self):
         self.requests = []
         self.deals = []
+        # Seed position 1 is deliberately NOT bot-owned (no magic): a foreign
+        # position that must never trigger the C2 entry lock or ownership.
         self.open = {1: SimpleNamespace(ticket=1)}
         self.next_pos = 1
 
     def order_check(self, request):
-        return SimpleNamespace(retcode=self.TRADE_RETCODE_DONE)
+        # Real MT5 order_check returns retcode 0 on success (10009 is the
+        # order_send retcode). Mirrors CHECK_RETCODE_OK = 0 in the other fakes.
+        return SimpleNamespace(retcode=0)
 
     def order_send(self, request):
         self.requests.append(dict(request))
@@ -60,7 +65,9 @@ class E2EBroker:
             )
         self.next_pos += 1
         pid = self.next_pos
-        self.open[pid] = SimpleNamespace(ticket=pid)
+        # Positions must carry the bot magic so poll_deals' ownership filter
+        # (magic == DEFAULT_MAGIC) sees them, matching the real MT5 contract.
+        self.open[pid] = SimpleNamespace(ticket=pid, magic=self.MAGIC)
         return SimpleNamespace(
             retcode=self.TRADE_RETCODE_DONE,
             order=111,
@@ -76,8 +83,12 @@ class E2EBroker:
             return list(self.open.values())
         return [self.open[ticket]] if ticket in self.open else []
 
-    def history_deals_get(self, from_ts, to_ts, ticket=None, *a, **k):
-        due = [d for d in self.deals if from_ts <= d.time <= to_ts]
+    def history_deals_get(self, position=None, *a, **k):
+        # Production poll_deals uses position-based history queries
+        # (history_deals_get(position=pid)); the time-range form was removed.
+        if position is None:
+            return []
+        due = [d for d in self.deals if int(getattr(d, "position_id", 0)) == int(position)]
         for d in due:
             self.deals.remove(d)
         return due
@@ -169,6 +180,7 @@ def test_e2e_full_live_chain():
     assert abs(dd.current_equity_r() - 100.5) < 1e-9
 
     # 4) NEXT ENTRY: same signal again -> fills again (DD=0, full lot).
+    runner.execution._recent.clear()  # duplicate-window dedupe not under test here
     res2 = runner.on_bar(None, ACCOUNT)
     assert res2.approved and res2.final_lot == 0.3
     # 5) Final deal poll after all exits: no double-count.
@@ -189,6 +201,7 @@ def test_e2e_loss_reduces_next_entry_lot():
     assert abs(runner.lifecycle.portfolio_dd.current_dd_r() - 2.5) < 1e-9
 
     runner.runtime.active_trade = None  # simulate the closed trade state
+    runner.execution._recent.clear()  # duplicate-window dedupe not under test here
     res2 = runner.on_bar(None, ACCOUNT)
     assert res2.approved
     assert res2.lot_multiplier == 0.5, "DD>2R must produce x0.5 scaling"
