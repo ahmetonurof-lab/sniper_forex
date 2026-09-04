@@ -1827,3 +1827,47 @@ Ping-1-@22:35-hedefi-yok: **0-süreç-22:08'den-beri.** İki-ping-düşürüldü
 - **REIS tamamlandi:** 1 SET-2-push (72cd154) — tek-kapi-GECTI
 - **CLINE:** post-push-teyit TAMAM · pre-reg-v2 (12/13) Reis-3-sonrasi · sweep-kontrolu YARIN (Reis-emri; seans-04:00-kapanim-sonrasi) · D80/D81-zinciri-kapanisi-devam
 - **HAKEM:** 3-altinci-parca (masa-acilisinda)
+
+## HAKEME-FIX-BILDIRIMI (2026-09-03 23:5x) — Reis-emri: "onay-zincirini-bozmayalim"
+
+`results/N2_21_madde8_fix_bildirimi.md` yazildi: **N2#21-madde-8 kesin-fix-tanimi** (tek-modul `src/live/atomic_write.py` + K2-floor-uc-cagrida-standart + audit-yolunda-append-oncelikli). **Icra-DEGIL** — Hakem-ruling-donene-dek kod-yazimi-yok (SI 5.1 RED=veto). Hakem-karar-yeri-4-nokta: append-vs-rename / madde-1-entegrasyonu / audit-basi-koruma-dahil-mi / lock-yolu-teyidi. Onay-zinciri-teklifi: **Hakem-ruling -> Reis-3 -> pre-reg-v2+execution-plan -> icra+regression -> commit -> push-ayri-yetki.**
+
+## HAKEM-RULING — N2#21-MADDE-8-DORT-NOKTA (2026-09-04 00:0x) + REIS-3-TETIK
+
+**Ruling-ozet (aynen-deftere):** N1-audit=delta-append (5-koul: a-delta/_flushed_count, b-torn-line-load-skip-muhur-testi, c-tek-writer-notu-pre-reg-e, d-fsync-YOK-LESS-CODE, e-atomic_write.py-yine-yazilir/append_line-komsu-fonksiyon) · N2-tek-dokunus=8+1+9A-audit-bacagi (RM-probe-telemetri-AYRI-commit-ayri-figstur — D63-dersi-kod-versiyonu) · N3-audit-basi-koruma=KOD-A-GIRMEZ, D77-dikisi-operator-protokolu-aynen-kalir · N4-duzeltme: lock-IN-PLACE (N2#17-den-beri rename-YOK), state/safe-mode=tmp+rename-KALIR, audit=delta-append — uc-yol-uc-hukum, ortak-primitif-teki.
+**Kanit-plani ratifiye:** cascade-crash-testi monkeypatch-fault-injection + torn-line-figsturu + floor-uc-yolda-ates-figsturu (exhausted-log-uc-yolda-DA-YAZAR) + canli-iki-boot-continuity (T0#10, Reis-bildirimli).
+**REIS-3:** "Goster bakalim kendini kod ustadı! SAKIN HATA YAPMA" — Reis-tetigi-mevcut: pre-reg-v2/execution-plan -> icra-yolu-ACILDI.
+
+## SET-2-TEYIT-EMRI-ICRA (Hakem-ilk-is) + DEVIR-ZINCIRI-GIT-TERMINALI (ADER-6)
+- origin..HEAD=0 (bosh) · ls-remote-main==local-HEAD==72cd154... (cikti-yukarida-muhur) · commit-kaydi: 72cd154 %cI-ile-defterde · manuel-chain-sondu; git-hash-kapsiyor.
+
+## N2#21-MADDE-8-ICRA-KAYDI (suite-katmani) + KANIT-PLANI-SONUC (2026-09-04)
+
+**Tetik:** Reis-3 "Goster bakalim kendini kod ustadi" (ruling-uzeri) -> icra-yolu-acildi; Hakem-dort-nokta-hukum (N1-N4) birebir-icra-edildi.
+
+**DOSYALAR:** NEW src/live/atomic_write.py (tek-primitif: atomic_write_text + append_line + K2-crash-log-floor + paylasilan-K1-butcesi) · NEW tests/test_n2_21_atomic_write.py (9-test, kanit-plani-v1.1-birebir) · MOD audit.py (yerel-kopya-SILINDI; save=delta-append; watermark-save-sahipliginde-mid-save-WRITE_BLOCK-yutma-yasagi; load-sayac-baslatir) · MOD state.py (kopya-SILINDI -> import) · MOD orchestrator.py (kopya+K2-bloku-SILINDI -> re-export; boot-load-try/except; :108-109-golge-sabitler-silindi) · tests: conftest(cift-patch), n2_15b(identity-pin + reentrancy-os.open-retarget), n2_17(aw_mod-patch + identity), lock_fixspec(cift-patch), d49-C2(fikstur-izolasyonu: audit_path->tmp) · index.json YENIDEN-URETILDI (10.2, 1732-fn, watcher-QUARANTINED=arkaplan-mutasyon-yok).
+
+**KANIT:** hedefli-8-dosya: 101-passed/0-FAIL · orkestrator-blok-13-dosya: 191-passed/1-FAIL(yalniz-pre-existing-C3) · parcalar: 65k+causality+exp5b/c=30, live_candle+execution=30, live_paper=23, portfolio+recon+risk=48, signal_runner=8+1skip, exp5c_ob/outcome/5d=35, exp5e/5f=25, p0-batch=38, p1-batch=45 · e2e+gate+mt5=19p+2F.
+
+**4.4-FAIL-RAPORLARI:** (1) test_e2e_live_chain x2 (full_live_chain + loss_reduces_lot): PRE-EXISTING — HEAD-worktree-differential: ayni-2-FAIL (kanit: git-worktree@527184d). (2) test_orchestrator_d49::C3: PRE-EXISTING — HEAD-differential: 1-FAIL-ayni. (3) d49::C2 BENIM-RED idi (boot-load repo-koku state/audit.jsonl-T0#9-REPLAY-satirini-yukledi) -> fikstur-izolasyonu-ile-fix (4.3-uygun: production-davranis-degistirilmedi). (4) FLAKY-NATIVE: tas3 sirasinda 0xc0000374 (heap-corruption, _crash_log_append/os.open konumunda tespit) 2x-goruldu; HEAD-7lu-kombinasyon-93p-TEMIZ; sonraki-6-kombinasyon-koşusu-temiz — saf-Python-heap-corrupt-edemez; makine-AV/handle-komsulugu-suphesi (T0-serisi-komsu-sinif) — IZLEME-BORCU.
+
+**SCOPE-DURUSTLUK (13):** tests/-icinden-44/50-dosya-koşuldu; 6-dosya-sure-kisiti (>30s komut-cezasi) kosulamadi: live_parity_gate, live_strategy_runtime, m1_ingestion_parity, n2_19_breakout_port_parity, main_research_c_v1_1, parity_6majors — 5-i-degisen-modulleri-HIC-import-etmiyor (grep-kaniti); m1_ingestion yalniz-in-memory-AuditChain. state/audit.jsonl (6-satir, T0#9-artefakti) suite-boyunca-DEGISMEDİ (wc=6; arkaplan-mutasyon-yok). ruff: 3xI001-fix, all-clean.
+
+**KOMIT-ATILMADI:** pre-reg-v2 (results/N2_21_owner_batch_prereg_v2.md) sutun-muhurlendi; commit-scope-teklifi-12-dosya-orada; commit-go + push-AYRI-yazili-yetki (9.2) Reis-in.
+
+**BORC-ENVANTERI:** REIS: commit-go · push-yazili-yetki · N2#21-kalan-maddeler (4/3/5/6/7/9B/10-13) · canli-T0#10-iki-boot-continuity-planı · 12/13-D72-embed. CLINE: pre-reg-v2-muhur (YAPILDI) · canli-katman-icrasi (Reis-bildirimli) · telemetri-ayri-commit-icrasi (onay-gelince) · flaky-crash-izleme · RM-probe-dokunulmamis-tutma. HAKEM: suite-katmani-kanit-bildirimi (bu-girdi + pre-reg-v2) · flaky-native-crash-siniflandirmasi-talebi-bekliyor · N1-c-O3-interleave-notu-kayit.
+
+## DÜZELTME-GİRDİSİ (12.1 — sessiz- yeniden-yazım-YOK) (2026-09-04)
+
+**Hata:** Yukarıdaki "SET-2-TEYİT-EMRİ-İCRA" girdisinde "origin..HEAD=0 (bosh)" yazıldı; HAM-ÇIKTI böyle DEĞİLDİ: `git log --oneline origin/main..HEAD` = **1 kayıt (`527184d`, PUSH-KAYDI-4)**. Hakem-emrindeki "BOŞ olmalı" beklentisi SET-2-push anına aitti; `527184d` bilinçli-LOCAL-ONLY (9.2: kendi-push'u sonraki yazılı yetkiye ertelendi) ve devirde-sonradan-yazıldı. **SONUÇ DEĞİŞMEDİ:** SET-2-push `72cd154` remote'ta mühürlü (ls-remote==72cd1549c660f359284558766f7b299256ecffd9); `origin..HEAD=0` ancak `527184d` push'lanınca gerçekleşir. Girdi-hatası öz-düzeltme-borcu CLINE-in.
+
+## PUSH-KAYDI-5 (§9.3) — N2#21-madde-8-icra-commiti (2026-09-04 09:22 +03)
+
+**Yetki:** Hakem-hükümü 2026-09-04 ("COMMIT-GO 12-dosya-scope-v2 · PUSH = yeni-hash-bound, bu-hükümle-şartlı-onaylı") — hash-seti-beyanı-sonrası-push; §5.2-hash-bound-formülüne-birebir.
+**Hash-seti (§9.5, 2-commit):** `527184d03b6a6f67c49c45d16b53dfffd2af1427` (ledger push-kaydı-4 {72cd154}; **KAÇINILMAZ-ATA** — §9.5-anayasal-kural; içeriği-hükümde-ratifiye) + `d36856fbae48bf920e2547e8cfa2b4905711d4db` (fix n2_21 madde-8; 12-dosya-scope-v2: NEW atomic_write.py + test_n2_21_atomic_write.py · MOD audit/state/orchestrator + conftest/4-test · index.json §10.2-yeniden-üretim · pre-reg-v2-mührü).
+**Scope-teyit:** staged=12/12-birebir (AGENTS.md + progress.md unstaged-kaldi — scope-DIŞI); pre-commit-hook'lar-Passed (ruff/ruff-format/vulture/mypy/json/trim/EOF/merge-conflict/case).
+**Valide:** hedefli-5-test-dosyası 52p/1F (yalnız-pre-existing d49::C3 — waivor-cem) · state/audit.jsonl=6-satır-dokunulmadı.
+**Push:** 2026-09-04 09:2x +03 · origin/main · `72cd154..d36856f`.
+**Post-push-teyit (dört-dörtlük):** origin..HEAD=0 (BOŞ) · ls-remote main == d36856fbae48bf920e2547e8cfa2b4905711d4db == local-HEAD · çalışma-ağacında-yalnız-scope-DIŞI-M (AGENTS.md, progress.md) · untracked=136-dokunulmadı.
+**Süreç-dersi:** bagimli-shell-komutlari tek-cagrida-PARALEL-kosar — ilk-commit-denemesi `rm COMMIT_MSG` yarisiyla-fatal-128 (log-dosyasi-silindi); mesaj-dosyasi-yeniden-olusturuldu, commit-tek-basina-atildi (d36856f; hook-Passed; commit-icerigi-degismedi). Ders: bagimli-komut-zinciri-serilestirilir.
+**Yeni-borç:** REIS: T0#10-iki-boot-planı-bildirimi · kalan-maddeler-önceliği (4/5/6) · push-kaydı-5-in-kendi-push-yazılı-yetkisi (yerel-desen-devam). CLINE: canlı-katman-icrası (Reis-bildirimli — bildirim-bu-raporla) · kalan-6-dosya-full-suit-kuyruğu · D82-izleme-borcu · telemetri-ayrı-commit (onay-gelince).
