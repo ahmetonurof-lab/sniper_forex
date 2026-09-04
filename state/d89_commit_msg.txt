@@ -1,0 +1,9 @@
+D89: FAZ-1 envanter + worktree-protokolu icrasi (Hakem D89; B2 kapandi)
+
+- results/D89_faz1_envanter.md: git-reality-etiketli 8-satirlik karantina
+  tablosu + worktree uc-adim kaniti + kanit-ayrimi onerisi (read-only census).
+- memory-bank/progress.md: D89 girdisi (D88 sonrasi EOF).
+- Worktree .kilo/worktrees/five-jackfruit REMOVE (Reis sahiplik beyani +
+  protokol: merged-teyit + defter-ikizi-diferansiyeli-bos + status-bos).
+- LOCAL-ONLY: push yazili yetkiye tabi (AGENTS 9.2/9.5).
+- Boot-C dokunulmaz: PID 18460, audit=23.
