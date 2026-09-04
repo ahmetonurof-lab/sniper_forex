@@ -1899,3 +1899,69 @@ Ping-1-@22:35-hedefi-yok: **0-süreç-22:08'den-beri.** İki-ping-düşürüldü
 | 8 | t10_boot_stdout.log: en-güncel-adla-okunur (rider-uyumu) | okuma-disiplini |
 
 **SIRA-BEYANI:** T0#10-canlı-icra-KARARI-Reis'te (canlı-katman-Reis-bildirimli); Cline-masa-hazır — "BAŞLA" bildirimi-üzerine-boot-A-adımı-Reis-ile-beraber (coruma-sırası-yukarıda-pinned).
+
+## T0#10 — CANLI-İCRA-SONUCU (BOOT-A → AUTO-KILL → BOOT-B) · TAM-GEÇTİ · 2026-09-04 10:22-10:30
+
+### Zaman-çizgisi (makine-damgalı)
+| An | Olay | Kanıt |
+|---|---|---|
+| 09:57:17 | **Boot-A doğdu** (PID-9072, parent-17144; modül-kipi `-m src.live.run_production`) | Get-CimInstance; t10_boot_stdout.log |
+| 09:57:17-58 | stale-takeover-1: lock 14940(ölü-T0#9) → **9072**; MT5-RECONNECT-success; S9-COLD_REBUILD_OK(replay_bars=4236); S11-SAFE_START(restored=true, kirli-reasons=BULGU-13-beklenen); gate-CLOSED | lock; t10_stderr; audit 7-12 |
+| 09:57-10:21 | **24dk23s çalışma (≥15dk ✓)**: audit-12/3459-stabil; WB=0 (yeni-floor'lu-path-0-beklenen ✓); heartbeat-lock-yeniden-yazımı-gözlemlendi | poll-dizisi |
+| 10:21:40-43 | **AUTO-KILL (Hakem-yetkili, ADER-19):** taskkill /F /T /PID-17144 → 4×SUCCESS (17144+9072+11748+10892); proses-0; lock-stale-9072-DONMUŞ; audit-12/3459-DONMUŞ (mühür 360c5fee); SHUTDOWN-event-YOK | kill-zinciri-çıktısı |
+| 10:22:15 | **Boot-B doğdu** (PID-16880, parent-1288) | t10b_boot_stdout.log |
+| 10:22:46+ | stale-takeover-2: lock 9072(ölü-A) → **16880**; S9-COLD_REBUILD_OK(replay_bars=4237 = A'nın-4236+1 — pazar-sürekliliği); S11-SAFE_START-kirli-reasons; gate-CLOSED; **audit 12→18 (5253-B) append** | lock; t10b_stderr; audit 13-18 |
+
+### Madde-1-acceptance — BAYT-DÜZEY-KANIT (d36856f-mekanizması-canlıda)
+- **T0#9-prefix (1707-B):** sha256 baş-ek `a6e94a5f17b878e4` — İKİ-boot-sonra-bile-bayt-özdeş-DURUYOR ✓
+- **Boot-A-prefix (3459-B):** sha256 baş-ek `360c5fee0bf6146f` — Boot-B-altında-bayt-özdeş ✓
+- **Append-dikişi:** A'nın-son-satırı (SAFETY/startup_SAFE_START) ile B'nin-ilk-satırı (MT5_CONNECT) sımsıkı-bitişik; **truncation-YOK**
+- **Üç-boot-linyajı tek-dosyada:** T0#9(6) + Boot-A(6) + Boot-B(6) = **18-satır, sıfır-kayıp** — D74-döneminin-"boot-üstüne-boot-truncation"ı (10→6-veri-imhası) canlı-katmanda-yapısal-olarak-imkansız-hale-geldi
+- `next_idx 4337(A) → 4338(B)` — replay-endeksi-pazarla-ilerledi; runtime-tam-M1-geçmişinden-yeniden-kuruldu (§6.1-6.2-zinciri)
+
+### Beklenti-tablosu-doluluk (D83-8-madde)
+1. Boot-A-stale-takeover ✓ (14940→9072) · 2. COLD_REBUILD+SAFE_START ✓ · 3. kirli-reasons=BULGU-13-beklenen ✓ · 4. audit-6→12-append-T0#9-durur ✓ (bayt-kanıt) · 5. **Boot-B-devralması ✓ (madde-1-acceptance, bayt-kanıt)** · 6. WB=0 ✓ · 7. lock-takeover-×2 ✓ (14940→9072→16880) · 8. t10-log-topolojisi ✓ (stdout+stderr-adli-ayrım; try1-ModuleNotFoundError-izleri-muhafaza-renamed)
+
+### ADER-19 (Hakem-§20-ruhu-ile-deftere)
+*"Deney-amacı-ölüm-anın-kimliği-değilse, ölüm-otomatikleştirilir; insan-anı-deney-değişkeni-olmaktan-çıkarılır."* — T0#10'un-asıl-amacı-ölüm-değil, **ölümden-sonraki-Boot-B-devralmasıydı**; kill-metodu-kanıt-değişkeni-değildi. 2-saatlik-teshis-döngüsünün-dersi.
+
+### Sapma-kaydı (küçük, beyanlı)
+- Launch-kipi: ilk-deneme script-kipi (`run_production.py`) → ModuleNotFoundError → kaynak-docstring-`:23`-yetkili: **`python -m src.live.run_production`** (modül-kipi) — try1-izleri `state/t10_boot_stderr_try1_moduleerror.log`'da-muhafaza
+- Tool-30s-cezası ×2 (sleep-süre-aşımı) — Boot-fırlatmaları-her-seferinde-başarılıydı; timeout-adli-post-mortemle-doğrulandı
+
+### AÇIK-KALEM — Boot-B-akıbeti
+Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbeti (çalışmaya-devam / kill-söküm / Reis-devri) Hakem-Reis-kararı — Cline-dokunmadı.
+
+### Sonraki-test önerisi
+- Boot-B-≥15dk + normal-shutdown-yolu (kill-değil, §C-graceful — venv-parent-şimdi-mümkün) → SHUTDOWN-audit-olayının-canlıda-görülmesi (T0#10-test-etmediği-tek-lifecycle-olayı)
+- Kalan-maddeler (4/5/6; 6d-artık-3-üye: +persistent_log.py-dead-module) öncelik-kararı Reis'te
+
+
+### 2026-09-04 07:55 UTC — CBDR sweep scan (6 majors, engine-import)
+
+- Araç: `scripts/cbdr_sweep_scan.py` (YENİ, report-only) — §2.2 reuse: formül yazılmadı;
+  `StrategyRuntime.on_bar → SessionManager.update` (strategy_runtime.py:262-263 canlı yol),
+  `resample_15m` (frozen-mirror), `MT5Connection` + `M1CandleFeed.fetch_m1` (server→UTC import),
+  evren `parity_gate.py:33 SIX_MAJORS`, pencere `19,1` (breakout_variant.py:69-70).
+- Yöntem: sembol başına 4500 M1 (salt-okunur copy_rates), 15m resample, canlı warmup→on_bar
+  akışı; pencere kapsamı tüm paritelerde 2026-09-03 19:00 → 2026-09-04 00:45 UTC teyitli.
+- Sonuç (döngü key=2026-09-04, pencere UTC 19:00→01:00 kapandı; scan 07:55 UTC):
+  - SWEEP/bias_locked=BEARISH: AUDUSD (level 0.72086 @06:30 UTC), GBPUSD (1.35477 @07:45 UTC),
+    USDCAD (1.37986 @07:15 UTC)
+  - NEUTRAL: EURUSD, GBPJPY, USDJPY (tolerans aşan kapanış yok; ATR×0.5 tolerans)
+- Canlı Boot-B (PID 16880) taramadan etkilenmedi (PID sonrası teyitli; audit/lock/state
+  dosyalarına dokunulmadı). JSON: `state/cbdr_scan/cbdr_scan_20260904_075501.json`.
+- Not: EURUSD/USDCAD pencere_bar=24, diğerleri 17 (resample <3-bar düşümü); body_locked=True
+  hepsinde. Tarama Boot-B'nin kendi state'ini değil, bağımsız in-memory motor örneklerini okur.
+
+
+## D85 — CANLI-PARİTE-DEĞİŞİMİ İCRASI (Boot-B-κ-stop → BOOT-C-AUDUSD) · TAMAMLANDI · 2026-09-04
+
+- **Yetki:** Hakem D85 hükmü (SCAN-RATİFİYE; RED-YOK). Tek-değişken: `SNIPER_SYMBOLS=AUDUSD` env-override; `.env` DOKUNULMAZ; SNIPER_STATE_DIR bilinçli unset (Boot-B-ile-aynı); modül-kipi-invariant.
+- **Coruma (adım-0):** 10-artefakt → `state/D85_preserve/` + SHA256SUMS.txt; audit-mührü 18-satır/5253B `5d56f03a835e8c9f…`.
+- **Boot-B-stop (adım-1):** graceful-dENEMESİ (AttachConsole+CTRL_C helper) → `ATTACH_FAIL err=5` (konsol-yok) → Hakem-ruhsatlı-κ-fallback taskkill /F /T: **2×SUCCESS (16880+18716)**; launcher-1288 kendiliğinden-çıktı; **audit-18/5253B-bayt-özdeş-DONDU, SHUTDOWN-YOK** (D78-üçüncü-örnek; SHUTDOWN-audit-açık-kalemi-devam). Lock-stale-16880.
+- **BOOT-C (adım-2):** PID-**18460** (venv-launcher-5580 altında, base-Python312; CimInstance-zinciri-kanıt); Reis-bildirim-artefaktı `state/t10c_reis_notice.txt`; lansman-tool-timeout-1'e-rağmen-hayatta.
+- **Startup-gözlem (adım-3):** audit **18→23** append — satır-19 MT5_CONNECT(symbol=AUDUSD), 20 STARTUP(symbols:[AUDUSD]), 21 **S9-REPLAY: bias=BEARISH** (replay_bars=4236, next_idx=4337, session_key=2026-09-04, signals_discarded=27), 22 S11-SAFE_START(**restored=false**=COLD-imzası; kirli-zincir **n=6→7** BULGU-13-büyümesi), 23 SAFETY-gate-CLOSED. **Dikiş-kanıtı:** post-C ilk-5253B sha=`5d56f03a…` bayt-özdeş — 4-boot-linyajı (T0#9+A+B+C). Heartbeat-lock-yeniden-yazımı ×3 gözlemlendi (588→809→909); audit-23-stabil = **WB=0** ✓.
+- **SINIF-1↔2-ZİNCİRİ-İLK-UYUM-MÜHÜRLÜ:** scan AUDUSD-SWEEP-BEARISH(06:30, SINIF-1) ↔ Boot-C-replay-bias=BEARISH(SINIF-2) — **pre-reg-pin-beklenen-yönde**; NEUTRAL-parite-bulgusu-yolu-açılmadı. EURUSD-NEUTRAL-uyumu-öncül-altında-2.uyum-noktası (D79→D85 çift-nokta).
+- **Topoloji-notu (beyanlı):** Boot-C'de-ayrı-COLD_REBUILD_OK-olayı/stderr-"cold rebuild OK"-alerti-YOK (Boot-B'de-var); yetkili-soğuk-imzalar S11-restored:false + S9-REPLAY-payload — araştırma-kalemi.
+- Rapor: `results/D85_live_symbol_swap.md`. Boot-C handoff-anında-CANLI-bırakıldı (akıbeti-Reis'te).

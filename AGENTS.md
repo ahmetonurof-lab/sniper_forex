@@ -958,6 +958,23 @@ CBDR/session establishment time
 
 A soak is not successful merely because the process remains alive.
 
+### Aşama-5: Crash / Fix-Bildirim Üçlü Kanal Zorunluluğu
+
+Her SOAK-CRASH / fatal-error / fix-commit, **ÜÇ kanala AYNI ANDA** bildirilir:
+
+| # | Kanal       | Rol                                          |
+|---|-------------|----------------------------------------------|
+| 1 | Hakem       | Arbitraj — karar yetkisi                      |
+| 2 | Sentezleyici | Luna — sentez-girdisi olarak                |
+| 3 | Owner       | Forexçi — operasyonel-bilgi olarak            |
+
+**Tek-kanal bildirim = eksik-bildirim sayılır.**
+
+> **FORMÜL:** "CRASH BİLDİRİMİ TEK KANALA YÖNLENDİRMEYİN."
+>
+> "Crash yemeyen production sistemi diye bir şey yok;
+> CRASH'İ GİZLİ KIRILAN production sistemi vardır."
+
 ---
 
 # 19. COMMON FAILURE MODES TO AVOID
