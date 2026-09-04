@@ -1965,3 +1965,13 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **SINIF-1↔2-ZİNCİRİ-İLK-UYUM-MÜHÜRLÜ:** scan AUDUSD-SWEEP-BEARISH(06:30, SINIF-1) ↔ Boot-C-replay-bias=BEARISH(SINIF-2) — **pre-reg-pin-beklenen-yönde**; NEUTRAL-parite-bulgusu-yolu-açılmadı. EURUSD-NEUTRAL-uyumu-öncül-altında-2.uyum-noktası (D79→D85 çift-nokta).
 - **Topoloji-notu (beyanlı):** Boot-C'de-ayrı-COLD_REBUILD_OK-olayı/stderr-"cold rebuild OK"-alerti-YOK (Boot-B'de-var); yetkili-soğuk-imzalar S11-restored:false + S9-REPLAY-payload — araştırma-kalemi.
 - Rapor: `results/D85_live_symbol_swap.md`. Boot-C handoff-anında-CANLI-bırakıldı (akıbeti-Reis'te).
+
+## PUSH-KAYDI-6 (§9.3) — D85-PAKETİ · 2026-09-04 · YETKİLİ-HAKEM-HÜKMÜ (hash-bound)
+
+- **Kim/ne:** Cline; Hakem-D85-ratifiye-hükmü-içinde-yazılı-push-yetkisi (§9.2).
+- **Set (3-commit, hash-bound):** `7a9e7a4` (push-kaydı-5-defteri) + `460640d` (D83+T0#10-masa) + `057da7a` (D85-icra: ledger+scan-script+AGENTS-Aşama-5+D85-raporu).
+- **Uzak:** `origin/main` = https://github.com/ahmetonurof-lab/sniper_forex.git — push `d36856f..057da7a main -> main`.
+- **Doğrulama:** pre-push set-teyidi `origin/main..HEAD`={yalnız-3} ✓; post-push `origin/main..HEAD` BOŞ ✓; `ls-remote`==`rev-parse HEAD`==`057da7a1a78dc807cfc289b2e1df8098429d0527` ✓; tracked-tree-temiz (untracked-136-kayıt-önceden-var-olan-dosyalar — dokunulmadı).
+- **Validation-mirası:** tüm-commitler-hook-Passed (057da7a: Passed×10; 7a9e7a4/460640d-kendi-zamanında).
+- **Sıra-modeli:** SET-2-aynen — bu-kayıt-AYRI-local-commit (onun-push'u-sonraki-sette-yazılı-yetkiyle).
+- **Canlı-katman:** push-sırasında-Boot-C (PID-18460, AUDUSD) canlı + heartbeat-döngüsünde — runtime-dosyalarına-git-dokunmadı (state/-gitignore-hattı).
