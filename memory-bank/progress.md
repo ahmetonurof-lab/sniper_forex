@@ -1843,3 +1843,26 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
 4. Beklenen-kaydıyla-yüzleştirme-tablosu (alan-bazlı ✓/✗).
 
 **Öncelik-kuralı (madde-7):** commit/push-sırasında-SIGNAL → iş-durdur; bu-protokol-ÖNCE; commit-sonra.
+
+## PUSH-KAYDI-13 — SET: D106-DOCS-SET (2026-09-06; Cline-icrası; Hakem-SET-KABUL + Reis-EVET)
+
+- **Kim:** Cline (bu-oturum; Reis-"EVET"-yazılı-onayı + Hakem-SET-KABUL-hükmü).
+- **Ne/tam-set (hash-bound):** tek-commit **`50a0862`** (`docs(memory-bank): D106-V6-anomali-census (v2, PIN-fixed) + D107-hakem-hukmu + zincir-pre-reg (N2#25)`).
+- **Kapsam (2-path):** `memory-bank/progress.md` (D106+D107+zincir-pre-reg+N2#21-debt) + `results/D106_V6_ANOMALI_PAKETI.md` (AYNEN; mutasyon-yok).
+- **Hariç-tutulan (deferred):** src/live/* + index.json + worktree-untracked (N2_25_PUSH_VERIFICATION_20260905.md dahil) — sonraki-hash-bound-set (canlı-boot-sonrası).
+- **Gate:** origin/main=51cee9b (parent) · origin/main..HEAD=1={50a0862} · staged=0 · ride-along-YOK · PID-1924-alive (pre+post).
+- **Push:** `51cee9b..50a0862 main -> main` (EXIT=0).
+- **Doğrulama (§16):** origin/main..HEAD=0 ✓ · ls-remote=50a08627cade821130d1ccaa9cb66ea7a405a6c5==rev-parse-HEAD ✓ · staged-kalan=0 ✓ · PID-1924-alive ✓.
+
+## N2#25-KAYDI — İnsan-okunur-log ISO-alanı kod-ameliyatı (2026-09-06; Cline-icrası; PUSH-YASAK)
+
+- **Direktif:** Reis-emri N2#25 (Hakem-ratifikasyonu: ONAYLANDI · UTC-0 tercih).
+- **Değişken (tek):** `tools/make_readable_log.py` zaman damgası — naive `strftime("%Y-%m-%d %H:%M:%S")` → ISO-8601 UTC `fromtimestamp(ts, tz=timezone.utc).isoformat(timespec="seconds")`.
+- **Test:** `tests/test_make_readable_log.py` (3 test) — STATE→CBDR-KILIT, SIGNAL, tüm-satır-ISO. **3/3 PASSED** (pytest 9.1.1, py3.12.2).
+- **Kanıt:** diff tek-satır ✓ · örnek çıktı `2025-09-06T11:30:45+00:00 [BOOT]...` ISO-UTC ✓ · pre-reg `results/N2_25_human_readable_log_iso.md` (kanıt-bölümü dolduruldu).
+- **§12.1 sapma-notu:** direktif örneği `1757158245`==`2026-09-06T14:30:45+00:00` iddia etti; doğrulanan dönüşüm `2025-09-06T11:30:45+00:00` (aritmetik hata). Test kanıt-bazlı değeri sabitler.
+- **Commit:** `baed47e` `feat(n2_25): make_readable_log ISO-8601 UTC timestamp` (3-path: tools + tests + pre-reg; 193+/1-). Pre-commit hook'ları PASS (ruff/format/vulture/EOF).
+- **PUSH: YASAK — yapılmadı.** `origin/main..HEAD`=1={baed47e}; push için Hakem'den yeni hash-bound onayı beklenir.
+- **Dokunulmazlar:** src/live/* + index.json + state/ + PID-1924 dokunulmadı (PID-1924 alive post-commit ✓).
+- **Açık:** PUSH-KAYDI-13 (progress.md, 10-satır) hâlâ uncommitted — ayrı chore-commit önerilir.
+- **Sıradaki:** D106-V6-anomali-paketi (kuyruk-6) — N2#25 sonrası.
