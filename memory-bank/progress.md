@@ -1032,68 +1032,17 @@ acquisition, LIVE↔BACKTEST parity, known-good benchmark freeze, etc.).
 
 ---
 
-## D68 — AUDIT-CONTINUITY KRİZİ + W1 CANLI-BULGULARI (2026-09-03 15:20 server)
+## D68 — AUDIT-CONTINUITY KRİZİ + W1 CANLI-BULGULARI (2026-09-03 15:20 server) *(ARŞİV — checkpoint-v3-öncesi)*
 
-**Handoff-pin (taze-ölçüldü, yazım-öncesi):** `memory-bank/progress.md` **1032 satır / sha256 `f3a175d6ee1ae609` / mtime 14:46:38** — hüküm-pin'iyle **birebir tuttu** (arka-plan-mutasyonu YOK; §10.1 temiz).
-`[method: sha256sum <worktree path>, CRLF-byte, LF-normalize not]`
+> Ayrıntı: memory-bank/archive_v2_20260906/D68_AUDIT_CONTINUITY_KRİZİ_W.md
 
-### D68 hüküm-metni (Hakem, masaya)
-> **D68 (2026-09-03, Cline-bulgu + Hakem-hükmü):** `AuditChain` **boot-başına-yok-ediliyor** — `orchestrator.py:1040` mevcut-dosyayı load-ETMEDEN kuruyor; `save()` whole-file-overwrite (`tmp.replace`); `load()` üretimde **sıfır-çağıran**. **Ölçülen kayıp:** Sep-2'nin 7 satırı (WRITE_BLOCK-dahil) bugünkü-boot'ta üzerine yazıldı; **tek kalıcı kopya = bugünkü defter-girdisi** (kurtarılmış-embed). **Sınıflandırma: §18 audit-continuity ihlali; D6/D48 zincirine mahkemelik.** D6-"lifecycle-dokunuşsuzluk" durumunu değiştirmez — crash-reaksiyonu değil, **sürekli-bileşen-kaybı**.
+## D70 · LAUNCH-MODU-KANIT-ZİNCİRİNİ-BELİRLER (sistematik-ders · 2026-09-03 15:30 · Hakem K3-hükmü) *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **Kod-dokunuş-yasağı sürüyor** (production-critical, PID-3416 alive). Kurtarma deftere gömülü ✓, gözlem-dosyasına embed ✓.
-- **Protokol-dikişi (AM-T7-7) YÜRÜRLÜKTE:** her boot-öncesi `cp state/audit.jsonl state/audit_prev_<date>.jsonl` (mask-bağımsız). **İlk icra ölçüldü:** `state/audit_prev_2026-09-03.jsonl` 9 satır / 2765 B @14:58.
-- **Yol-kararı:** Hakem ön-önerisi **load+append-only = P0-rotası** (D18-atomics ailesi); final **Owner-batch**'ine (kod-yetkisi owner-domain). **N2 #21 adayı** — 4 fikstür (load+append / boot-rotasyon / overwrite-yasak / continuity-fikstürü) + mevcut 15+6+27 suite kırılmadan.
+> Ayrıntı: memory-bank/archive_v2_20260906/D70_LAUNCH_MODU_KANIT_ZİNCİR.md
 
-### W1 canlı-bulguları (Bulgu-6/7/8/9 — SINIF-2 GÖZLEM)
-- **BULGU-6 · WRITE_BLOCK boot-içi de yineliyor.** Boot-olayları 14:07:51–56 → **45 dk sessizlik** → 14:52:40 WRITE_BLOCK → 14:52:46 `ERROR phase=audit_flush` → WRITE_BLOCK. N2 #15-b retry **~6 s'de kurtardı**; hata kendini kaydetti (sessiz değil). **Sayı-düzeltmesi (§13, gizleme yok):** W1 = **0 SIGNAL/SWEEP + 1 ERROR**.
-- **BULGU-7 · T0-crash'ın kayıp audit-zinciri KURTARILDI.** `state/audit.jsonl.tmp` (Sep 1 23:59:02 / 1483 B / **PID-suffix'siz = pre-N2#15 kod**) **6 tam olay**, kesik-7.satır YOK → tmp tamam, **ölüm `tmp.replace()`te**. İçerik: MT5_CONNECT, STARTUP, S9-REPLAY, **S11 `verdict=PROCEED` `restored:false` `warmup_bars:4339`**, SAFETY, **SHUTDOWN `exit:1 reason:"run_exception:PermissionError"`**. **±18 ms yeniden-inşa:** `lock.tmp created_at=1788296341.9933` (pid **16984**) → +17.8 ms → SHUTDOWN `1788296342.0111`. Sıra: kilit-rename patladı → exception `run()`a → SHUTDOWN tampona yazıldı → audit-save tmp yazdı → **audit-rename'de öldü**. **En-ağır:** **Sep 1'de entry gate AÇIKTI** (bugünkü SAFE_START'ın zıddı) — bugüne dek yalnız *yorum* olan şey **audit-kaydıyla** doğrulandı. **Paradoks:** kayıp-üreten mekanizma kanıtı korudu (rename başarılı olsaydı sonraki-boot overwrite'ı bunları da silecekti). **Küçük yorum-kod çelişkisi:** `orchestrator.py:91` "`orchestrator.lock.<pid>.tmp` gösteriyordu" der, gerçek-yetimin **PID'siz** → fix henüz-yetişmemiş; **backlog (doküman-doğruluğu), kod-talebi yok.**
-- **BULGU-8 · close-save YALNIZ graceful-stop'ta → parite-kapısı kill'e hapsedilmiş.** `schedule_snapshot` üretimde **tek-çağıran** `orchestrator.py:1661` = `shutdown()` gövdesi-içi (`audit.shutdown()` :1641 + MT5-release :1650 ile aynı blok); `recovery.py:187–191`; yorum itirafı: *"per-N-bar periodic save — graceful path alone cannot shrink the kill-9 window"* → **periodic save YOK**. Zincir: `session_atr` ⇒ graceful-stop ⇒ SIGINT ⇒ **konsol** ⇒ pid 3416 parent'ı **`nohup.exe`** (`crash_log.txt` satır-2) ⇒ **konsol YOK**. `orchestrator.py:2364–2365` yalnız SIGINT+SIGTERM, **SIGBREAK YOK**; Windows `os.kill(SIGTERM)`→`TerminateProcess` (handler çalmaz). **⇒ Hakem-kararı (iii) olduğu-gibi uygulanamaz:** W2 kendi-kendine `session_atr` üretmez. §1.6 parite ancak **konsollu-yeniden-boot + gerçek Ctrl-C** ile kapanır. **Plan-hatası değil, kodun yapısal kısıtı; ilk-defa ölçüldü.**
-- **BULGU-9 · D68-P0'ya REPO-İÇİ EMSAL.** `state/crash_log.txt` **append-mode ve boot-atlatıyor**: satır-1 pid **3944** `ts 1788379690.446` (Sep 2 23:08:10), satır-2 pid **3416** `ts 1788433671.607` (bugün 14:07:51). Aynı kod-tabanında **fiilen-çalışan append-persistence var**; `AuditChain` kullanmıyor → **§2.2 gereği D68-P0'ın en-düşük-riskli emsali**, Hakem'in load+append-only önerisini bağımsız güçlendirir. Yan-ürün: devralınan kilidin **Sep 2 23:08 boot'una (pid 3944)** ait olduğu çift-kaynakla teyitli → §A takeover kanıtı pekişti.
+## D71 · SEP-1-T0-CRASH-ADLİ-KAZISI (yapı-ışınsı-kazı-standardı · 2026-09-03 15:30) *(ARŞİV — checkpoint-v3-öncesi)*
 
-### Ratifiye + düzeltmeler (Hakem §2)
-3/3 SINIF-1→2 parite-çeşidi **kabul** (D65-ayrımının ilk SINIF-2 tarifi). **Düzeltme-#1** pencere server 22:00→04:00 **kabul**; **W1–W2 sınırı server dilinde 19:00→22:00**. **Detail-2 Hakemce düzeltildi** (kendi hatası): EURUSD 1→0 **bias YOK** · USDCAD **NEUTRAL→BULLISH bias VAR**; V-LIVE mekanizmal-seçim **ratifiye**. **Düzeltme-#3 yön-tarafı kanandı** → ③-masası **altı-parça**: *güçlü-trend günleri bias kilitlemez*. Bulgu-2 → **backlog**; Bulgu-3 → **§A-imza notu/backlog**.
-
-### Açık-kalan (Reis+Hakem kararı bekleniyor)
-**AM-T7-8 / §C kilidi:** pid 3416 nohup-altında → graceful-stop imkânsız. Üç-seçenek (gözlem-dosyası §9): **K1** konsollu-yeniden-boot (pariteyi açan tek yol; W1 sürekliliği kırılır) · **K2** izlet, §C'yi "nohup-altında imkânsız" mühürle (parite açık kalır, 65k ertelenir) · **K3** hibrit (3416 W2'yi gözler — §8.4 yalnız *persist*'i engeller, *hesabı* değil; sonra ikinci-boot yalnız §C+close-save+parite için). **Cline tercih-vermedi.**
-
-**Boundary (yazım-sonrası-doğrulandı):** `git status --porcelain --untracked-files=no` = yalnız `M AGENTS.md`, `M memory-bank/progress.md`; `git diff --stat -- src/ tests/ index.json` = **BOŞ**. Push YOK. `.env` dokunulmadı. `orchestrator_safe.json` ve `orchestrator.lock` **korundu** (yetim `.tmp`ler de dahil — Bulgu-7 kanıtı). D62 `ad3fa87b…` / D64 `8b18f70a…` **değişmedi**.
-
-
-## D70 · LAUNCH-MODU-KANIT-ZİNCİRİNİ-BELİRLER (sistematik-ders · 2026-09-03 15:30 · Hakem K3-hükmü)
-
-**Ders-cümlesi (kalıcı):** **"§C graceful-stop, nohup-tarzı launch altında FİZİKİ olarak imkânsız."**
-Bu-ders D58'i tamamlar: D58 *"nohup altındayken Ctrl-C'nin gerçek-olmadığı"* → D70 *"nohup altındayken sinyal-iletimi fiziki olarak mümkün-değil; dolayısıyla o-instance'ta hiçbir graceful-kanıt aranmaz."* **Foreground-yalnız-kuralı** bu-biçimiyle kalıcılaşıyor.
-
-**Neden-sistematik (tek-boot-olayı-değil):** close-save'ın üretimde **tek-girişi** `shutdown()` (`orchestrator.py:1661`); periodic-save YOK (kaynak-kodu kendi-yorumuyla itiraf ediyor). Yani **eksik-olan-bir-özellik-değil, eksik-olan-tek-yolun-kendisi.** Launch-modu yanlış seçildiğinde §C / §1.6 / D58-kapanışı **hepsi-birden** erişilemez olur — **üç-kapı-tek-anahtar.**
-
-**Ölçülen-kanıt:** `crash_log.txt` satır-2 `parent: "19088: C:\Program Files\Git\usr\bin\nohup.exe"` (pid 3416) — append-only kanıt-mekanizması launch-modunu **kendi-kendine kaydediyor**; yani teşhis-mekanizması zaten mevcut, sadece okunmamıştı.
-
-**Yeni-ölçülmüş-kural (K1-RED gerekçesi ii):** **"taskkill = audit-orphan üretir."** `save()` tmp-yazar → `replace()` patlarsa tmp-yetim-kalır (BULGU-7'nin tam-mekanizması). Hard-kill, D68-kayıp-sınıfını gizlemek-bir-yana **yetim-artefakt-la çoğaltır.**
-
-**Uygulama-kararı:** **AM-T7-7** (checklist v1.4 §H.1) + boot-runbook'una **ZORUNLU iki alan**: `launch_mode ∈ {foreground-console, nohup, other}` ve `§C_producible ∈ {yes, no}` — beklenti-kaydı **önceden** yazılır, sonradan-keşif-değil (§H.3).
-
-**Numaralandırma-düzeltmesi (§12.1, görünür):** Cline'ın v1.3'ünde AM-T7-7=audit-copy / AM-T7-8=konsol idi; **Hakem-hükmü tersi** → v1.4'te **takas edildi**, takasın-kendisi §H.1'de kayıtlı (tarihçe sessiz yeniden-yazılmadı).
-
----
-
-## D71 · SEP-1-T0-CRASH-ADLİ-KAZISI (yapı-ışınsı-kazı-standardı · 2026-09-03 15:30)
-
-**Standart:** *tam-gün-nokta, arşiv-geri-aitir* — bir-boot'un kanıtı, o-boot'un dosyalarından geriye-doğru tam-zincir olarak okunur; eksik-halka "yok" değil **"kayıp ve lokasyonu-belirsiz"** olarak yazılır.
-
-**Kazı-sonucu (bir artefakt, üç yorum-dönüşümü):**
-| Katman | Bulgu |
-|---|---|
-| **Yorum-duygusu** | Sep 1 23:59:02'de bir boot **PermissionError ile crash etmiş** — `SHUTDOWN reason:"run_exception:PermissionError"`, `exit:1` |
-| **Kurgu → gerçek** | "Sep 1 SAFE_START idi" yorumu → `S11 verdict=PROCEED` + `restored:false` + `warmup_bars:4339` → **Sep 1'de entry gate AÇIKTI**. Artık **audit-kanıtlı olgu**; D64'ün "ilk-gerçek-uygulama" çerçevesi **güçleniyor** |
-| **Paradoks** | Kayıplara yol-açan **bozuk-mekanizma** (tmp-replace), **bu olayın tek-kopyasını yanlışlıkla korumuş** — overwrite yerine append olsaydı 6 olay kaybolmazdı, yetim de oluşmazdı |
-
-**Milisaniye-eş-zamanlılığı (crash sırası):** `orchestrator.lock.tmp` `created_at 1788296341.9933178` (pid 16984) → `SHUTDOWN` `1788296342.0110803` → **Δ = 17.8 ms**. Crash, lock-alımının **ilk-icra-anında** olmuş.
-
-**Çelişki → backlog:** `orchestrator.py:91` yorumu `orchestrator.lock.<pid>.tmp` der; yetim **PID'siz** `orchestrator.lock.tmp`. Yorum mekanizmayı doğru tarif etmiyor → **N2 #21 madde-6 (comment-hijyen)**.
-
-**Arşiv-geri-atıf:** 6 olay → `state/audit_prev_2026-09-03.jsonl` **değil**, `state/audit.jsonl.tmp` **üzerinden** geri-kazanıldı; ikisi **farklı kanıt-sınıfı** (biri koruma-dikişi, biri adli-kurtarma).
-
----
+> Ayrıntı: memory-bank/archive_v2_20260906/D71_SEP_1_T0_CRASH_ADLİ_KAZI.md
 
 ## N2 #21 · KAPSAM-GENİŞLETMESİ (pre-reg çerçevesi · **owner-batch rotası KALKIYOR**)
 
@@ -1182,291 +1131,37 @@ Bu-ders D58'i tamamlar: D58 *"nohup altındayken Ctrl-C'nin gerçek-olmadığı"
 
 ---
 
-## D72 · BULGU-ENVANTERİ RATİFİKASYONU — 11-BULGU-MÜHÜRLÜ + İKİ-KAYIT-HATASI-DERECESİ (2026-09-03 16:53)
+## D72 · BULGU-ENVANTERİ RATİFİKASYONU — 11-BULGU-MÜHÜRLÜ + İKİ-KAYIT-HATASI-DERECESİ (2026-09-03 16:53) *(ARŞİV — checkpoint-v3-öncesi)*
 
-**Hüküm-statüsü:** ENVANTER KABUL · BULGU-6 aşağı-çekme **ratifiye** · BULGU-10/11 öz-düzeltme = **Kural-6 onikinci/üçüncü-tur** · W1-nihai-sayım **MÜHÜRLÜ** · overwrite-semantiği **canlı-gözleme terfi ratifiye** · **RED-YOK.**
-**Bu-turun-asıl-değeri (Hakem tanımı):** canlı-bekleyen-süreç-üstünde **dört-katmanlı-kayıp-disiplini** — envanter → öncelik-düzeltmesi → hipotez-şemsiyesi → canlı-teyit.
+> Ayrıntı: memory-bank/archive_v2_20260906/D72_BULGU_ENVANTERİ_RATİFİKA.md
 
-### Ratifiye-dereceler (tamamı §13.1 tablosunda; rota-özü)
-**1 KRİTİK**(N2#21-1) · **2 YÜKSEK**(2) · **3 ORTA**(5 + §H.4-sınırı) · **4 ORTA**(6) · **5 ORTA**(backlog; capture'a **iki-teyit-adımı**) · **6 AŞAĞI-ÇEKİLDİ**(4, izleme) · **7 YÜKSEK→D71**(kapandı) · **8 YÜKSEK→K3**(+madde-3) · **9 ORTA**(madde-1 güçlendirici) · **10 TEYİT→kısmi-tekrar**(2 yan-ürün terfi) · **11 KISMEN-GERİ**(H1/H2/H3).
+## D72-arb · HASH-DOĞRULAMA + DIŞ-AUDIT ARŞİVİ + ADER-9 (2026-09-03 17:15) — Reis-Komutu, üç-madde-tek-yazım *(ARŞİV — checkpoint-v3-öncesi)*
 
-### İki-yan-ürün → defter-maddesi-terfisi
-- **AM-T7-9 (YENİ, yürürlükte):** *"Runbook'lar zaman-dili belirtir (local / server / UTC); belirtmeyen satır runbook-hatasıdır ve düzeltilmeden runbook koşmaz."* **BULGU-10 yan-ürünü (b)'nin terfisi** — Hakem-vurgusu: *not değil, **risk-ifadesi***. Uygulama: checklist **§H.6 zaman-dili-çizelgesi** (§H.2'nin-beş-satırı etiketlendi) + **kış-uyarısı**: `local ≡ server` eşitliği offset-değişse-de bozulmaz (aynı-makine), **ama pencere-saatleri kayar** ⇒ §H.5 yeniden-türetilmeden kış-runbook'u koşulamaz.
-- **K3-zamanlama-precision'ı:** Ctrl-C pencere-bitişinde **değil**, day-key-`2026-09-03` body-kapanışı-sonrasında (04:10 `server`) — §H.4 sınırlarıyla, N2 #17 imza-kodu ile aynı.
+> Ayrıntı: memory-bank/archive_v2_20260906/D72_arb_HASH_DOĞRULAMA_DIŞ_A.md
 
-### Overwrite-semantiği → CANLI-GÖZLEM (bugünün en-güzel-kanıtı)
-`audit.jsonl` **3190 B sabit / mtime ilerler**: 15:58:52 · 16:00:53 · 16:06:53 · **16:52:58** (4-örnek). BULGU-1 whole-file-overwrite artık **ölçülmüş-davranış**.
-**Kabul-kriterine-terfi (imzanın-tersten-okunması):** fix-sonrası **yeni-olay-yokken mtime İLERLEMEMELİ**; ilerlerse append-only **kurulmamıştır**. ⇒ Aynı-gözlem hem **kusur-kanıtı** hem **düzeltmenin kırmızı-yeşil lambası.**
-**Hakem-çerçevesi:** *"kod-yaşarken davranışı ölçtük, kod-ölmeden düzeltmeye gireceğiz."*
+## D73 · BULGU-3 ARİTMETİK-DÜZELTMESİ + `created_at` AD-TUZAKI + OVERWRITE 6. ÖRNEK (2026-09-03 17:53) *(ARŞİV — checkpoint-v3-öncesi)*
 
-### W1-MÜHÜR + ayrıntı-hükmü
-`0 SIGNAL/SWEEP · 1 ERROR · 3 WRITE_BLOCK` — iki-aşamalı-düzeltme-zinciri görünür. **Ayrıntı-hükmü:** ERROR ile WRITE_BLOCK aynı-saniyede (14:52:46) ⇒ telemetriye **"aynı-saniye, iki-sayı-değildir"** kuralı. **H3-ekranı:** 59-dk aralığı **n=2** → saatlik-endonek hükmü **verilemez**; H1/H2 aday; ayrışma-yolu **RM-probe "kim-tutuyor"**.
+> Ayrıntı: memory-bank/archive_v2_20260906/D73_BULGU_3_ARİTMETİK_DÜZELT.md
 
-### D64 WIRE-NOTE (Aşama-5'e-devir)
-**D64-NİHAİ-MÜHÜR: Option-A seçilmişti; amendment-§5 uygulaması BEKLEMİŞ.** Envanterdeki "Option A/B" satırı Cline tarafında **AÇIK-ŞART** olarak duruyor. Devir-kaydı: `results/D64_bias_census_evidence.md` **`8b18f70a`** + **§5-bloğu** + yayın-anında **taze-pin**. **Dosyaya dokunulmadı** (yedinci-halka zincir-değişmezliği sürüyor).
+## D74 · HAKEM-HÜKMÜ-UYGULAMASI + SAHA-OLAYI (19:17 ikinci-boot) + ÜÇ-ÖZ-DÜZELTME *(ARŞİV — checkpoint-v3-öncesi)*
 
-### Boundary (ratifikasyon-turu)
-Kod **DOKUNULMADI** (`src/ tests/ index.json` diff **boş**) · push **YOK** · pid **3416 CANLI** · `sweep_detection 3cbc74fc` ve **D64 `8b18f70a` DEĞİŞMEDİ** ✓ · yetimler korundu · D68-dikişi yerinde · **O1–O3 gözlemci-disiplini yürürlükte** (audit artık yalnız share-safe-Python; her-okuma dokunma-günlüğüne otomatik-satır).
+> Ayrıntı: memory-bank/archive_v2_20260906/D74_HAKEM_HÜKMÜ_UYGULAMASI_S.md
 
----
+## D75 · REIS-FOREGROUND-BOOT DENETİMİ + KÖK-NEDENİN YENİDEN-KEŞFİ (öz-eleştiri) *(ARŞİV — checkpoint-v3-öncesi)*
 
-## D72-arb · HASH-DOĞRULAMA + DIŞ-AUDIT ARŞİVİ + ADER-9 (2026-09-03 17:15) — Reis-Komutu, üç-madde-tek-yazım
+> Ayrıntı: memory-bank/archive_v2_20260906/D75_REIS_FOREGROUND_BOOT_DEN.md
 
-### Madde-1 · HASH-DOĞRULAMA — SONUÇ: **5/5 DOĞRULANMIŞ-ANKOR · 0 DÜZELTME**
-| Luna-hash | Tam-hash | Commit-zamanı `+03:00` | Konu-özü | Sınıf |
-|---|---|---|---|---|
-| `a289a48d` | `a289a48d686b2b3a313cd858f0ee2d26da67339c` | 08-27 23:01:31 | phase7: **audit chain** + safety monitor (5 fail-safe, JSONL flush) | **DOĞRULANMIŞ** |
-| `d87d1e1` | `d87d1e11fa3e2cb2a9b161f6e4a8f3bdc287b3cd` | 08-29 12:18:12 | persistent runtime logging + **audit auto-flush** | **DOĞRULANMIŞ** |
-| `68878d6` | `68878d61be134f6b2d04e43517e91c1a308065dd` | 08-30 02:45:13 | TAŞ 2 — orchestrator S3-S9, **startup_snapshot**, bar pipeline, **lock contract** | **DOĞRULANMIŞ** |
-| `afe6668` | `afe666849d91a6ba87e528071acbcf9319b87db2` | 08-30 10:42:35 | TAŞ 2 blockers(1-8) — slot-floor emit, S5 injection, **PID liveness+heartbeat**, MT5 tri-state | **DOĞRULANMIŞ** |
-| `b36c7c4` | `b36c7c4176c8b5c362a9512fe545330aa4354cdd` | 08-31 11:39:51 | D49: **boot-time sync replay (O2)** + **restore staleness gate** — C1-C6, B-1 | **DOĞRULANMIŞ** |
+## D76 · D75'İN ÜÇ-İDDİASI ÇÜRÜDÜ + KÖK-NEDEN CANLI-YAKALANDI *(ARŞİV — checkpoint-v3-öncesi)*
 
-**Konusal-teyit (beklenmedik-pozitif):** beş-commit-in-hepsi **BULGU-1 / BULGU-3 / BULGU-8 mekanizma-linelerinin-üstündedir** — Luna'nın-ankor-seçimi **rastgele-değil, hedefli.** ⇒ R1'in-sınıflandırma-değeri **bağımsız-yükseldi** (§3 eğilimine-aykırı; dürüst-kayıt).
+> Ayrıntı: memory-bank/archive_v2_20260906/D76_D75_İN_ÜÇ_İDDİASI_ÇÜRÜDÜ.md
 
-**Benzerlik-bayrağı ÇÖZÜLDÜ — `afe6668` ≠ `afe695b`:** ortak-önek `afe6`, **6. haneden ayrılır** (`666`/`695`); tarih-farkı **~2 gün** (08-30 10:42 vs 09-01 07:33); tür-farkı `fix:` vs `chore: ledger`. ⇒ **Hakem-bayrağı DOĞRULANDI: D53b-zinciri YALNIZ `afe695b`.** **Yan-teyit:** `afe695b` konusu *"real resurrection vector FOUND: Startup lnk → start_watcher.vbs logon autostart, correcting N2 #9 'manual start' misjudgment"* + *"mandatory pre-flight rule: watcher-process check at BOTH commit and push"* der ⇒ **BULGU-11 watcher-öldürmesinin resmî-kaynak-kanıtı budur** ve **§10.1-ısrarı-lafzen-değil-commit'le-bağlıdır.**
+## D77 · REİS'İN "KAZARA" CTRL-C'Sİ = PLANIN-EMRETTİĞİ-ADIM · K3-KAPISI AÇILDI *(ARŞİV — checkpoint-v3-öncesi)*
 
-**GREP · D25 TEYİTLİ:** `feed.update` → **0** · `feed.warmup` → **0** · `M1CandleFeed(` → **0** · yalnız `fetch_m1` (`candle_feed.py:103/179/197`) ve `_fetch_m1_tri_state` (`orchestrator.py:1849/1905/2169`, def `:2274`, yorum `:1219`). Beklenen-çıktı-şablonu **birebir-karşılandı.**
+> Ayrıntı: memory-bank/archive_v2_20260906/D77_REİS_İN_KAZARA_CTRL_C_Sİ.md
 
-### Madde-2 · ARŞİV — `results/D72_external_rootcause_audit.md` (YENİ · untracked · 185 satır)
-Etiketli-bölümler: §0-alma-boşluğu · §1-R1-Luna-5.6 · §2-R2-Gemini-3.8-Flash · §3-hata-kataloğu · §4-arbitraj-tablosu(11) · §5-D72-a/b/c · §6-ADER-9 · EK-1-ham-hash-çıktısı · EK-2-ham-grep-çıktısı · §7-kapanış.
-**AÇIK-KALEM (gizlenmedi):** **E4/E5/E6 doldurulmadı** — 6-maddelik-hata-kataloğunun-3'ü iletildi, 3'ü **bağlamımda-yoktu**; uydurmadım (§13.5 *kısmi-alımda-hafızadan-özetleme-yok*). Aynı-sebep-le **Luna/Gemini düz-yazısı arşivde-değil**, yalnız **kanıtlanabilir-çekirdek** (hash + Hakem-nitelendirmesi) var. **İletim-talebi §1.4'te** (split-header + alıcı-onayı).
-**ID-ÇAKIŞMASI (Hakem-kararı-bekliyor):** Hakem "D72" = dış-audit-arbitrajı; defterde "D72" = envanter-ratifikasyonu. **İki-olay-aynı-ID.** Aday: **D72-env / D72-arb.** Sessizce-çözmedim.
+## D78 — K3-KAPANIŞ BULGUSU (Hakem hükmü, ratifiye — 2026-09-03 19:5x) *(ARŞİV — checkpoint-v3-öncesi)*
 
-### Madde-3 · ADER-9 (yürürlükte)
-> **"Geçmişi ve kod-izini olmayan okuma sınıflandırmayı teyit eder; mekanizma-iddiası üretemez — mekanizma çapa ister (satır / hash / artifact)."**
-
-**Kendi-kendine-uygulanması:** bu-turun-kendisi-ADER-9'un-labıdır — Luna'nın-**hash'leri doğrulandı**, Luna'nın-**ne-dediği elimde değil** ⇒ o-kısım sınıflandırmaya-yarar, mekanizmaya-yaramaz.
-
-### Boundary (D72-arb turu)
-Kod **DOKUNULMADI** (`src/ tests/ index.json` diff **boş**) · commit **YOK** · push **YOK** · pid **3416 CANLI / DOKUNULMADI** · `.env` **DOKUNULMADI** · `index.json` **YENİDEN-ÜRETİLMEDİ** · lock **SİLİNMEDİ** · yetimler (`audit.jsonl.tmp`, `orchestrator.lock.tmp`, `orchestrator.lock.3944.tmp`) **KORUNDU** · D68-stitch `audit_prev_2026-09-03.jsonl` **KORUNDU** · **D64 `8b18f70a` DEĞİŞMEDİ** ✓ · `sweep_detection 3cbc74fc` **DEĞİŞMEDİ** ✓ · W2-izleme **O1/O2/O3 altında sürüyor** · 65k-parite-scanı **ikinci-boot-a-kadar-BLOKE**.
-
-
----
-
-## D73 · BULGU-3 ARİTMETİK-DÜZELTMESİ + `created_at` AD-TUZAKI + OVERWRITE 6. ÖRNEK (2026-09-03 17:53)
-
-**Tetikleme:** D72-arb arşivi-koşarken-çekilen-kilit-inspeksyonu, **ratified bir-kaydın-türetme-yolunu-düşürdü.** §12.1: eski-sonuç → neden-yanlış → yeni-kanıt → revize-sonuç.
-
-### Düşürülen-şey (yalnız-kanıt-yolu, sonuç-değil)
-**ESKİ:** "`phase=\"startup\"` **3 sa 00 dk**; kanıt `created_at 1788444500.47` − boot `1788433696.66` = **10804 s**."
-**NEDEN-YANLIŞ:** `created_at` **doğum-anı-değil.** `orchestrator.py:621-622` *(belgelediği-bir-tasarım)*: *"``heartbeat()`` refreshes ``created_at`` so a long-running but quiet process is not misclassified as stale."* Tüketici `:987` `(time.time() - data.created_at) > LOCK_STALE_SEC`; `:336-341` stale = **`created_at`-penceresi + ÖLÜ-PID**. ⇒ Bu-çıpadan-türetilen-süre **"process-ne-kadar-ayakta"**dır, **"sah-ne-kadar-takılı"** değil.
-**İÇ-ÇELİŞKİ (ağırlaştırıcı):** düzeltmenin-yaptığı **aynı-cümle** (§H.4) zaten *"`created_at` heartbeat ile tazelemeye devam ederken"* diyordu — yani **önerme-doğru-yazılmış, sonra-ihlal-edilmişti.**
-
-### Yeni-kanıt (canlı, 17:48:43)
-| Gözlem | Değer |
-|---|---|
-| PID 3416 `StartTime` (doğru-çıpa) | `14:07:49` |
-| `phase` | hâlâ `"startup"` |
-| Geçen | **3 sa 40 dk 54 sn** |
-| `created_at` / lock `mtime` | `1788446923.92` ≈ `17:48:12` / `17:48:43` |
-| ⇒ kalp-atışı-periyodu | **~30 sn** (yeniden-yazım-kanıtı) |
-| `phase="startup"` gözlem-dizisi | **14:58 · 15:29 · 17:08 · 17:48** (4/4) |
-
-**REVİZE-SONUÇ:** **BULGU-3 ÖZÜ DURUYOR ve güçleniyor** — süre **3h00m → 3h41m**, çıpa **`created_at` → `StartTime` + gözlem-dizisi**. Derece/saha-terfisi **olduğu-gibi**. **Hakem-D72 §2 hükmü-geçersizleşmedi:** hüküm **sonucu** (progress-token) taşıyordu, sayıyı-değil; sayı-düzeltmesi **hükmü-güçlendirir** (yanlış-çıpa **tesadüfen-doğru** sonuç-vermiş; doğru-çıpa **daha-güçlü**).
-
-### YAN-BULGU · `created_at` AD-TUZAKI (N2 #21 madde-5'e-girer)
-`created_at` **heartbeat taşır, creation adlandırılır.** Tuzak **kanıtlıdır çünkü-ben-ona-düştüm:** saha-ajanı kilit-dosyasını-okuyup **doğum-anı** sandı ve **yanlış-süre** türetti; hata **ratified-üç-kayda** (§H.4 / D66 §12 / progress D72) **sızdı.** Çözüm-adayı: **`heartbeat_at` yeniden-adlandırması** ya-da **ayrı `boot_at`/`progress_token`.** ⇒ **"ayrı-ilerleme-kimliği" gereksinimi-bağımsız-olarak-tekrar-doğdu** ve **artık-iki-gerekçesi-var:** (i) `phase` ayrıştıramıyor, (ii) `created_at` **adıyla-yalan-söylüyor.**
-
-### OVERWRITE-İMZASI · 6. ÖRNEK = EN-TEMİZ-BİÇİM
-`17:53:44` O1-okuması: **`lines=10` · `size=3190` · `mtime=17:53:44`** — sayaçlar W1-mührüyle **birebir-aynı**, mtime **yine** ilerlemiş. Önceki-5-örnek **yalnız-boyut-sabitliği** gösteriyordu; bu **üçünü-birlikte**:
-```
-satır-sayısı SABIT (10) + boyut SABIT (3190 B) + mtime ILERLER  ⇒ yazar aynı-içeriği-yeniden-yazıyor
-```
-⇒ **D72(c) kırmızı-yeşil-lambası BUGÜN KIRMIZI:** *yeni-olay-yokken mtime ilerliyor* ⇒ **append-only henüz-kurulmadı.** N2 #21-madde-1 kabul-kriteri **canlı-ihlal** altında ve **kriter iş-headıyor** (yanlışsa-gösterebiliyor — bu-kriterin-ilk-olumsuz-çalışması-değil, **ilk-üç-değişkenli-ölçümü**).
-
-### W2-SAYIMI (17:53:44, O1/O2/O3 altında)
-**`0 SIGNAL/SWEEP · 1 ERROR · 3 WRITE_BLOCK` — DEĞİŞİM YOK.** Share-safe-okuma-altında-**yeni-WRITE_BLOCK YOK** (5-okuma) ⇒ **O4-H3 falsifikasyonu sürüyor**; H1/H2 **hâlâ-ayrışmadı**; BULGU-6 aşağı-çekme-derecesi **doğru-yönde**.
-
-### D72-arb ile-birlikte-kapan
-Adım-1 **5/5 doğrulanmış-ankor · 0 düzeltme** · `afe6668`≠`afe695b` (bayrak-doğrulandı; D53b-yalnız-`afe695b`) · **D25 teyitli** (`feed.update`/`warmup`/`M1CandleFeed(` → **0**, yalnız `fetch_m1`) · Adım-2 arşiv **185→220 satır** · Adım-3 **ADER-9 yürürlükte** · **E4/E5/E6 ALMA-BOŞLUĞU olarak-açık (uydurulmadı)** · **D72-ID-çakışması Hakem-kararında.**
-
-### D73-ek · ANKOR-KÖKENİ AYRIŞTIRMASI — R1'in-bağımsız-değeri **5 → 3 ankor**
-Mühür-öncesi-tam-depo-taraması (kapsam: `git grep` tracked + `docs/ results/ memory-bank/ .clinerules/`; **`data/`+`.git/` hariç** — rekursif-grep 30 sn zaman-aşımına-uğradı, ⇒ **negatif-sonuç sınırlı-kapsamlıdır**, §1.3) şu-ayrışmayı-verdi:
-
-| Hash | Diskte-zaten | Köken |
-|---|---|---|
-| `a289a48d`, `68878d6`, `afe6668` | **YOK** | **LUNA-ÖZGÜN** — gerçek-bilgi-artışı (3/5) |
-| `d87d1e1` | **VAR** `FOREX_DEPLOYMENT_CONTRACT_v1.md:5,273` ("Repository State: d87d1e1") | **KENDİ-KAYIT-YANKISI** |
-| `b36c7c4` | **VAR** `activeContext.md:914/918/920/929` (COMMIT + push-onaylı) | **KENDİ-KAYIT-YANKISI** |
-| `afe695b` | **VAR** `activeContext.md:1848/1854/1856/1922` (§9.5 exact pushed-set) | R1-listesinde-**yoktu**; Hakem-karşılaştırması |
-
-⇒ **5/5 gerçek-commit (duruyor), AMA 2/5'i kendi-defterimizin-tekrarı.** R1 onları-tekrar-etmekle **içeriden-bir-şeyi dışarıdan doğrulamamıştır.** **ADER-9'a-İKİNCİ-ŞART-girer:** *çapa-var olması-yeterli-değildir; **çapanın-kaynağı-da-sorgulanır — kendi-kaynağın-yankısı-teyit-sayılmaz.***
-
-### D73-ek-2 · AD-SARIKARŞILIĞI TUZAKLARI (üç-tane, hepsi-ölçüldü)
-1. **`AUDIT_1_claude_luna.md` / `AUDIT_gemini_3_7_flash.md` diskte-VAR ama R1/R2 DEĞİL:** konuları **FVG-freshness / stale-ATR / Nexus `real_index` / C-v1.0-v1.1 araştırma-motoru**; **beş-hash-in-teki-yok** (0 eşleşme), Gemini'de **"watchdog" yok** (0 eşleşme). Üçüncü-sahte-ankor: `docs/# LUNA DİRECTİFİ — kabul + paralel yürüt.md` (106 S, roll-assignment, hash-yok). ⇒ **Luna/Gemini-adlı-disk-artefaktları-kaynak-değildir; elenmiştir.** **Benim-ilk-aramasında-`head -20` yüzünden-kesilen-liste bu-üç-dosyayı-gizlemişti** — **arama-hijyeni-dersi: `head` ile-kesilen-negatif-sonuç, negatif-sonuç-değildir.**
-2. **Sürüm-uyuşmazlığı:** direktif **"Gemini 3.8 Flash"**, disk-artefaktı **3.7**. Disktekiler-kaynak-olmadığı-için **çelişki-çözülmez-kalır** ⇒ R2'nin-gerçek-araç-sürümü **BİLİNMİYOR**.
-3. **Deployment-contract eskiliği (kapsam-DIŞI, yalnız-not):** contract repo'yu **`d87d1e1` (Aug-29)**'e sabitlemiş; güncel-HEAD **`0081c64` (Sep-03)** ⇒ **6 gün eskimiş sözleşme.** Dokunulmadı.
-
-### D73-ek-3 · ARKA-PLAN-MUTASYONU TESPİTİ (§10.1)
-`git status` → **`M AGENTS.md`, +17 satır**, bölüm `Aşama-5: Crash / Fix-Bildirim Üçlü Kanal Zorunluluğu`. **Bu-turda-ben-yazmadım** (AGENTS.md açılmadı) ve **watcher-değil** (watcher `QUARANTINED_20260901`). ⇒ **Bu-turdan-önceye-ait, commit-edilmemiş-düzenleme.** **Risk:** ilerideki-commit'te **istem-dışı-yolcu** (§9.5 set-değişimi = yeniden-yetki). **Dokunulmadı; bildirildi.**
-
-### D73-ek-4 · KAPANIŞ-YOKLAMASI (18:50) ve O3-ZAYIFLIĞI
-**Sayım (6. share-safe-okuma):** `lines=10 · 0/1/3` — **W1 mührüyle birebir aynı**; share-safe-altında **hâlâ yeni WRITE_BLOCK yok** ⇒ O4-H3 falsifikasyonu sürüyor, H1/H2 ayrışmadı. **Overwrite 7. örnek:** `size=3190` sabit, `mtime 17:53:44 → 18:50:28` ilerler, yeni olay yok ⇒ **D72(c) lambası aralıksız KIRMIZI.** **Kilit 5. gözlem:** `phase="startup"`, `hb_age 20 s` ⇒ **~30 sn heartbeat bağımsız-teyitli**; BULGU-3 süresi **3h41m → 4h43m**, öz duruyor.
-**O3-ZAYIFLIĞI (kendime-kayıt, ADER-9'un-en-rahatsız-edici-uygulaması):** dokunma-satırı-zaman-damgaları (`17:49:10`, `18:02:40`) **agent-tahminidir, saat-ölçümü-değildir** — agent'ın-kendi-saati-yok. Olay-mühürlerini-`audit_mtime`-ile-karşılaştırmak **bu-nedenle-yanıltıcıdır**; **O3'ün-kendi-kendine-kanıt-değeri düşük.** Çözüm-adayı: `audit_read.py` dokunma-satırını **kendisi-yazsın** (machine-timed) ⇒ O3 kendiliğinden-doğrulanabilir-olur. **Yapılmadı** (script-yetkisi-yok); **N2 #21-madde-6 adayı.** ⇒ **Çapa-eksikliği kendi-kurallarımızda-da-var.**
-
-### D73-ek-5 · DEVİR-NOTU-BÜTÜNLÜĞÜ — üçüncü-yetim-artefakt **HİÇ VAR OLMAMIŞ** (§12.1/§13.5)
-Gelen-devir-özeti **üç** yetim-artefakt sayıyordu: `audit.jsonl.tmp` · `orchestrator.lock.tmp` · **`orchestrator.lock.3944.tmp`**. Ölçüm:
-| İddia | Gerçek |
-|---|---|
-| `state/audit.jsonl.tmp` | **VAR** — 1483 B, Sep-1 23:59; ilk satır `MT5_CONNECT`, son satır `SHUTDOWN {"exit":1,"reason":"run_exception:PermissionError"}` |
-| `state/orchestrator.lock.tmp` | **VAR** — 68 B, Sep-1 23:59; içerik **`{"pid": 16984, ...}`** ⇒ **3944 ile-ilgisi YOK** |
-| `state/orchestrator.lock.3944.tmp` | **YOK** — `find . -name '*3944*'` (`.git` hariç) → **0 sonuç**; `state/` tam-listesinde de yok |
-
-**NEDEN-YOK (kayıp-değil, tasarım-gereği):** 3944-kilidi **`.tmp` adıyla-değil, `state/orchestrator.lock` CANLI-YOLUNDA** kayıtlıydı (§H.1 alıntısı: `{"pid":3944,"created_at":1788381955.53,"phase":"startup"}`, mtime-age 798 s, PID DEAD). PID 3416 boot'u (14:07) bu-kilidi **meşru takeover ile EZMİŞTİR** — yani §H.1'in **"takeover'ın-gerçek-kanıtı"** dediği-olay tam-da-budur: **kanıt, üzerine-yazılarak-tüketilen-bir-kanittır.**
-**SONUÇ-1 (kanıt-seviyesi-düşüşü, §3):** 3944-delili artık **yalnız-düz-yazı-alıntısıdır** (kanıt-hiyerarşisinde **seviye-6**), **artifact (seviye-5) değildir.** §H.1'in **"ELLE SİLİNMEZ"** emri **fiilen-geçerli-değildir** — silinme-bizim-tarafımızdan-olmadı, **takeover'ın-kendi-doğal-sonucudur**; ama emir **yanlış-yere-yazılmıştır** (korunacak-bir-dosya-yoktu, korunacak-anlık-değer-vardı ve o-değer-alıntılanmıştı).
-**SONUÇ-2 (devir-hijyeni, KURAL-ADAYI):** devir-özetindeki-dosya-adları **kanıtlanmadan-yazılmıştır** — üçüncü-ad **uydurma-etiket**tir (`orchestrator.lock` + `pid-3944` birleşimi). ⇒ **Aday-kural: "Devir-notundaki her dosya-adı ya `ls`-çıktısıyla ya-da `git status`-çıktısıyla eşlenmiş-olmalı; eşlenmemiş-ad 'iddia' olarak-etiketlenir."** Bu, §13.5'in-depolama-tarafıdır.
-**Dokunulmadı:** iki-gerçek-yetim **olduğu-gibi-korundu**, yenisi-üretilmedi, 3944-için **sahte-artefakt-uydurulmadı.**
-
-### Boundary (D73 turu)
-Kod **DOKUNULMADI** (`src/ tests/ index.json` diff **boş**) · commit **YOK** (reflog teyit: HEAD hâlâ `0081c64` 00:18, **bana-ait-değil**) · push **YOK** · pid **3416 CANLI / DOKUNULMADI** · `.env` **DOKUNULMADI** · `index.json` **YENİDEN-ÜRETİLMEDİ** · lock **SİLİNMEDİ** · yetimler **KORUNDU** · D68-stitch **KORUNDU** · **D64 `8b18f70a` DEĞİŞMEDİ** ✓ · `sweep_detection 3cbc74fc` **DEĞİŞMEDİ** ✓ · 65k-parite **ikinci-boot-a-kadar-BLOKE**.
-
-
-## D74 · HAKEM-HÜKMÜ-UYGULAMASI + SAHA-OLAYI (19:17 ikinci-boot) + ÜÇ-ÖZ-DÜZELTME
-*Tarih: 2026-09-03 · Hat: D72-arb kapanışı → hüküm → uygulama sırasında gelişen canlı olay.*
-
-### 0. HÜKÜM-KABUL EDİLDİ (RED-yok)
-`(A)` hakem-öz-düzeltmesi-6 (10804-s-üretimi-hakem-tarafından-üretilmişti) · `(B)` AGENTS.md bağlı-dönüşüm + AM-T7-10 · `(C)` seviye-6-tanımlı-mühür + AM-T7-11 · `(D)` N2 #21 madde-6b · `§5` **`D72-env`/`D72-arb` ayrımı KABUL** + ADER-11 · `§6` arşiv **271S/`9f057ca6` ratifiye** + **ADER-9-v1.1** (çapa-özgünlüğü) · `§7` R1/R2-düz-yazısı Reis-elinden-gelecek, ben append-only eklerim.
-
-### 1. OLAY-1 · `phase` BİR **SABİTTİR**, TAKILI-BİR-DURUM-DEĞİL (kod-çapalı, canlı-teyitli)
-Hükmün `(A)` maddesindeki yeni-çıpayı (`StartTime`→`14:58`→`≥4h43m`) koddan-doğrularken mekanizma-çöktü:
-
-| Çapa | Gerçek |
-|---|---|
-| `orchestrator.py:920` | `data = LockData(pid=os.getpid(), created_at=time.time(), phase="startup")` — **`_write()` içinde, her-yazımda-sabit-literal** |
-| `_write()` çağırıcıları | **yalnız ikisi:** `acquire()` `:758` ve `heartbeat()` `:840` |
-| `git grep '\.phase\s*='` (src/, tests hariç) | **0 sonuç** — kilit-fazı **hiçbir-yerde mutate edilmiyor** |
-| `StartupPhase` `:371-382` | `S0_CONFIG … S11_READY` — **11-durumlu gerçek durum-makinesi MEVCUT** |
-| `phase=StartupPhase.X` (14-site, `:1165-1565`) | **`StartupResult(...)` kwargs'ıdır** — yani **bellek-içi-dönüş-değeri**, kilit-değil |
-| `:1505-1560` | gerçek faz **audit'e** yazılıyor: `EventType.STARTUP {"phase":"S9"/"S11","verdict":…}` |
-
-⇒ Kilit-dosyasındaki `phase` **inşası-gereği-bilgi-taşımayan-bir-alandır.** "Takılı" değil; **ilerleme-kapısı-hiç-yazılmamış.**
-**CANLI-KARŞI-ÖRNEK (saat-çapraz-doğrulamalı):** audit `19:17:25`'te `S11 / SAFE_START` **tamamlandı**, `19:17:26`'da `SAFETY gate=closed reason=startup_SAFE_START`; kilit `19:19:26`'da **hâlâ `phase="startup"`**. ⇒ **Tamamlanmış-startup + lock-"startup" = alanın-durum-olmadığının-doğrudan-kanıtı.**
-**BULGU-3 YENİDEN-ĐFADE (kök-değişikliği):** eskisi *"phase 4s43dk ilerlemedi ⇒ startup↔wedged ayırt edilemiyor"* — **ölçülen-şey bir-literal'in n=5 tekraruydu.** Doğrusu, **daha-ağır:** *operatörün-güvendiği-teşhis-alanı inşası-gereği sabittir; hiçbir-şeyi ayırt-edemez.* Süre-iddiası (**4h43m**) **tamamen düşer** — geriye-süre-değil, **alanın-anlamsızlığı** kalır.
-**N2 #21 madde-5 YENİDEN-KAPSAM (§2.2):** madde *"ayrı-ilerleme-kimliği icat-et"* diye yazılmıştı; **kimlik ZATEN VAR (`StartupPhase`) ve audit'e yayınlanıyor.** Doğru-kapsam: **`StartupPhase`'i `LockData`'ya taşımak** (`_write()`'a gerçek-faz-parametresi) — yeni-soyutlama-değil.
-**N2 #21 madde-1 KABUL-KRİTERİ YÜKSELDİ:** benim-övdüğüm-kriter *("yeni-olay-yokken mtime ilerlememeli")* **zayıfmış** — asıl-kriter **"önceki-satırlar yeni-boot-sonrasında-da durmalı"**. Aşağıdaki-olay bunu ihlal-etti.
-
-### 2. OLAY-2 · 19:17:10 İKİNCİ-BOOT + **AUDIT-TRUNCATION (gerçek-veri-kaybı)**
-`18:51:08` (makine-damgası) okuması: `lines=10 · size=3190 · 0/1/3`. `19:18:41` okuması: **`lines=6 · size=1622 · 0/0/0`** — içerik **yepyeni-boot-dizisi** (`MT5_CONNECT`, `STARTUP`×4, `SAFETY`).
-
-| Ölçüm | Değer |
-|---|---|
-| Eski-sahip | **PID 3416 — `Get-Process` count **0**, ÖLDÜ** |
-| Yeni-sahip | **PID 11476**, `StartTime 19:17:10`; kilit-sahibi |
-| "Çift-instance" mı? | **HAYIR** — `crash_log` satır-3: `self=11476 (.venv python)`, **`parent=16660 (.venv python)`** ⇒ **tek-boot, venv-launcher→child.** Yanıltan: `Get-CimInstance` iki-python gösterdi. |
-| Launch-yolu | `.venv/Scripts/python.exe … run_production.py` — **`nohup.exe` DEĞİL** (3416'nın parent'ı `nohup.exe` idi, crash_log satır-2) ⇒ **§C/graceful-stop/close-save artık üretilebilir-olabilir** |
-| `d66_boot_stdout.log` | **14:07:56'da durdu, değişmedi** ⇒ **bu-bootu-ben-başlatmadım** (Reis-olası) |
-| Safe-mode | `S11 SAFE_START` + `safe_reasons[0]="safe_mode_persisted"` ⇒ **§7.2 "persisted-safe-mode → degraded boot" ÇALIŞIYOR** ✓ (sessiz-resume YOK) |
-| **KAYIP** | 3416-devrine-ait **10 satırın tamamı**: 3 WRITE_BLOCK + 1 ERROR + **3416'nın SHUTDOWN kaydı (varsa)** |
-| **KURTARMA** | `state/audit_prev_2026-09-03.jsonl` = **9 satır** (MT5_CONNECT, STARTUP×4, SAFETY, WRITE_BLOCK, ERROR, WRITE_BLOCK) + 10.satır (`WRITE_BLOCK 15:51:32 retries=8`) **touchlog-dökümünde yazılı** ⇒ **10/10 metin olarak kurtarılabilir, artifact olarak değil** |
-| **YENİ-KOPYA** | `results/D74_audit_snapshot_2026-09-03_1919.jsonl` — **1622 B, sha256 `184a95c450713eca20c6519e…`, kaynakla BAYT-ÖZDEŞ ✓** (`state/`-e dokunulmadı) |
-
-⇒ **D72(c) lambası "kırmızı"dan "yanıyor"a geçti:** mtime-churn değil, **boot-üstüne-boot-yazımı ve tarih-imhası** gözlemlendi. **§18 audit-continuity kırıldı** ve **3416'nın nasıl-öldüğü artık kanıtlanamaz** — bu, turun-en-pahalı-maliyetidir.
-
-### 3. ÖZ-DÜZELTME-1 · BULGU **(D) GERİ ALINIR** (6b talebi kısmen-gereksiz)
-Ben *"dokunma-damgaları benim tahminim, araç kendi satırını yazmıyor"* dedim ve **aracı açmadan** mekanizma iddia ettim. **`audit_read.py:14-23` `log_touch()` OKUMADAN ÖNCE makine-damgalı satırı KENDİ yazıyor** (`datetime.now(utc)` + local). ⇒ **(D) yanlıştı; 6b'nin istediği davranış BU ARAÇTA ZATEN VAR.** Doğru-daraltılmış-kalan: **elle-yazılan açıklama-satırları** tahmindir, **makine-satırları yetkilidir**, ikisi-ayrıştırılmalıdır. Kanıt: benim-el-satırım `18:02:40` dedi; aynı-okumanın makine-satırı `18:51:08` — **49 dk sapma.** 6b ya düşürülsün ya **"elle-damga-yasak, argv-notu-zorunlu"** biçiminde yeniden-yazılsın. **ADER-9 burada bana döndü: aracı okumadan araç-hakkında-mekanizma-iddia-etmiş oldum.**
-
-### 4. ÖZ-DÜZELTME-2 · KURTARMA-KOPYAM **BAYT-ÖZ-DEĞİLDİ**
-İlk kopya `io.open(...,'r')` ile alındı → **1616 B vs 1622 B**: 6-satırlık **CRLF→LF çevirisi**. Hash-karşılaştırmasını sessizce kırardı. **Düzeltme:** `'rb'/'wb'` + Python-içi `sha256` çift-tara; **canlı-dosyaya `sha256sum`/`cp` VURMA** (O2). ⇒ **Kural-adayı: "kanıt-kopyası ikili-kip alınır; metin-kipi satır-sonu-bozar."**
-
-### 5. HAKEM-§1 ARİTMETİK-BAYRAĞI (sayı-doğru-formül-yanlış → artık-her-ikisi-de-düştü)
-Hüküm-formülü `gözlem-sonu − 14:58 ≥ 4h43m`. Ölçüm: `18:50 − 14:58 = **3h52m**`; `4h43m` ise **boot-çapasından** (`18:50:48 − 14:07:49`) geliyor — **formül ile sayı 51 dk ayrışıyor**, ve `14:07:49`→`14:58` arası **gözlem-yok** (50-dk boşluk). Yani hüküm kendi yeni-metodoloji-maddesini ihlal ediyordu. **AMA artık-konuşuz:** §1'deki-gibi `phase` sabit olduğu-için **bu sayıların hiçbiri "takılı süre" ölçmüyordu.** Doğru-kayıt: **süre iddiası YOK; alan iddiası VAR.**
-
-### Boundary (D74 turu)
-**Kod-değişikliği YOK** (`git diff src/ tests/ index.json` boş) · commit YOK · push YOK · **yeni-boot-a dokunulmadı (Ctrl-C/kill YOK — Reis yetkisi)** · `state/` **yazılmadı** (kopya `results/`-e) · 3416-yetimleri duruyor · D64-dokunulmadı · **tek-yapıcı ilkesi korundu: hiçbir satır silinmedi, üstü çizildi veya eklendi.**
-
-
-## D75 · REIS-FOREGROUND-BOOT DENETİMİ + KÖK-NEDENİN YENİDEN-KEŞFİ (öz-eleştiri)
-
-**Reis'in eylemi:** `$env:SNIPER_STATE_DIR=<mutlak>` + `$env:SNIPER_SYMBOLS=EURUSD` + `python -u -m src.live.run_production 2>&1 | Tee-Object state\k3_boot_stdout.log` (foreground PowerShell). **= `19:17:10` bootu, PID 11476.**
-
-**HÜKÜM: çekirdek-DOĞRU.** Foreground-boot K3'ün-ta-kendisi; **§C/graceful-stop/close-save ilk-kez üretilebilir** (nohup zinciri kırıldı). `SNIPER_STATE_DIR` mutlak-set edildi ⇒ CWD-bağımlılığı bu-alan-için kapandı. `-u` doğru. **Fail-safe ÇALIŞTI:** `safe_mode_persisted` → `S11 SAFE_START` → `entry gate CLOSED` — **sessiz-resume YOK, bu BAŞARI.**
-
-**ATLANAN TEK ZORUNLU ADIM: AM-T7-8 (adım-0.5, `checklist:115`/`:135`).** Boot-öncesi `cp state/audit.jsonl state/audit_prev_<date>.jsonl` yapılmadı ⇒ **3416-devri 10 satır gitti; 3416'nın nasıl-öldüğü artık kanıtlanamaz.**
-
-**ÖZ-ELEŞTİRİ (§12.1 + §1 ihlali, bana-yazık):** D74'te *"yeni kök-bulgu"* diye sunduğum truncation-mekanizmasını **D68'de KENDİM bulmuş ve checklist'e AM-T7-8 satırına harfiyen YAZMIŞTIM** (*"orchestrator.py:1040 AuditChain'i load etmeden kurar → her boot önceki zinciri yok eder"*). Aynı-şeyi yeniden-keşfettim, **kendi-kontrol-listeme-bakmadan**, ve **boot-öncesi-kopya-komutunu Reis'e-vermedim.** Kayıp-bedeni **benim süreç-ihmalimin-bedelidir, Reis'in-değil.**
-
-**YAPISAL-DURUM (statik-kanıtla teyit, "olay" değil "davranış"):** `audit.py:241-255` `save()` = `"".join(... for evt in self._events)` → `_atomic_write_text` → **tmp.replace TAM-OVERWRITE**; `orchestrator.py:1040` **boş `_events`** ile kurar; `AuditChain.load()` `audit.py:259` **MEVCUT** ama `grep 'audit[.]load' src/` → **0 çağrı**. ⇒ **Her boot önceki zinciri SIFIRLAR** (Sep-2'nin 7 satırı da böyle-gitti). **Çözüm yeni-tasarım-değil:** ya `:1040` sonrası `prod_audit.load(...)` (**tek-satır, mevcut-metot**) ya audit'i crash_log-desenine-çevirme. **§2.2 altın-uygulaması.**
-
-**crash_log NEDEN SAĞ-ÇIKTI — kodun-kendi-itirafı:** `orchestrator.py:239-256` docstring: *"os.open(O_APPEND|O_CREAT) + single os.write: **append-mode needs no tmp/rename (the mechanism under suspicion)**"*. ⇒ **tmp+rename "şüpheli-mekanizma" olarak ADLANDIRILMIŞ.** crash_log üç-bootu-taşıyor (3944←`bash.exe`, 3416←`nohup.exe`, 11476←`.venv`), audit sıfırlandı.
-
-**YENİ-BULGU · İKİ-SÜREÇ-BİR-BOOT (Ctrl-C güvenliğini-etkiler):** `16660` = `.venv\Scripts\python.exe -u -m src.live.run_production` (**terminaline bağlı**) → child `11476` = `AppData\...\Python312\python.exe` aynı-argv, **KİLİT-SAHİBİ 11476**. `src/live/`'de `Popen|subprocess|multiprocessing|execv` → **0** ⇒ **spawner proje-kodu-değil; mekanizma ÇÖZÜLMEDİ (açık-kalem).** `.venv`=pandas **3.0.5**/numpy **2.5.2**, base=pandas **2.3.3**/numpy **2.2.6**; crash_log `self` 11476'yı **venv** gösterir, WMI image-path **base** ⇒ **ÇELİŞKİ, hangi-interpreter'ın-gerçekte-import-edildiği DOĞRULANMADI** ⇒ **§8.1 provenance kırığı** (3416 sistem-pythonu idi). **RİSK:** parent önce-ölürse child **yetim-kalır-kilidi-tutar** ⇒ **"durdurduk" sanırız.** **Ctrl-C SONRASI ZORUNLU:** `Get-Process -Id 16660,11476` **ikisi-de-gitti-mi** + lock unlink mi.
-
-**WRITE_BLOCK GERİ-GELDİ ⇒ nohup-hipotezisi ÖLDÜ:** `19:28:27 retries=8` — **venv-bootunda, nohup OLMADAN.** Kalan-aday **kodun-kendi-etiketi** `audit.py:106` → *"AV/sync handle"* (Defender/OneDrive hedefi rename-anında-açık-tutuyor); yetim `.tmp`'ler bunun kalıntısı. Yeni-boot **ERROR=0** (eski ERROR 3416-devrine-ait, artık artifact-değil).
-
-**ARAÇ-MASRAFI (Tee):** `2>&1 | Tee-Object` stderr'i **error-record**'a çevirdi → log'a `NativeCommandError` girdi (programa-zarar-yok, **artefakt-temizliği-bozuldu**). `state/k3_boot_stdout.log` **19:17:25'te donmuş (1944 B / 26+ dk)** — sessizlik-mi-tampon-mu **ayrıştırılamadı**; tamponsa **Ctrl-C anında çıkış-kuyruğu kaybolur = K3'ün-istediği-kanıt.** `state/` git-takipli-değil (`git ls-files state/`=0) ⇒ **repo kirlenmedi** ve `crash_log.txt` zaten-orada ⇒ **mevcut-konvansiyona-uygun.** **AMA `.gitignore`'da `state` YOK** ⇒ **`git add -A` tüm state/'i yutar — commit'te KULLANILMAZ.**
-
-**YENİ-MADDE-ADAYI (§19 CWD-dependent persistence):** `_CRASH_LOG = Path("state")/"crash_log.txt"` `orchestrator.py:236` — **sabit-göreceli-yol, `SNIPER_STATE_DIR`'i HİÇ okumuyor.** CWD repo-kökü olduğu-için-çalıştı. **crash_log, state-dir-soyutlamasının-dışında-tek-kaçak-yol.**
-
-**Boundary:** kod DOKUNULMADI · commit YOK · push YOK · **11476/16660 DOKUNULMADI** · `state/`-e YAZILMADI (log'u Reis yazdı, ben-okudum) · D64 `8b18f70a` DEĞİŞMEDİ ✓
-
-## D76 · D75'İN ÜÇ-İDDİASI ÇÜRÜDÜ + KÖK-NEDEN CANLI-YAKALANDI
-
-**Reis'in tam-terminal-transkripti geldi. D75'te-yazdığım-üç-iddia YANLIŞTI ve hepsi AYNI-kök-nedenle-yanlıştı: kanıtı-aramadan-sonuca-vardım (§1 ihlali, ikinci-kez).**
-
-| D75-iddiam | D76-gerçek | Kanıt |
-|---|---|---|
-| *"Reis AM-T7-8'i atladı"* | **İCRA ETMİŞTİ** | `state/audit_prev_2026-09-03b.jsonl` **13 satır / 4376 B @19:11:23** |
-| *"3416-devri gitti, artifact 0/10"* | **TAM korundu, KAYIP YOK** | içerik: `MT5_CONNECT 1 · STARTUP 4 · SAFETY 1 · WRITE_BLOCK 5 · ERROR 2` |
-| *"3416 nasıl-öldü kanıtlanamaz"* | **KANITLANDI** | `taskkill /F /PID 3416` → `SUCCESS: The process with PID 3416 has been terminated.` (Reis, ~19:13:23) |
-
-**Üçüncü-düzeltme:** O4 sayım-tabanı `3 WRITE_BLOCK / 1 ERROR` **değil**, **`5 / 2`**. Benim `18:51` okumam **eksik-devir-okumasıydı** (3 satır-sonra-geldi).
-
-**KÖK-NEDEN (seviye-1, stdout'da-canlı-yakalandı):** `[WinError 5] Access is denied: 'state\audit.jsonl.11476.tmp' -> 'state\audit.jsonl'` ⇒ **`os.replace` HEDEFTEKİ-HANDLE-yüzünden-engelleniyor** — `audit.py:106`'nün-kendi-etiketiyle-birebir: *"AV/sync handle"*. **nohup / venv / çift-instance hipotezLERİ ÖLDÜ.** Adaylar **ölçüldü:** `MsMpEng` PID 10004 + `SearchIndexer` PID 5112 **çalışıyor**; **OneDrive ELENDİ** (`User Shell Folders\Desktop = C:\Users\Administrator\Desktop`, yönlendirme yok). Kronik: bu-boot 4 WRITE_BLOCK (13 sn'de 3'ü, budget-tükenişi), önceki 5.
-**~~DENEY: Defender-exclusion~~ ⇒ AYNI-CEVAPTA-GERİ-ALINDI:** `orchestrator._write()` docstring'i (`~:890`) bunu-zaten-kaydetmiş: *"T0#6 still crashed with the same rename WinError 5 **WITH the Defender exclusion active**."* ⇒ **Denendi, işe-yaramadı.** Gerçek-öncül-hipotez (Hakem, N2 #17) bu-gece-ki çift-süreç keşfetimle **çakıştı**: *"dual-process writer (venv launcher + worker) contending on the lock"*. **KİLİT zaten çözülmüş** (in-place write, N2 #17); **AUDIT çözülmemiş** (hâlâ tmp+`os.replace`) ⇒ **yakaladığımız krış, tanılandırılmış-kusurun-düzeltilmemiş-kardeşidir.** **Farksial-tani (crash_log `self`/`parent`):** `3944` base←bash **TEK**→hayatta · `3416` base←nohup **TEK**→hayatta · `11476` **venv←venv ÇİFT**→**ÖLÜMCÜL**. ⇒ **Değişen-tek-değişken = `Activate.ps1`/venv-seçimi.** **Yeni-deny:** venv'i aktive **ETMEDEN** base-python ile foreground boot, tek-PID doğrulanır.
-
-**P1-BULGU-1 · gözlem-çökmesi erişilebilirlik-çökmesine-terfi-ediyor:** `_ATOMIC_WRITE_RUNTIME=False` (FROZEN, test-pinned) → budget-bitince **crash_log + RE-RAISE** → `run_production.py:174 except BaseException` → `shutdown(exit_code=1, "run_exception:...")`. ⇒ **Audit-rename'ının anlık-engellenmesi TÜM OTURUMU ÖLDÜRÜYOR.** **exit-code 1**, `:12`'deki "2 — safe-mode shutdown" **DEĞİL** ⇒ **§C'nin-beklediği-kod ÜRETİLMEDİ.** N2 #21 madde-1'e-yeni-boyut: *"audit-rename-başarısızlığı oturumu-öldürmemeli."*
-
-**P1-BULGU-2 · adli-zemin ölüm-anında KAPALI:** `crash_log.txt` **hâlâ yalnız 3 boot-kaydı**, 19:50 krışı **YOK**. `_crash_log_append` çağrıları `:313/:700/:784/:1593` = **hepsi orchestrator-içi**; `run_production.py:174` üst-seviye dalı **yalnız stderr'e basıyor.** ⇒ **Kampanyanın-tek-ölümcül-crash'i crash_log'da SIFIR iz.** Kurtuluş **tek-nedenli ve KAZARA:** Reis'in `Tee-Object`'i. O-olmasaydı → **audit-yazan-mekanizma-bizzat-bozuk ⇒ hata-metni HİÇBİR-YERDE.** **İki-bağımsız-başarısızlığın-bileşimi = tam-kanıt-kara-deliliği.** K2 docstring iddiası (*"flush-independent forensic floor"*) **karşılanmıyor.** Madde-adayı: `:174` dalına `_crash_log_append({"kind":"run_exception"})` — **mevcut-fonksiyon, yeni-soyutlama-yok (§2.2).**
-
-**OLUMSU · §7 İKİ seviye-1 kanıt:** (a) **anormal-çıkışta lock-unlink ÇALIŞIYOR** — krış-sonrası `orchestrator.lock` **YOK**, `shutdown(exit_code=1)` gerçekten-koştu, stale-lock terk-edilmedi. (b) **stale-lock TAKEOVER PID-liveness'a dayalı, zaman-aşımına-değil:** 3416 `19:13:23`'te öldü, lock **stale-kaldı** (Reis `{"pid":3416}` okudu), 11476 `19:17:10`'da **devraldı** → sapma **227 s ≪ `LOCK_STALE_SEC` 900 s**. ⇒ **§7.1 "kill vs ownership" canlı-doğrulandı.** *(Kod-teyidi yapılmadı — `acquire()` dalına bakılmadan MÜHÜRLENMEZ.)* (c) failed-rename tmp'si **toplanmış** (`audit.jsonl.11476.tmp` yok) ⇒ `finally` temizliği çalışıyor.
-
-**ARAÇ-BULGUSU · `Tee-Object -FilePath` UTF-16 LE yazar:** `k3_boot_stdout.log` **2388 B / 19:50** ⇒ **Tee TAMPONLAMIYOR**, program 19:17:25→19:50 gerçekten sessiz (gate kapalı). **AMA dosya UTF-16LE** (her-karakter-ardında `\u0000`) — benim "1944 B donmuş" ölçümüm **UTF-16 baytıydı** (~972 karakter). CRLF-bulgusunun-kardeşi: **encoding-drift**. Kural-adayı: *stdout-kanıtı `cmd /c "... > log 2>&1"` ile (bayt-sadık) alınır; encoding + bayt-sayısı BİRLİKTE kaydedilir.*
-
-**METODOLOJİK-ÖZ-ELEŞTİRİ (kendi-kendime, §12.1):** D75'te **"yeni kök-bulgu"** diye sunduğum truncation-mekanizması **D68'de benim-tarafımdan AM-T7-8 satırına YAZILMIŞTI.** Bugün **kendi-kontrol-listemi-grep'lemeden** sonuç-verdim, **dikiş-dosyasını-aramadan "imha" ilan ettim**, ve **Reis'i yanlış-la suçladım.** Üç-hata-tek-kök: **iddia-öncesi-kanıt-araması-atlandı.** ⇒ **Kural-adayı (ADER-12 adayı): "Bir kaybı/başarısızlığı ilan etmeden önce, o kaybı-önlemek-için-YAZMIŞ-OLDUĞUMUZ protokolü grep'le; protokol-varsа-ve-icra-edilmişse-ortada-kayıp-yoktur."**
-
-**Boundary:** kod DOKUNULMADI (`src/ tests/ index.json` diff **boş**) · commit YOK · push YOK · `state/`-e **yazılmadı** (yalnız-okundu) · **canlı-boot YOK** (3 PID de ölü) · yetimler (Sep-1 `audit.jsonl.tmp` 1483 B, `orchestrator.lock.tmp` 68 B) **KORUNDU** · D64 `8b18f70a` **DEĞİŞMEDİ** ✓ · **hiçbir-satır-silinmedi, hepsi üstü-çizili.**
-
-**YENİ-PİNLER (D76):** aşağıdaki-çizelgede.
-
-## D77 · REİS'İN "KAZARA" CTRL-C'Sİ = PLANIN-EMRETTİĞİ-ADIM · K3-KAPISI AÇILDI
-
-Reis haber-verdi: *"sana terminali copy yaparken ctrl+C yaptım bot durdu."* Bu-bilgi-yorumu-çevirdi ve **benim aynı-cevaptaki-kendi-sonucumu-düzeltti:** "graceful-stop DEĞİL, exception-death" **yanlıştı.**
-
-**Ölçülen (hepsi-doğrudan-dosya-mtime/audit-satırı, seviye-1):**
-- **close-save GERÇEKLEŞTİ:** `state/EURUSD.json` **`19:50:55` / 895374 B** + `state/EURUSD_lifecycle.json` **`19:50:55` / 137 B** — **üç-zamanlı-close-save'in-ikisi-aynı-saniyede.**
-- **canlı `session_atr = 0.0004935714285714741`** (`atr_val = 0.0006803779882671913`) ⇒ **`progress.md:1025`'in 65k-kapısını-tutan-tek-şart ("canlı `session_atr` yalnız close-save'te") KARŞILANDI.**
-- **SHUTDOWN audit olayı VAR:** satır-11 `{"exit":1,"reason":"run_exception:PermissionError"}` @`19:50:48.726`.
-- **lock UNLINK** ✓ · **lifecycle tutarlı:** `open_trades [] · realized_journal [] · quarantined_exits [] · dd_reliable false` ⇒ SAFE_START/gate-CLOSED ile uyumlu, **sıfır-işlem, bozulmamış-kapanış.**
-- **exit-code 2 ÜRETİLEMEDİ** (exit 1).
-
-**Plan-bağlamı (kendi-kayıtlarından-çıktı):** `:1136` *"Masa-akışı tek-adreste: **Reis → W2-sonrası foreground-boot + Ctrl-C**"* ve `:1122` *"K3 ikinci-boot → §C-zinciri (exit-2 beklenen) → **65k otomatik-açılır**"*. ⇒ **Reis'in kazara-yaptığı, planın-emrettiği-tek-operatör-adıdır.** K3 tasarımı **tam-olarak-bu-çıktıyı** üretmiş.
-
-**Ctrl-C katkısı MÜHÜRLENEMEDİ — iki-okuma-ayakta:** stdout'ta `:155` dalının-baskısı *"KeyboardInterrupt - graceful stop"* **YOK** (ölçüldü `False`); `exit code` satırı da yok (`:179 return 1` → `:182` atlanır). **(a)** Windows **QuickEdit** seçim-varken Ctrl-C'yi panoya-kopyalar-SIGINT-göndermez ⇒ süreç kendi-öldü. **(b)** `run()` SIGINT'i `kill_fn`'e-yönlendiriyor (`:153-154`: *":155 yalnız bu-pencereler-DIŞINDAKİ KI için"*) ⇒ graceful-teardown başladı, close-save yapıldı, **son-audit-flush WinError 5 verdi**, kaçı `:174`'e-taşıdı. Satır-12 WRITE_BLOCK, SHUTDOWN'dan **18 ms sonra** ⇒ (b)'yi-güçlendirir, **kanıtlamaz.** **SINIF-1 değildir; açık-bırakıldı.**
-
-**P1-1'in-keskin-hali (bulgu-büyüdü, geri-alınmadı):** Audit-defect'i kenar-notu-değil — **K3'ün-ölçmek-için-var-olduğu-tek-çıktıyı, exit-code'u-bozdu.** Close-save/SHUTDOWN/lock-doğru; **audit-flush-çökmesi exit-2'yi-exit-1'e-düşürdü.** `ERROR` olayının-kendi-etiketi: **`payload.phase="audit_flush"`** ⇒ kod-başarısızlığı-elle-tamamlıyor.
-
-**Zaman-çizgisi (audit `timestamp` alanlarından, makine-damgası):** boot `19:17:13` → satır-7 WRITE_BLOCK `19:28:27` → **22 dk 8 sn TAM SESSİZLİK** → satır-8 `19:50:35` → satır-9 ERROR `19:50:42.34` → satır-10 `19:50:42.35` → satır-11 SHUTDOWN `19:50:48.73` → satır-12 `19:50:48.74` → close-save `19:50:55`. ⇒ **Arıza-sürekli-değil, PATLAMA-dalgalı; 22-dk-temiz-çalışma-kanıtı.** Bu, "her-boot-kronik-ölür" okumasını **zayıflatır**, "belirli-bir-handle-çakışması-dalga-boyu" okumasını **güçlendirir.**
-
-**YENİ-DURUM:** 65k-parite-çekimi **BLOKE DEĞİL.** Harness-adayları: `scripts/verify_phase11_parity_fix.py`, `results/N2_19_parity_evidence.md`, `results/R7_parity_evidence.md`. **Kural-ihlali-olmaması-için:** `tol = 0.5 × session_atr = 0.00024678571428573705`; **hangi-harness'in-65000-çekim-olduğu-teyit-edilmeden-koşturulmaz** (§8.1 provenance).
-
-**Boundary:** kod DOKUNULMADI (`src/ tests/ index.json` diff boş) · commit/push YOK · `state/`-e **yazılmadı** (yalnız-okundu; mtime'lar `19:50:55`/`19:17:13` = süreç+Reis, bana-değil) · canlı-süreç **0** · D64 `8b18f70a` ✓ · D74-snapshot `184a95c4` ✓ · **D76'nın-yanlış-cümlesi-silinmedi, üstü-çizildi.**
-
-
----
-
-## D78 — K3-KAPANIŞ BULGUSU (Hakem hükmü, ratifiye — 2026-09-03 19:5x)
-
-**K3-graceful-teardown TAMAMLANDI** (close-save ✅ D48-ilk-gerçek-egzersiz · lock-unlink ✅ · canlı-`session_atr` ✅) — **ama son-audit-flush `PermissionError` ile çöktü → exit-2 beklenen, exit-1 ölçüldü.** SHUTDOWN-payload'ının-kendisi-nedeni-yazdı: `run_exception:PermissionError`.
-
-**D78-çekirdek:** Audit-defect'in-bedeli-artık-soyut-değil — **K3'ün-ölçmek-için-var-olduğu-tek-çıktıyı (exit-kodu) bozdu**; ve-defekt-kendi-arızasını-kendi-kayıt-sisteminin-içine-gömüp-kurtardı (`payload.phase="audit_flush"` — etiket-yorum-istemez).
-
-**→ N2 #21 MADDE-6c (YENİ, owner-domain):** *"teardown-TAMAM + audit-flush-BAŞARISIZ → hangi-exit?"* Şu-an `1` (exception-yolu); adil-davranış "loud-fail" ile uyumlu-olabilir **AMA şu-an-belirsiz** — bilinçli-karar-gerekiyor (ör. teardown-tamamlanınca `2` + audit-degradation-bayrağı; ya da `1` kalır-dokümante).
-
-**(a)/(b)-ayırtı AÇIK bırakıldı — HAKEM-RATİFİYESİ:** (a) QuickEdit (seçim-varken-Ctrl-C-kopyalar-SIGINT-göndermez) vs (b) SIGINT→`kill_fn`-yönlendiricisi + flush-çökmesi. **18-ms-WRITE_BLOCK-imzası (b)'yi-güçlendirir-kanıtlamaz** → SINIF-2-ayrımı bu-boot'tan çıkmaz. **Ayırt-edici-gelecek-testi:** stdout'ta `:155` "KeyboardInterrupt - graceful stop" satırının-varlığı.
-
-**AM-T7-12 (YENİ, kalıcı):** *"Foreground-Ctrl-C-hijyeni: konsolda-seçim/QuickEdit-aktifken-Ctrl-C-sinyal-DEĞİLDİR — stop-öncesi-seçim-temizlenir/QuickEdit-devre-dışı-bırakılır; runbook'a-sabit-adım."* D70-launch-modu-ailesinin-ikinci-halkası.
-
-**Zamanlama-dalga-okuması RATİFİYE:** `19:17:13-boot → 19:28:27-ilk-WB → 22dk8s-SESSİZLİK → 19:50:35–48.74-patlaması → 19:50:55-close-save`. "Kronik-ölüm" zayıfladı; "belirli-handle-çakışması-patlaması" güçlendi; **çift-süreç-hipotezine-kötü-haber** (o sürekli olurdu). H3-zaten-falsifiye (O4); H1/H2 aday. **Bir-sonraki-WRITE_BLOCK-RM-probe-payload'ı "kim-tutuyor" cevabını taşır** (N2 #21-madde-4 telemetrisi).
+> Ayrıntı: memory-bank/archive_v2_20260906/D78_K3_KAPANIŞ_BULGUSU_Hakem.md
 
 ## ZİNCİR-BOŞLUĞU — Hakem-§4 iki-sorusuna-kayıt-cevabı
 
@@ -1474,20 +1169,9 @@ Reis haber-verdi: *"sana terminali copy yaparken ctrl+C yaptım bot durdu."* Bu-
 
 **(2) Boot-1 olayları ne-zaman silindi:** boot-2 (PID 11476) `19:17:13`'te `AuditChain` kurdu → **o-anda `audit.jsonl` full-overwrite** (BULGU-1 mekanizması, D72-c'nin **8.-örneği**). D74-snapshot `19:19`'da 6-satır yakaladıysa, **o 6 satır boot-2'nin-kendi startup'ıdır** — boot-1 (3416) olayları `19:17:13`'te zaten silinmişti. **Kalan-boşluk-hesabı:** Reis'in-AM-T7-8 kopyası `19:11:23`'te alındı ⇒ **`19:11:23 → 19:17:13` = 5 dk 50 sn boot-1 olayı KALICI-KAYIP.** Zincir-kurtarması şans-of-timing ile oldu, tasarım ile değil.
 
-## D77-PRESERVE — İCRA (Cline, 20:31:18-19; boot-öncesi) + MANIFEST
+## D77-PRESERVE — İCRA (Cline, 20:31:18-19; boot-öncesi) + MANIFEST *(ARŞİV — checkpoint-v3-öncesi)*
 
-Hakem-§3 batch'i **tamamıyla** koştu (6 dosya + `cp -p` ile orijinal-mtime-koruma). `state/D77_preserve/`:
-
-| sha256 (ilk-16) | dosya | boyut | orijinal-mtime |
-|---|---|---|---|
-| `A5DC71ED1530F242` | `audit.jsonl` | 3812 B | 19:50:55 |
-| `15635C0291AD55F9` | `audit_prev_2026-09-03b.jsonl` | 4376 B | 19:11:23 |
-| `BF018F13A31FC701` | `crash_log.txt` | 920 B | 19:17:13 |
-| `1CC5B1189966B3AC` | `EURUSD.json` | 895374 B | 19:50:55 |
-| `FE5647CECD682A08` | `EURUSD_lifecycle.json` | 137 B | 19:50:55 |
-| `9530AB41C636DE3E` | `k3_boot_stdout.log` | 2388 B | 19:50:48 |
-
-**Sıra-doğru-çıktı:** preserve `20:31:18` → T0#8-lock `20:33:13`. **Boot `audit.jsonl`'ı 3812 B/12-satır → 1665 B/6-satıra ezdi; tek-SHUTDOWN-olayı preserve sayesinde kurtuldu.** BULGU-1 öngörüsü canlı-doğrulandı (4.-kanıt).
+> Ayrıntı: memory-bank/archive_v2_20260906/D77_PRESERVE_İCRA_Cline_20_3.md
 
 ## 65k-PARİTE — PROTOKOL-KİMLİĞİ TESPİTİ (Hakem-§5 ön-şartı KARŞILANDI)
 
@@ -1524,127 +1208,17 @@ Hakem-§3 batch'i **tamamıyla** koştu (6 dosya + `cp -p` ile orijinal-mtime-ko
 
 *"Bu-repoda `git add -A` YASAK; yalnız-hash-bound-set-listesinin-birebir-yol-add'i."* Gerekçe-ölçülü: untracked-junk-sınıfları `data/` · `.vscode/` · `%EXPERTS_DIR%/` · bozuk-adlı-dosya, **ve `state/` gitignore-DIŞI** ⇒ tek `-A` kampanya-kanıtlarını-index'e-sürer.
 
-## D79 — 65k PARİTE ÇEKİMİ KOŞTU · §1.6 KAPISI **KAPANDI** (20:53–20:56)
+## D79 — 65k PARİTE ÇEKİMİ KOŞTU · §1.6 KAPISI **KAPANDI** (20:53–20:56) *(ARŞİV — checkpoint-v3-öncesi)*
 
-Tam-kanıt: `results/D79_65k_parity_evidence.md` (133 satır). **Özet-hüküm:**
+> Ayrıntı: memory-bank/archive_v2_20260906/D79_65k_PARİTE_ÇEKİMİ_KOŞTU_.md
 
-**1. Protokol-kimliği TEYİTLİ** — harness `%TEMP%\d66_detect.py` (hayatta), tek-değişken `:17` 60000→65000 (**diff = 2 satır**), parametre-kaynağı `run_production.py:80` default **65000**, `.env`'de YOK. **`scripts/verify_phase11_parity_fix.py` REDDEDİLDİ** (38↔38 trade-count @15m — `65000`/`body_high`/`tol` yok) ⇒ **kör-koşum-§8.1-ihlali önlendi.** Baseline **ezilmedi** (`d66_detect_60000_baseline.json`).
+## D80 — T0#8-HÜKMÜ (21:06:48) + ÜÇ-KOPYA-IRAKLASI (yeni-root-cause-katmanı) *(ARŞİV — checkpoint-v3-öncesi)*
 
-**2. §1.6 ÖLÇÜLDÜ:** canlı-ölçek 65000'dir — **15m-bar-sayısı 4338 BİREBİR** (`next_idx=4338`), donmuş-tol **0.000244 vs canlı 0.00024678571428573705 = %1.1**; 60000-çekim **%34.5 sapar.** Kalan-%1.1 iki-açık-nedenle izah edilir (pencere-kayması ~6×15m bar; interpreter venv→base) — **bit-parity iddia edilmez, ölçek-paritesi edilir.**
+> Ayrıntı: memory-bank/archive_v2_20260906/D80_T0_8_HÜKMÜ_21_06_48_ÜÇ_K.md
 
-**3. 🔴 KARAR-DEĞİŞİMLERİ:** **AUDUSD bias BEARISH → BULLISH** (body aynı, tol 0.000275→0.000139; +0.75-pip-marfjı −1.36-pip-tol-delta altında işaret-değişimi matematiksel-zorunluluk) ⇒ **§1.8-5 SINIF-1 etiketi GERİ ÇEKİLDİ → SINIF-2.** **GBPUSD sweep 1 → 0** (olay-kaybı). **EURUSD satırı ROBUST** (body/bias/day_key/start_idx birebir; sweep-event aynı) ⇒ §1.6'nın "EURUSD duyarlıdır" uyarısı **YANLIŞ** — **duyarlılık sembol-bazlı, evrensel-değil.** Near-miss EURUSD 52→81 / USDCAD 57→86 (+333-bar kapsam).
+## D81 — SISTEMATIK §2.2 KOPYA-TARAMASI (D80-c'nin geneli; salt-okuma, 21:35–21:45) *(ARŞİV — checkpoint-v3-öncesi)*
 
-**4. D79-b (YENİ P2):** `safe_reasons` dize-yığını 3×/4× kendine-ekliyor — **iki-boot · iki-interpreter · aynı-imza ⇒ race-değil, deterministik payload-bozulması.** Trading-güvenliği etkisi YOK (gate doğru kapalı). **→ N2 #21 madde-7 adayı:** neden-listesi küme-kimliği ile tutulmalı, dize-yığını ile değil.
-
-**5. D79-c (kök-neden deneyi, SÜRÜYOR):** T0#8 base-python **TEK-süreç** · **29 dk 17 sn · WRITE_BLOCK = 0** — önceki-boot'un **22dk8s-patlama-eşiği temiz aşıldı**, `audit.jsonl` tmp+rename **başarıyla** tazelemede. ⇒ **çift-süreç-iç-çekişmesi daha-da zayıfladı; H1/H2 (dalga) güçlendi.** **Hüküm için ≥60 dk hedefleniyor — erken-zafer ilan edilmiyor.**
-
-**Aşama-5 COMPARISON = SINIF-2-etiketli, TAMAMLANDI.** Kapı-zinciri: ~~D77~~ ✅ → ~~65k~~ ✅ → ~~COMPARISON~~ ✅ → **B1′ iki-bülten-tek-yayın**.
-
-## D80 — T0#8-HÜKMÜ (21:06:48) + ÜÇ-KOPYA-IRAKLASI (yeni-root-cause-katmanı)
-
-### D80-a · T0#8 ÖLDÜ — aynı-hata · tek-süreçte · **DAL-(i) FALSİFİYE**
-
-`state/D77_preserve/t08_audit.jsonl` (11 satır, sha `143c9f93`, boot-öncesi-korundu):
-
-| satır | event | epoch | Δboot |
-|---|---|---|---|
-| 6 | SAFETY `gate:closed startup_SAFE_START` | 1788456713 | +6 s |
-| — | **(34 dk 42 sn sessizlik · WB=0)** | | |
-| 7 | **WRITE_BLOCK** `WinError 5 …audit.jsonl.11468.tmp -> audit.jsonl` | 1788458796 | **+34m48s** |
-| 8 | ERROR `[WinError 5] …` | 1788458802 | +34m54s |
-| 9 | WRITE_BLOCK | 1788458802 | +34m54s |
-| 10 | **SHUTDOWN `{"exit":1,"reason":"run_exception:PermissionError"}`** | 1788458808 | **+35m00s** |
-| 11 | WRITE_BLOCK | 1788458808 | +35m00s |
-
-**Toplam 4-event / 13 sn.** Süreç-topolojisi: `Get-CimInstance` = **0 python** (ölü); boot-boyu **TEK-süreç** doğrulanmıştı. **D78 exit-sapması İKİNCİ-boot'ta-bağımsız-tekrarlandı** (`exit:1`, beklenen-2).
-
-**Hakem-§4 üç-dallı-matris hükmü (pinli-format):**
-- **Dal-(i) çift-süreç-iç-çekişmesi → FALSİFİYE.** Kanıt-satırı: `t08_crash_log.txt` satır-4 `"self": "11468: C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe …"` (venv-YOK) × `t08_audit.jsonl` satır-7 aynı-ölüm. **İki-süreç-olmadan-öldü.**
-- **Dal-(ii) H1/H2 dalga / belirli-handle-çakışması → KAZANDI.** Kanıt: aynı-primitif boot→+34m48s boyunca **başarılı** (türetilmiş ~68 flush @ `flush_interval_sec=30.0`, `audit.py:145`), sonra **13 sn'de** fatal. **Kalıcı-değil, geçici-çakışma.**
-- **Dal-(iii) "patlama-gelmezse = launcher-bağımlı" → TETİKLENMEDİ** (patlama geldi).
-- **N2#21-çapaları:** madde-1 (durable-continuity) + madde-4 (RM-probe "kim-tutuyor" — **UYGULANMAMIŞ, kod-donuk; bu-turun-telemetrisi bu-yüzden YOK**) + **YENİ madde-8 adayı (aşağıda D80-c).**
-
-**Ölüm-eğrisi-örneklemi (n=2, kanun-değil):** K3 (venv,çift) `33m35s` · T0#8 (base,tek) `35m00s` — **1dk25s yakınsama.** T0#5 (lock-yolu, pre-fix) `14m53s`. **Üçüncü-örnek olmadan yasa-ilan-edilmez; ama "~34-dk-post-boot-gecikmesi" en-keskin-teşhis-lead'idir.**
-
-### D80-b · Interpreter-provenance KAPANDI (açık-madde-artık-kapalı)
-
-`crash_log.txt` argv'sini-kendisi-kaydediyor → **satır-3 `11476: …\.venv\Scripts\python.exe`** vs **satır-4 `11468: …\Programs\Python\Python312\python.exe`**. **K3-ATR venv'den, T0#8-base'den — İKİSİ-BELGELENDİ.** D79-%1.1-atfının-(ii)-ayağı artık varsayım-değil-kanıt. **Ayrıca `3944` ve `3416` da base** → geçmiş-boot'ların-interpreter-zinciri-geriye-dönük-çıkarılabilir.
-
-### D80-c · 🔴 YENİ-KATMAN — `_atomic_write_text` ÜÇ-KOPYA, forensic-floor TEK-KOPYADA (SINIF-1: statik + canlı-teyitli)
-
-`grep 'def _atomic_write_text' src/` → **3-tanım**: `orchestrator.py:259` · `audit.py:44` · `state.py:32`. Sabitler **üçünde-birebir** (`_TMP_WRITE_RETRIES=8`, `_TMP_RETRY_BASE_SLEEP=0.05` ⇒ worst-case 0.05·127 = **6.35 s** — K1-paketiyle-uyumlu ✓).
-
-**İRAKLAMA:** `_crash_log_append` **yalnız `orchestrator.py`'da** çağrılıyor (`:313,700,784,1593`). `orchestrator.py:312-320` K2-forensic-floor'u yazıyor → **`audit.py:85` ve `state.py:72` writes-NO-floor, `raise last_err` ile çıkıyor.** `audit.py:52-54` bunu-açıkça-itiraf-ediyor: *"Identical contract … kept here as a local copy to avoid a circular import."*
-
-**Ölçüm:** `grep -c atomic_write_exhausted` → **`state/crash_log.txt` = 0 · `D77_preserve/crash_log.txt` = 0 · `D77_preserve/t08_crash_log.txt` = 0**. **İki-fatal-boot, sıfır-kayıt.**
-
-**⇒ P1 "forensic-floor-eksik" bulgusu artık HİPOTEZ DEĞİL:** kör-luk floor'un-bozukluğundan-değil, **floor'un üç-kopyanın-yalnız-birinde-olup-ölen-yolun-diğer-kopyayı-kullanmasından** geliyor. **§2.2 duplicate-source-of-truth ihlalinin DOĞRUDAN adli-körlükle sonuçlandığı kanıtlandı.**
-
-**🔴 İkinci-çelişki:** `orchestrator.py:273-274` *"This helper remains canonical for the audit/state/safe-mode files"* diyor — **YANLIŞ.** Audit-yolu `audit.py`'nin-kendi-kopyasını, state/safe-mode-yolları `state.py`'nin-kopyasını kullanıyor. **Docstring-kapsam-iddiası ile gerçek-çağrı-graflı çelişiyor; K2-iyileştirmesi canonical-kopyaya-indi, ölen-yol hiç-almadı.** ⇒ **sessiz-ıraklama (silent-divergence).**
-
-**Etki-yayılımı:** `state.py`-kopyası-da-floor'suz ⇒ **`EURUSD.json` / `_lifecycle.json` / `orchestrator_safe.json` yazımları aynı-kör-lukla ölebilir** (K3'de 19:50:55 close-save BAŞARILIydı — şanstı, garanti-değil).
-
-**Düzeltme-TASARIMI (UYGULANMIYOR — kod-donuk, yetki-yok):** §2.0 "LESS CODE + ONE SOURCE OF TRUTH" ⇒ **iki-kopyaya-daha-floor-eklemek YANLIŞ** (üç-kopyayı-korur). **Doğru-çözüm: circular-import'suz tek-modül** (`src/live/atomic_write.py` gibi) + üç-cismin-onu-import-etmesi. **→ N2 #21 madde-8 ADAYI.**
-
-### D80-d · Koruma-3-nesil + boundary
-
-`state/D77_preserve/` → **9 dosya**: orijinal-6 + `t08_audit.jsonl` `143c9f93` · `t08_basepython_boot.log` `a6eff189` · `t08_crash_log.txt` `83f9cf95`. **Ölüm-den-önce-korundu (ölüm 21:06:48, koruma 21:09).** Yetim `.tmp`'ler `audit.jsonl.tmp` 1483 B / `orchestrator.lock.tmp` 68 B **Sep-1-kalıntısı (PID-suffix'siz-eski-adlandırma)** — bu-boot'un-`.11468.tmp`'si `:82 unlink` ile temizlenmiş ✓. `orchestrator_safe.json` DURUYOR ⇒ §7.2 safe-mode-persist-doğru, sonraki-boot-yine-SAFE_START. **T0#8 ÖLDÜ, yeniden-boot YETKİSİ YOK.**
-
-**Boundary:** `git diff -- src/ tests/ index.json` **BOŞ** · HEAD `0081c64` · commit/push YOK · **kod-okuma salt-yazılı** (audit.py/state.py/orchestrator.py — DOKUNULMADI) · `.env` DOKUNULMADI · `index.json` ÜRETİLMEDİ · `git add -A` YASAK.
-
-## D81 — SISTEMATIK §2.2 KOPYA-TARAMASI (D80-c'nin geneli; salt-okuma, 21:35–21:45)
-
-**Soru:** D80-c bir kopya-ıraklaması buldu — **tek olan o mu?** Cevap: **EVET, tek.** Ama bulmak için tüm `src/` tarandı ve **metodum bir-kez-yanlış çıktı.**
-
-### 81.0 · METOT-ÖZ-DÜZELTMESİ (§11 hiyerarşisi uygulandı)
-
-Ham-gövde-hash **docstring'i de saydı** → 10-grubun **8'ini IRAKAK bildirdi.** `ast` + docstring-strip + `annotate_fields=False` ile yeniden-koştu: **6 IRAKAK / 4 BIREBIR.** **İki-yalancı-pozitif düştü: `_compute_atr`, `LiquiditySource`.** ⇒ **§11'in-dedigi-doğru: prose-claim < test-run < AST/semantic-comparison; ve benim-ilk-taramam-dördüncü-kategorideydi (ham-metin).** Kayıttan-düşülür, silinmez.
-
-### 81.1 · Grup-grup-hüküm
-
-| kopya-adı | yerler | AST | HÜKÜM |
-|---|---|---|---|
-| **`_atomic_write_text`** | `orchestrator:259` · `audit:44` · `state:32` | **IRAKAK (2-biçim)** | 🔴 **CANLI-YOL · KANITLI-ÖLÜMCÜL — D80-c. TEK-gerçek-kusur.** |
-| `_to_nexus_bar` | `breakout_variant` · `strategy_runtime` | IRAKAK | **MASUM:** gövdeler-birebir, fark-yalnız import-yeri (modül-seviye vs fonksiyon-içi) + tip-notu (`NexusBar` vs `Any`). **`timestamp=int(bar.timestamp.timestamp()*1000)` IKI-YOLDA-AYNİ ⇒ §6.3 sapmasi YOK.** |
-| `Bar` | `backtest/replay_engine` · `strategy/models` | IRAKAK | **YAPISAL-AMA-KANLIŞ-DEĞİL:** `src/live/**` **7-modül-birebir `src.strategy.models.Bar`** kullanıyor; yalnız `src/backtest/**` kendi `Bar`'ını. **Canlı-yol TEK-KAYNAK ✓.** D66-harness `models.Bar` import eder ⇒ **parity-bozulmadı.** |
-| `detect_swing_hl_levels` | `liquidity_forensics:506` · `phase4_lifecycle` | IRAKAK (72 vs 20 satır) | **KOPYA-DEĞİL, AYNI-İSİM-FARKLI-FONKSİYON:** forensics = N-bar **pivot (önce+sonra onaylı)** → `List[LiquidityLevel]`; phase4 = **kayan-pencere max** (pivot değil) → `List[Dict]`, kendi-docstring'inde *"NEWLY DEFINED FOR THIS ANALYSIS — not in baseline strategy"*. **⇒ ÖLÜ-KOD (aşağıda 81.2). D79-bulgularini ETKILEMEZ.** |
-| `detect_session_hl_levels` | aynı-ikili | IRAKAK (68 vs 45) | aynı-hüküm: forensics = gün-bazlı-HL `max_active_days=3`; phase4 = `window=50` kayan. **ÖLÜ-KOD.** |
-| `load_env_from_project_root` | `backtest/mt5_downloader` · `src/test_mt5_data.py` | IRAKAK | **Canlı-yol-DIŞI** (`src/live/**` hiçbirisini import etmez). Düşük-öncelik. |
-| `_compute_atr` | `breakout_variant` · `strategy_runtime` | **BIREBİR** | ✅ **ATR-PARİTESİ TEMİZ — kritik-temizleme:** ATR, D79'da AUDUSD bias'ını çeviren toleransın girdisi; **iki-yol-da aynı-hesap (simple mean, Wilder DEĞİL).** |
-| `_utcnow_naive` | `candle_feed` · `clock` | **BIREBİR** | ✅ davranış-sapması YOK; **ama §6.3 tek-konvansiyon-ilkesi-adına-iki-tanım-hâlâ-borç** (birleştirme-kazancı-düşük, risk-yok). |
-| `LiquiditySource` | forensics · phase4 | **BIREBİR** | ölü-kod-içi-ikiz, etkisiz. |
-| `calculate_file_hash` | `data_validator` · `manifest_generator` | **BIREBİR** | zararsız-teknik-borç. |
-| `main` ×11 | 11-ayrı-script | — | **İPTAL (meşru):** her-CLI-script'in-kendi-`main`'i; kopya-değil. |
-
-### 81.2 · 🔴 ÖLÜ-KOD-BULGUSU (yeni, düşük-öncelikli-ama-isim-kirliliği)
-
-`grep -rln 'liquidity_forensics\|phase4_lifecycle' src tests experiment` → **`phase4_lifecycle.py`'ın-KENDİSİ-dışında SIFIR-SONUÇ.** **İki-modül-de repo'da HİÇBİR-yerden import edilmiyor** (canlı-yol, testler, `experiment/` dahil). ⇒ **`src/strategy/` içinde, kanonik-isimlerle, ölü ve birbiriyle-çelişen iki analiz-modülü duruyor.** **§2.3 ihlali (analiz-kodu üretim-`src/`'inde, `experiment/`'te-değil) + §19 isim-kirliliği.** **Eylem-yetkisi İSTENMİYOR** — yalnız-kayıt: **N2 #21 madde-9 ADAYI** (ölü-analiz-modüllerinin `experiment/`'e-taşıması veya `src/`'den-düşülmesi).
-
-### 81.3 · `_atomic_write_text` üç-kopya — MINIMAL-ve-KANITLI-fark
-
-`audit.py` ≡ `state.py` **AST-birebir (True)**. `orchestrator.py` ≠ ikisi. Fark-yaratıcı-anahtarlar:
-
-```
-_crash_log_append        orch=1 / audit=0 / state=0
-atomic_write_exhausted   orch=1 / audit=0 / state=0
-_ATOMIC_WRITE_RUNTIME    orch=1 / audit=0 / state=0
-on_block                 orch=1 / audit=1 / state=1     ← ortak
-unlink                   orch=1 / audit=1 / state=1     ← ortak
-```
-
-**⇒ Üç-kopyanın-birbirinden-farkı TAM VE YALNIZ K2-forensic-floor'u.** Retry-döngüsü, `on_block`-tek-atımı, tmp-temizliği, raise-yolu — **hepsi-birebir.** **Bu, D80-c'yi tahmin-olmaktan-çıkarıp kapalı-bir-cebir-savına-dönüştürüyor.**
-
-### 81.4 · DEĞERLİ-NEGATİF-SONUÇ: madde-8'in-kapsamı BİR-MODÜL
-
-Tarama **ikinci-bir-canlı-yol-ıraklaması BULAMADI.** ⇒ **N2 #21 madde-8 bir-kampanya-değil, tek-modül-işi:** circular-import'suz `src/live/atomic_write.py` + üç-cismin-onu-import-etmesi. **D80-c'nin-çözüm-tasarımı küçüldü ve kesleşti.**
-
-### 81.5 · Yan-not: `sys.path.insert(0, _NEXUS_SNIPER_SRC)` ÜÇ-canlı-modülde
-
-`breakout_variant:52-53` · `recovery:37-38` · `strategy_runtime:55-56`. **Bu, `breakout_variant`'taki çıplak `from models import Bar`'ın-çalışma-mekanizması** (kazara-değil, kasıtlı). **Ama:** üç-yerden-process-global-durum-mutasyonu + **pozisyon-0 ⇒ nexus `models.py` başka-her-`models`-modülünü-gölgeleyebilir.** **§19 "CWD/environment-bağımlı" sınıfına-giren mevcut-risk; SAPMA-değil (üçü-de-aynı-desen).** Yalnız-kayıt, eylem-yok.
-
-### 81.6 · Boundary
-
-**SALT-OKUMA.** `git diff -- src/ tests/ index.json` **BOŞ** · HEAD `0081c64` · commit/push YOK · dosya-açılmadı-değiştirilmedi (AST-parse bellek-içi) · `.env` DOKUNULMADI · `index.json` ÜRETİLMEDİ · **T0#8 ÖLÜ, yeniden-boot YETKİSİ İSTENMİYOR/VERİLMEDİ** · tek-yazım: `progress.md` + `D66_observer_touchlog.txt`.
+> Ayrıntı: memory-bank/archive_v2_20260906/D81_SISTEMATIK_2_2_KOPYA_TAR.md
 
 ## AM-T7-14 (KALICI-MADDE · Hakem-§1 ratifikasyonu, D79-amendmanı)
 
@@ -1710,9 +1284,9 @@ Tarama **ikinci-bir-canlı-yol-ıraklaması BULAMADI.** ⇒ **N2 #21 madde-8 bir
 
 **AM-T7-14 — KALICI-RATİFİYE (Hakem-§5):** *"Dürüst-kayıt, öngörülmüş-kayıt-değildir"* — formül-deftere-kazındı; ikinci-tekrarda-ratifikasyon-yok.
 
-## D64-§5-ÇİFT-PİN (Hakem-borcu-ödendi; tek-yazım-EOF-append)
+## D64-§5-ÇİFT-PİN (Hakem-borcu-ödendi; tek-yazım-EOF-append) *(ARŞİV — checkpoint-v3-öncesi)*
 
-`results/D64_bias_census_evidence.md`: **137→151-satır** · **mühürlü-eski `8b18f70acc74ae1a` (137) → taze `1688aaeed23c3989` (151)** — iki-pin-yan-yana, §12.1-uyumlu. §5.1-5/6-düzeltme · §5.2-nüfus-4,066 · §5.3-142=138-Cts+4-tatil · §5.4-5.6×-türev-etiketli · §5.5-SINIF-1-etiketi — Hakem-aritmetiği-bağımsız-doğrulandı-olarak-alındı (92+50+684=826 ✓ · 963−826=137 ✓ · 3401/684=4.971 ✓).
+> Ayrıntı: memory-bank/archive_v2_20260906/D64_5_ÇİFT_PİN_Hakem_borcu_ö.md
 
 ## MİNİ-SET-2-TETİK-ÖLÇÜMÜ (Hakem-②) — EŞİK AŞILMADI, TETİK ARALIKTA
 
@@ -1787,19 +1361,9 @@ Ping-1-@22:35-hedefi-yok: **0-süreç-22:08'den-beri.** İki-ping-düşürüldü
 **REİS-bekler (Cline-takibinde):** ① SET-2-hash-bound-onayı → commit+push → origin..HEAD-boş-teyidi (tek-kapı; bileşim-mühürlü — push-anında-progress.md-taze-pin-için-son-ölçüm) ② B1′-iki-bülten-tek-yayın ③ N2#21-scope-onayı (13-madde; 8→1→4; 12/13-D72-embed'den) ④ R1/R2-düz-yazı-iletimi ⑤ boot-moratoryumu (N2#21-execution'a-dek; owner).
 **CLINE-bekler (tetik-bekleyen):** post-push-teyit · pre-reg-v2 (12/13-tamamlı) + execution-plan · D80/D81-çağrı-zinciri-kapanışı · tetik-saati (mini-set-2-onayına-bağlandı).
 
-## D90 — HAKEM-İKİ-ACTİF-İKİ-ASKIDA-KABULÜ + BOOT-C-SINIF-2-İZLEME-DEVAM + DESTEK-MODU (2026-09-04)
+## D90 — HAKEM-İKİ-ACTİF-İKİ-ASKIDA-KABULÜ + BOOT-C-SINIF-2-İZLEME-DEVAM + DESTEK-MODU (2026-09-04) *(ARŞİV — checkpoint-v3-öncesi)*
 
-**Hakem-cevabı-deftere-alındı:** AKTİF-1 Boot-C-SINIF-2-izleme (devam) · AKTİF-2 handoff-sonrası-destek (yeni-ajan-ilk-72h) · ASKIDA-1 push-kaydı-6 + D86/D87 {`173be24`, `100160d`, `7874470`} hash-bound-yazılı-yetki-bekliyor · ASKIDA-2 D82-izleme-borcu-Cline'da-kalır. *"izleme-devam, destek-modunda-bekle"* — hüküm-gerektirmediği-için-deftere-kendim-girdi.
-
-- **AKTİF-1-sağlık-snapshot (14:53–14:55 local, copy-then-read):** PID-**18460-CANLI** (python, start 11:12:57, CPU 11.7s) · audit.jsonl = **23-sabit** (yeni-satır-YOK; snapshot `state/D82_preserve/audit_copy_20260904.jsonl` — untracked, D77/D85_preserve-precedenti) · **WB=0** ✓ · heartbeat-lock-mtime-yaş **6.1s** (<15s-periyot, canlı) · bias=**BEARISH-kararlı** (son-REPLAY-11:13; sonrası-olay-yok).
-- **FAZ-B-pencere-sayacı (tanım-pin; hakem-düzeltmeye-açık):** pencere = 15m-grid-sınırı-checkpoint (ince) + CBDR-gün-penceresi (kaba) — ikisi-tutulur. Sayaç-sıfır-noktası = Boot-C-lansmanı 11:12:57. Bu-girdi-itibarıyla: 15m-sınır ≈ **14-geçti** (11:15→14:45; per-window-bias-attestasyonu-yalnız-gözlenen-checkpoint'lerde: 11:13-D85-replay-BEARISH → 14:53-bu-girdi alive+audit-23+WB=0; ara-dönem-dolaylı-kanıt = süreç-alive + audit-sabit) · CBDR-pencere = **1** (session_key=2026-09-04-replay'de-kuruldu; sonraki-sınır 19:00-UTC/22:00-local). **Akıbet-kararı-Reis'te** — sayaç-sadece-ölçüm, karar-üretmez.
-- **Sapma-protokolü-AKTİF:** her-yeni-audit-satırı-olayı (SIGNAL/FUNNEL/ERROR/WB) → copy-then-read-deftere; **WB≠0-görülürse-etiketlenir** (H1/H2-yeniden-kasıt-kanıtı-adayı; D82-izleme-sınırıyla-aynı-disiplin). Şu-ana-tetik-YOK.
-- **AKTİF-2-destek-modu-AÇIK:** yeni-ajan-STOP-çağırırsa (24/24-hash-uyuşmazlık · pre-reg-belirsizlik · koşum-hatası) → **tek-döngü-yükümlülük**: cevap *"paket-bu-bilgiyi-içeriyor-mu/içer-miyordu"* formatında-kısa; içeriyorsa-o-oku-yeniden; içermiyorsa-handoff-paketine-append (yeni-ajan-tahmin-etmez-kuralı-aynen). **Sınır:** N2 #22-sorusuna-kendim-cevap-üretme-YOK (bilgi-üretimi-yeni-ajanda; arbitraj-hakemde). Şu-ana-STOP-çağrısı-YOK.
-- **ASKIDA-1-git-realiite (14:54):** unpushed-set **5-commit'e-büyüdü**: {`173be24`, `100160d`, `7874470`} + `b59f2c2` (D88) + `87b74dc` (D89 = HEAD); origin/main = `057da7a`. §9.5: set-büyümesi = push-zamanı-tam-sonuç-set-yeniden-teyidi-gerektirir. Dokunulmadı — Reis-tetikler.
-- **ASKIDA-2-kayıt:** D82-borcu-devir-şerhi: tekil-native-crash = D82-aday-etiketi; iki-oturum-aynı-iz = pin-açılır; **borç-yeni-ajana-GEÇMEDİ** (suite-yürüyen-tek-bilgi-Cline'da). Bu-oturumda-native-crash-gözlemi-YOK → yeni-aday-yok.
-- **Preflight (§10.1):** tasklist-python = {5580-venv-launcher, 18460-Boot-C} — watcher-YOK; index.json-dokunulmadı (kod-değişikliği-yok → index-yeniden-üretim-gereksiz).
-- **Commit:** bu-girdi tek-commit (ledger-only; rapor-dosyası-yok) — **LOCAL-ONLY** (push-yazılı-yetkiye-tabi; bekleyen-set yukarıda-5-commit).
-**HAKEM-bekler:** ③-altıncı-parça (③-zaman-semantic-değerlendirmesi; beşi-D72-embed'de) · R1/R2-iletimi-Reis'te.
+> Ayrıntı: memory-bank/archive_v2_20260906/D90_HAKEM_İKİ_ACTİF_İKİ_ASKI.md
 
 ## HAKEM-HÜKMÜ — BEKLEME-REJİMİ (23:35) — masa-yeni-hüküm-üretimini-duraklattı
 
@@ -1886,33 +1450,9 @@ Ping-1-@22:35-hedefi-yok: **0-süreç-22:08'den-beri.** İki-ping-düşürüldü
 **Yeni-borç:** REIS: T0#10-iki-boot-planı-bildirimi · kalan-maddeler-önceliği (4/5/6) · push-kaydı-5-in-kendi-push-yazılı-yetkisi (yerel-desen-devam). CLINE: canlı-katman-icrası (Reis-bildirimli — bildirim-bu-raporla) · kalan-6-dosya-full-suit-kuyruğu · D82-izleme-borcu · telemetri-ayrı-commit (onay-gelince).
 
 
-## D83 — KANAL-ENVANTERİ-RATİFİYESİ + T0#10-MASA-HAZIRLIĞI (2026-09-04 09:4x +03)
+## D83 — KANAL-ENVANTERİ-RATİFİYESİ + T0#10-MASA-HAZIRLIĞI (2026-09-04 09:4x +03) *(ARŞİV — checkpoint-v3-öncesi)*
 
-**Hakem-hükmü ratifiye:** üç-dosyalı-kanal-haritası (stdout=insan-log / state/audit.jsonl=makine-journal / crash_log.txt=floor-forensics) · "iki-defa-kapat-aç-gerek-var-mı?" → **TEK-BOOT-YETER** (load-artık-motor-davranışı; T0#10=Boot-A→çalış→kill→Boot-B→devralma-kanıtı) · D.2-recide-yol-ayrımı ("kalıcı-log bekleniyor" → motor-tedarik-ediyor; protokol-notundan-çıkarılır) · AM-T7-15 (boot-artifakt-beklenti-tablosu: stdout ✓ · audit-devralma ✓ · A8-fallback=SINIF-2) · Rider (boot-başına-adlı-stdout-topolojisi: daima-en-güncel-adla-oku; belirtmesiz-okuma=HATA-tuzağı) · persistent_log.py=ölü-modül→madde-6d-üçüncü-üye (kader: sil-veya-wire, same-owner-batch).
-
-**CLINE-MASA-HAZIRLIĞI (coruma-7-nesil, canlı-DOKUNULMADI — Reis-onayı-bekler):**
-1. **coruma-T0 (13:02-dersi):** audit.jsonl=6-satır-T0#9-artefaktı-DOKUNULMADI-kanıtlandı (bayt-uzunluğu-ile: 1707-B — 13:02-hash-dersi); lock=PID-14940-yetimi; safe.json=T0#9-mührü — hepsi-muhafazada.
-2. **coruma-1 (kilit-hiyerarşisi):** boot-A-stale-takeover=beklenen-olay (dead-PID-üzerine-takeover=tam-başarı); lock-race-kuralları-geçerli; LOCK-TAKEOVER=A-capture-hedefi.
-3. **coruma-2 (session-muhafaza):** CBDR/session=bellek-içi-canlı-kurulur; disk-tazeleme-YOK (A.2-gerçeği) — Boot-B-devralma=audit-journal'dan.
-4. **coruma-3 (T0#9-kirli-reason-kalıcılığı):** safe.json-reason=YENİDEN-YAZILMAZ (A.1-gerçeği) → Boot-A-SAFE_START=BULGU-13-beklenen-bulgu; kirlilik-suç-değil-ölçüm.
-5. **coruma-4 (audit-uzunluk-ölçümü):** madde-1-devralma-kanıtı=6→7+ (Boot-A-yazımı) → Boot-B-load'da-satırlar-havada (satır-sayısı+ilk/son-olay-karşılaştırma-kanıtı).
-6. **coruma-5 (A8-fallback):** append-red→stdout-kanal-SINIF-2-beklenir-olay; panik-YOK; crash_log.txt=floor-kanıtı-yeri.
-7. **coruma-6 (T.0-telemetri-istenemez):** RM-probe-SIFIR-dokunuş-kuralı-T0#10'da-da-geçerli (N2-icrası-ayrı-commit-bekler).
-
-**T0#10-BEKLENTİ-TABLOSU (AM-T7-15 + Hakem-EK'leri):**
-| # | Beklenti | Sınıf |
-|---|---|---|
-| 1 | Boot-A: COLD_REBUILD + SAFE_START (safe_json-hatırlıyor) | normal |
-| 2 | Boot-A: stale-takeover (dead-PID-14940) | D35-norm-olay |
-| 3 | Boot-A: SAFE_START-kirli-reason (madde-7-öncesi-kalıcılık) | beklenen-bulgu |
-| 4 | Boot-A: audit.jsonl-6→7+ (append-delta; T0#9-satırları-DURUR) | madde-1-kanıtı |
-| 5 | Boot-B: A-olayları-havada (load-devralma; satır-sayısı-korunur-artar) | **madde-1-acceptance** |
-| 6 | A8-fallback-olayı-görünürse: stdout-kanal | SINIF-2 |
-| 7 | crash_log.txt: floor-ateşi-görünürse diagnostik | BULGU-14-üç-yol-floor |
-| 8 | t10_boot_stdout.log: en-güncel-adla-okunur (rider-uyumu) | okuma-disiplini |
-| 9 | Sonraki-stop: **foreground-PowerShell-lansmanından** (konsol-var → gerçek-SIGINT → SHUTDOWN-audit-satırı-yazılır + D78-exit-degradasyon-ölçülür; D70-kesfinin-kapanış-adımı) | planlı-adım (Hakem-D85-ratifiye-§4.3) |
-
-**SIRA-BEYANI:** T0#10-canlı-icra-KARARI-Reis'te (canlı-katman-Reis-bildirimli); Cline-masa-hazır — "BAŞLA" bildirimi-üzerine-boot-A-adımı-Reis-ile-beraber (coruma-sırası-yukarıda-pinned).
+> Ayrıntı: memory-bank/archive_v2_20260906/D83_KANAL_ENVANTERİ_RATİFİYE.md
 
 ## T0#10 — CANLI-İCRA-SONUCU (BOOT-A → AUTO-KILL → BOOT-B) · TAM-GEÇTİ · 2026-09-04 10:22-10:30
 
@@ -1969,16 +1509,9 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
   hepsinde. Tarama Boot-B'nin kendi state'ini değil, bağımsız in-memory motor örneklerini okur.
 
 
-## D85 — CANLI-PARİTE-DEĞİŞİMİ İCRASI (Boot-B-κ-stop → BOOT-C-AUDUSD) · TAMAMLANDI · 2026-09-04
+## D85 — CANLI-PARİTE-DEĞİŞİMİ İCRASI (Boot-B-κ-stop → BOOT-C-AUDUSD) · TAMAMLANDI · 2026-09-04 *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **Yetki:** Hakem D85 hükmü (SCAN-RATİFİYE; RED-YOK). Tek-değişken: `SNIPER_SYMBOLS=AUDUSD` env-override; `.env` DOKUNULMAZ; SNIPER_STATE_DIR bilinçli unset (Boot-B-ile-aynı); modül-kipi-invariant.
-- **Coruma (adım-0):** 10-artefakt → `state/D85_preserve/` + SHA256SUMS.txt; audit-mührü 18-satır/5253B `5d56f03a835e8c9f…`.
-- **Boot-B-stop (adım-1):** graceful-dENEMESİ (AttachConsole+CTRL_C helper) → `ATTACH_FAIL err=5` (konsol-yok) → Hakem-ruhsatlı-κ-fallback taskkill /F /T: **2×SUCCESS (16880+18716)**; launcher-1288 kendiliğinden-çıktı; **audit-18/5253B-bayt-özdeş-DONDU, SHUTDOWN-YOK** (D78-üçüncü-örnek; SHUTDOWN-audit-açık-kalemi-devam). Lock-stale-16880.
-- **BOOT-C (adım-2):** PID-**18460** (venv-launcher-5580 altında, base-Python312; CimInstance-zinciri-kanıt); Reis-bildirim-artefaktı `state/t10c_reis_notice.txt`; lansman-tool-timeout-1'e-rağmen-hayatta.
-- **Startup-gözlem (adım-3):** audit **18→23** append — satır-19 MT5_CONNECT(symbol=AUDUSD), 20 STARTUP(symbols:[AUDUSD]), 21 **S9-REPLAY: bias=BEARISH** (replay_bars=4236, next_idx=4337, session_key=2026-09-04, signals_discarded=27), 22 S11-SAFE_START(**restored=false**=COLD-imzası; kirli-zincir **n=6→7** BULGU-13-büyümesi), 23 SAFETY-gate-CLOSED. **Dikiş-kanıtı:** post-C ilk-5253B sha=`5d56f03a…` bayt-özdeş — 4-boot-linyajı (T0#9+A+B+C). Heartbeat-lock-yeniden-yazımı ×3 gözlemlendi (588→809→909); audit-23-stabil = **WB=0** ✓.
-- **SINIF-1↔2-ZİNCİRİ-İLK-UYUM-MÜHÜRLÜ:** scan AUDUSD-SWEEP-BEARISH(06:30, SINIF-1) ↔ Boot-C-replay-bias=BEARISH(SINIF-2) — **pre-reg-pin-beklenen-yönde**; NEUTRAL-parite-bulgusu-yolu-açılmadı. EURUSD-NEUTRAL-uyumu-öncül-altında-2.uyum-noktası (D79→D85 çift-nokta).
-- **Topoloji-notu (beyanlı):** Boot-C'de-ayrı-COLD_REBUILD_OK-olayı/stderr-"cold rebuild OK"-alerti-YOK (Boot-B'de-var); yetkili-soğuk-imzalar S11-restored:false + S9-REPLAY-payload — araştırma-kalemi.
-- Rapor: `results/D85_live_symbol_swap.md`. Boot-C handoff-anında-CANLI-bırakıldı (akıbeti-Reis'te).
+> Ayrıntı: memory-bank/archive_v2_20260906/D85_CANLI_PARİTE_DEĞİŞİMİ_İC.md
 
 ## PUSH-KAYDI-6 (§9.3) — D85-PAKETİ · 2026-09-04 · YETKİLİ-HAKEM-HÜKMÜ (hash-bound)
 
@@ -1990,49 +1523,21 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **Sıra-modeli:** SET-2-aynen — bu-kayıt-AYRI-local-commit (onun-push'u-sonraki-sette-yazılı-yetkiyle).
 - **Canlı-katman:** push-sırasında-Boot-C (PID-18460, AUDUSD) canlı + heartbeat-döngüsünde — runtime-dosyalarına-git-dokunmadı (state/-gitignore-hattı).
 
-## D86 — CANLI-SEMBOL-SWAP-PROTOKOLÜ (Hakem-ratifiye; bundan-böyle-yazılı-usul)
+## D86 — CANLI-SEMBOL-SWAP-PROTOKOLÜ (Hakem-ratifiye; bundan-böyle-yazılı-usul) *(ARŞİV — checkpoint-v3-öncesi)*
 
-> **D86:** *"Sembol-değişimi-boot-intervanyonu-dur: (1) coruma-N+1 · (2) mevcut-stop (graceful-dene / konsol-yok→taskkill, κ-etiketi) · (3) `SNIPER_SYMBOLS` env-override (`.env`-dokunulmaz) · (4) Reis-bildirimi · (5) S9-replay-bias-end-state ↔ SINIF-1-tahmin karşılaştırma-ZORUNLU (uyum=match-mühürü, ayrışma=parity-bulgusu; ikisi-de-kanıt) · (6) sınıf-etiketli-rapor."*
+> Ayrıntı: memory-bank/archive_v2_20260906/D86_CANLI_SEMBOL_SWAP_PROTOK.md
 
-- **Menşei:** Reis'in-"sweep-olanı-koştur"-emri (D85) usulleşti; D85-icrası-protokolün-ilgili-tam-örneği (coruma-10-nesil → ATTACH_FAIL→κ-taskkill → env-override → t10c_reis_notice.txt → satır-21-match-mührü → D85_live_symbol_swap.md).
-- **İlk-uygulama-kararı:** Boot-C-akıbeti=**ÇALIŞMAYA-DEVAM** (Hakem-§4.2): sweep'li-AUDUSD-üzerinde-SINIF-2-izleme (bias-end-state-kararlılığı, funnel-olaylar, WB=0-sürekliliği); motivasyon: canlı-bias'lı-instance-kaç-pencere-yaşar → FAZ-B-önem-ölçümü. Akıbet-kararı-ertesi-pencerede-Reis'te.
-- **FAZ-B/N2-#20-bağlantısı:** BOOT-C-deseni ("her-sembol-bir-boot") + D86-sıralı-swap → 6-parite-canlı-ATLAS yolu; 3/6-sembol-bias'lı-gün (2026-09-04-scan) = 5.6×-çarpanın-ilk-kenar-örneği.
+## D87 — N2#21-ZAMAN-KESMESİ + N2#22-FAZ-A=ÖNCELİK-1 + HANDOFF-PAKETİ (Hakem-hükmü-icrası) *(ARŞİV — checkpoint-v3-öncesi)*
 
-## D87 — N2#21-ZAMAN-KESMESİ + N2#22-FAZ-A=ÖNCELİK-1 + HANDOFF-PAKETİ (Hakem-hükmü-icrası)
+> Ayrıntı: memory-bank/archive_v2_20260906/D87_N2_21_ZAMAN_KESMESİ_N2_2.md
 
-**Hakem-hükmü:** *"N2 #22-FAZ-A'yı ÖNE AL (yeni-ajana-ver); N2 #21-kalan-maddeleri ERTELE"* — gerekçeler: (a) motor-hazır (madde-8-düzeltmesi-`d36856f`-canlı; T0#10-devralma-kanıtlı; D86-usul), (b) Reis-FAZ-B'ye-döndü, (c) Boot-C-canlı-veri-topluyor → N2#22-çıktısı-birleşir, (d) Cline-yorgunluk-reali.
+## D88 — LOG-YETERLİLİK-CENSUS (Hakem-D88-charter FAZ-1 icrası; salt-okuma) *(ARŞİV — checkpoint-v3-öncesi)*
 
-**N2#21-ERTELENEN-DÖRT-KALEM (deftere-işlendi; Boot-C-akıbet-kararıyla-birlikte-açılır):** ① kalan-maddeler-4/2/5/6 (4=telemetri+RM-probe-en-yüksek-gain) · ② kalan-6-dosya-full-suite · ③ D82-izleme-borcu (aynen-yaşar) · ④ 12/13-D72-tamamlama-onayı (Reis'te-bekler).
+> Ayrıntı: memory-bank/archive_v2_20260906/D88_LOG_YETERLİLİK_CENSUS_Ha.md
 
-**HANDOFF-PAKETİ (tüm-bağlam-tek-dosya; Reis-elinden-yeni-ajana):**
-- **A-paketi:** `results/N2_22_fazA_handoff.md` = **80-satır / 10,170-B / sha256-ön-eki `cc9647bdf274e99a0a3a`** — kapsam (frozen-2.7Y/6-major-V0..V5 + downstream-sütunlar) · kod-çapaları (dataset-pin, BREAKOUT-aday-tanımı-N2#19-frozen-üçlüsü, AM-N22-1..4-etiketleri) · sınırlar (S-a..S-e + SINIF-1-etiketi + Faz-3-wire-in-YASAK) · bootstrap-protokolü + checkpoint-mini-delta + erteleme-tablosu.
-- **B-paketi:** `results/n2_22_fazA_dataset_pin.md` = **61-satır / 4,837-B / sha256-ön-eki `b4b00f1b8d26e284054b`** — 24-artifact-tam-hash + ölçülen-span + doğrulama-protokolü + WinError-yok-beyanı.
-- **⚠ PIN-PENDING-İFYASI (§13.5):** "V0..V5"-etiketlerinin-bağlı-tanımı repo-defterinde-BULUNAMADI (grep-0-isabet: memory-bank/+results/); Hakem-hükmü-etiketleri-handoff'a-aynen-alındı, **işletme-tanımları-pre-reg'de-pinlineşir; belirsizlikte-koşum-öncesi-Hakem-arbitrajı**. Downstream-sütun-listesi = Reis-amendmanı-iletimi-bekler.
-- **Dataset-ölçüm-canlı-kanıtı (2026-09-04):** manifest-protokolü-koşuldu → 24/24-tam-hash-diff'i-BOŞ ✓; 15m-span-ölçüldü (6-sembol-birebir: 2024-01-01 22:01:00 → 2026-08-21 20:45:00; kolonlar timestamp/o/h/l/c/v).
-- **Commit:** bu-girdi + iki-handoff-dosyası tek-commit — **LOCAL-ONLY** (push-yazılı-yetkiye-tabi; SET-2-sıra-modeli).
+## D89 — FAZ-1-ENVANTER + WORKTREE-PROTOKOLÜ-İCRASI (Hakem-D89-hükmü; B2-kapandı) *(ARŞİV — checkpoint-v3-öncesi)*
 
-## D88 — LOG-YETERLİLİK-CENSUS (Hakem-D88-charter FAZ-1 icrası; salt-okuma)
-
-**Hakem-sırası:** ① census (Cline, read-only, hemen) → ② N2#23-log-vurgu-katmanı (Reis-hash-bağlı-onayı-ÖNCE, KOD-YOK-şimdilik) → ③ FAZ-3-B-entry-açma (Reis-onayı + tek-env-adımı). Kripto-standardı = hedef.
-
-- **Rapor:** `results/D88_log_adequacy_census.md` = **100-satır / 10,998-B / sha256-ön-eki `c4041484c1474142`** — mimari-harita (§1) + emitter-envanteri (§2: orchestrator-33-çağrı + dış-modüller) + ana-tablo (§3, Hakem-8-satırı 3-hüküm-sütunlu, satır-ankorlu) + FAZ-3-A-düzeltmesi (§4) + FAZ-3-B-ön-pin (§5, P-1..P-4) + N2#23-aday-listesi (§6, R-1..R-6) + yöntem (§7) + canlı-doğrulama (§8).
-- **Ana-bulgu (sayısal):** Hakem-8-satırından **7'si OLAY-ÜRETİLMİYOR** — CBDR-katmanı-tamamen-sessiz (`strategy/session.py` 215L'de-0 print/log/audit: pencere/lock/sweep/bias-lock), FVG-scan/bulgu ve entry-ara-adımları-sessiz (`strategy_runtime.py:270-332`). **Canlı-audit-mix (Boot-C, 23-olay): {MT5_CONNECT-4, STARTUP-15, SAFETY-4} — strateji/piyasa-olayı-SIFIR**; stdout-12L-yalnız-startup. Gap-yapısal (emit-çağrısı-yokluğu), kütüphane-eksikliği-değil.
-- **Ölü-enum-üyeleri (0-emitter):** FILL · RECONCILE · STATE_SAVE · MT5_DISCONNECT → **FILL-deligi-FAZ-3-B-e2e-zincirinin-yapısal-engeli** (SIGNAL→RISK→ORDER→FILL→POSITION bugün-tamamlanamaz; pre-reg-pini-gerekli).
-- **⚠ FAZ-3-A-BEKLENTİ-DÜZELTMESİ:** Hakem-notundaki *"FVG-zone-dokunuşunda-SIGNAL-olayı-audit'e-düşmeli"*-beklentisi-census-tarafından-DÜZELTİLDİ: SIGNAL-emiti-repo-genelinde-yalnız-`paper.py:515`-te (production-canlı-yolunda-YOK; `audit.py:93`-docstring). Canlı-yolda-runtime-signal'ı `LiveRunnerStepResult`-taşır; **audit'e-düşen-ilk-iz=koşullu-RISK** (`live_runner.py:426-474`). Pencere-gözlem-ölçütü: ilk-doğal-test = **ilk-RISK-emiti** (blocked-olsa-da-reason-değerli). SIGNAL-görülmemesi-→-yanlış-negatif-tehlikesi-bu-düzeltmeyle-pinlendi.
-- **N2#23-adayları-rezerve (R-1..R-6):** R-1-CBDR-özet · R-2-FVG-scan-özet · R-3-canlı-SIGNAL-emiti · R-4-FILL-emiteri · R-5-entry-ara-adımları · R-6-ölü-üyeler. Önerilen-sıra: R-3+R-1 → R-2+R-5 → R-4 → R-6. İlke: mevcut-EventType'lara-bağlı-görünürlük-katmanı; strateji-mantığına-dokunuş-YOK.
-- **Boot-C-notu:** census-sırasında-audit-23-sabit, PID-18460-alive; FAZ-3-A-pencere-gözlemi (ilk-RISK-bekleyişi) SINIF-2-takipte-devam — akıbet-kararı-sonraki-pencerede-Reis'te (AM-T7-15-satır-9-kapanış-bekliyor).
-- **Commit:** bu-girdi + census-raporu tek-commit — **LOCAL-ONLY** (push-yazılı-yetkiye-tabi; hash-bağlı-bekleyen-set {`173be24`, `100160d`, `7874470`} + bu-commit).
-
-## D89 — FAZ-1-ENVANTER + WORKTREE-PROTOKOLÜ-İCRASI (Hakem-D89-hükmü; B2-kapandı)
-
-**Hakem-sırası:** ① envanter (read-only, her-dosya-etiketli) → ② B2-worktree-protokolü (Reis-sahiplik-beyanıyla-onaylı) → ③ FAZ-2-karantina/FAZ-3-taşıma (Reis-✓-bekler).
-
-- **Rapor:** `results/D89_faz1_envanter.md` = **43-satır / 6,576-B / sha256-ön-eki `7a3a76263eb98d88`** — worktree-protokolü-kaydı (§1) + git-realiite-etiketli-8-satırlık-karantina-tablosu (§2) + kanıt-ayrımı-önerisi (§3) + yöntem/Boot-C-teyidi (§4).
-- **B2-çözüm (üç-adım, tek-fırtına-kesildi):** Reis-beyanı deftere-alıntılandı (*"konsey-kurmuştum… gereksiz"*). Adım-1: branch `five-jackfruit` = HEAD `449806a` (2026-08-20) **== merge-base**; main..five-jackfruit-BOŞ; main +131; origin/main-içinde; unpushed-YOK. Adım-2: `comm -13`-D-etiket-diferansiyeli **BOŞ** + status-boş → defter-ikizinde-ANA-da-olmayan-tek-satır-yok. Adım-3: `git worktree remove` rc=0 → prune → `branch -d` (was 449806a) → TEYİT worktree/branch-list=yalnız-main. **Modül-dublajı + çift-defter-riski-sona-erdi; 39L-ikiz-git-tarihinde (origin/main) kalıcı.**
-- **Envanter-git-reality-sürprizleri:** (a) `pytest_*.log×6` **zaten-ignored** (`.gitignore:20`) → arşiv-taşıma-yeter; (b) root `test_causality_extended.py` **TRACKED-eski-variant** (`409fc17`; scripts-nüshası `2bff15b`-de-yeni, diff +87/−57) → manifest→sil-UYMAZ, `git rm`-kararı-Reis'te; (c) `logs/fix/` kanıt-değil — **kripto-P1-fix-kod-stub-paketi** (docstring-mühürlü); (d) `logs/benchmark/bench_bfix_rerun_34232a1.out` = KANIT (C-v1.1-rerun, commit-tagli); (e) `%EXPERTS_DIR%/PING_RECEIVER_NATIVE.mq5` ≡ `docs/`-ikizi (sha1 `a09b7ede…`-mühürlü, ikisi-de-untracked); (f) `nul` 159-B — Win32-device-adı PowerShell-`\\?\`-ile-bile-okunamadı; FAZ-2-silme MSYS-`rm ./nul`-yöntemiyle; (g) `-p/` BOŞ-dizin-teyit.
-- **FAZ-2-öneri-ekleri:** `.gitignore`+`.mypy_cache/` ve `.pytest_cache/` (36-MB-cache + untracked-cache); arşiv-hedefleri `archive/logs_20260904/{pytest,fix_stub_package}/` + `archive/results_20260904/`.
-- **Boot-C-dokunulmaz:** PID-18460-alive, audit=23-sabit — envanter-boyunca-runtime-dokunuşu-YOK.
-- **Commit:** bu-girdi + envanter-raporu tek-commit — **LOCAL-ONLY** (push-yazılı-yetkiye-tabi; bekleyen-set {`173be24`, `100160d`, `7874470`, `b59f2c2`} + bu-commit).
+> Ayrıntı: memory-bank/archive_v2_20260906/D89_FAZ_1_ENVANTER_WORKTREE_.md
 
 ## PUSH-KAYDI-7 (§9.3) — FAZ-0-borç-mührü (2026-09-04 15:0x +03)
 
@@ -2044,21 +1549,13 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 **Canlı-katman:** Boot-C (PID-18460, AUDUSD) push-boyunca canlı — state/ audit-dokunulmadı.
 **Bu-kaydın-kendisi:** AYRI-local-commit (SET-sıra-modeli) — push'u-sonraki-yazılı-yetkiye-tabi (sessiz-ikinci-push-yok).
 
-## D91 — FAZ-2-KARANTİNA-İCRASI (Hakem-BLOK-B-birebir; tek-commit; 2026-09-04 15:0x +03)
+## D91 — FAZ-2-KARANTİNA-İCRASI (Hakem-BLOK-B-birebir; tek-commit; 2026-09-04 15:0x +03) *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **Commit `4faa3b4`:** git-rm root `test_causality_extended.py` (`409fc17`-eski-variant; scripts/`2bff15b`-kanonik) + `.gitignore`+`.mypy_cache/`+`.pytest_cache/` + arşiv-taşımaları (stub-paketi→`archive/logs_20260904/fix_stub_package`, results-eski-artefaktlar→`archive/results_20260904/`) + manifest `results/D91_karantina_manifest.md` — **22-dosya / +86,611 / −223**, hooks-Passed.
-- **Commit-dışı-silme:** `nul` (MSYS-rm ✓), `%EXPERTS_DIR%/` (mq5-ikiz-kanıtla ✓), `-p/` (boş ✓); `pytest_*.log×6`→`archive/logs_20260904/pytest/` (ignored-kalıyor).
-- **DOKUNULMADI:** `logs/benchmark` C-v1.1-kanıtı (Bulgu-6a; BLOK-C'ye-kanıt-bölmesine-tevkil) + `.vscode/`+`data/`+`docs/`-kitlesi + Boot-C-PID-18460 (audit=23).
-- **Sapma-kayıtları (§12.1):** (1) **Eşzamanlı-yazıcı:** Reis-commit `f2fc17b` (D90, 15:03:57) benim-PUSH-KAYDI-7-eklememin-stagelanmasıyla-aynı-anda-düştü → PUSH7-ayrı-commit-gereksizleşti (içerik-`f2fc17b`-içinde-TAM; çift-commit-yok). (2) **İlk-D91-commit-aborte** (§10.3-normal): kancalar-stub'ları+manifesti-"Fixing"-ile-değiştirdi → fixed-bloblar-re-staged → 2.-denemede-Passed (mühür-hash'leri-D92'de). (3) **D90-başlığı-1790-satırında** (D88/D89-öncesi) — Reis-yerleşimi; gözlem-olarak-kayıtlı, dokunulmadı.
-- **LOCAL:** unpushed-set {`f2fc17b` (Reis-D90+PUSH7), `4faa3b4` (D91)} — nihai-push-Reis-yazılı-yetkisiyle.
+> Ayrıntı: memory-bank/archive_v2_20260906/D91_FAZ_2_KARANTİNA_İCRASI_H.md
 
-## D92 — FAZ-3-İLK-ADIM: ARŞİV-MÜHÜR-DEFTERİ (Hakem-BLOK-C; 2026-09-04 15:1x +03)
+## D92 — FAZ-3-İLK-ADIM: ARŞİV-MÜHÜR-DEFTERİ (Hakem-BLOK-C; 2026-09-04 15:1x +03) *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **Yapı:** `archive/{logs,results}_20260904/` (tracked; `SHA256SUMS`-mühürlü) + `logs/adli/` (kanıt-bölmesi) + `logs/runtime/` (soak-yapı-iskeleti). Kanıt-tevkili: `logs/benchmark/bench_bfix_rerun_34232a1.out`→`logs/adli/` (sha256 `de4c621fd4528692` — **taşındı-içerik-değişmedi**).
-- **Mühür:** `archive/SHA256SUMS` = tüm-arşiv-dosyaları-manifesti (`sha256sum -c archive/SHA256SUMS`-doğrulanabilir); örnekler: pytest_full.log `fb0b947fc94ac01c` · abfix_eq_trades.json `e85311c9c5975088` · expA_concurrent_cap_trades.json `b0c462125896b9ee`.
-- **Kural:** arşive-yeni-giriş = SHA256SUMS-satırı-eklenmesiyle (mühür-zinciri-kopmaz); README `archive/README.md`.
-- **Git-realiite-notu (kabul-beyanı):** `logs/adli/`-kanıtı `logs/`-ignore-gölgesinde → remote-yedek-DIŞI; Bulgu-6a-hükmü "KANIT-aynen-durur" yer-karı-budur.
-- **FAZ-3-kalanı:** N2#23 (R-3+R-1 temiz-log-inşası) + log-bütçeleri — ayrı-charter. **LOCAL** (set-yukarıda).
+> Ayrıntı: memory-bank/archive_v2_20260906/D92_FAZ_3_İLK_ADIM_ARŞİV_MÜH.md
 
 ## PUSH-KAYDI-8 (§9.3) — D89-kampanyası-teslimi (2026-09-04 15:2x +03)
 
@@ -2070,23 +1567,13 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 **Canlı-katman:** Boot-C (PID-18460, AUDUSD) push-boyunca-canlı — state/-dokunuş-yok.
 **Bu-kaydın-kendisi:** AYRI-local-commit (üçüncü-tur; push-kayıt-kuralı-kendini-işletiyor) — push'u-sonraki-yazılı-yetkiye-tabi.
 
-## D89-KAPANIŞ — TEMİZ-ZEMİN-İLANI (2026-09-04; Hakem-hükmü-deftere-birebir)
+## D89-KAPANIŞ — TEMİZ-ZEMİN-İLANI (2026-09-04; Hakem-hükmü-deftere-birebir) *(ARŞİV — checkpoint-v3-öncesi)*
 
-> **D89-KAPANIŞ (2026-09-04):** Repo-hijyen-kampanyası-tamam — konsey-kalıntısı-worktree-protokollü-remove (diferansiyel-SIFIR), üç-kök-artığı-silinmiş, stub-arşivi-imzalı-arşive-girdi, kanıt-adli-bölmeye-tevkil-edildi, cache-hijyeni-ignored, `logs/adli/`+`archive/`-yapısı-Reis-onaylı-kuruldu. **"Temiz-sayfa" fiziksel-olarak-açıldı.**
-> **Ders-satırı:** *"Hijyen-işlemlerinin-de-kanıt-bütçesi-vardır: silinen-dosya-imzalı, taşınan-dosya-hash'li, korunan-dosya-bahaneli."*
-- **N2#23-BAŞLANGICI-SERBEST:** temiz-zeminde-R-3+R-1 (canlı-SIGNAL-emiti + CBDR-özet) — **pre-reg-Reis-onayıyla-icra**; taslak: `results/N2_23_prereg_R3_R1.md`.
-- **Kalan-maddeler 4→2→5→6** (N2#21) — temiz-zemin-sonrası-sıradaki-iş-bloğu.
-- **Kapı-zinciri:** N2#23-pre-reg-ratifikasyonu (Reis+Hakem) → icra → Boot-C-canlı-izleme-sürüyor (ilk-RISK-emiti-watch) ∥ Reis-borçları: R1/R2-iletim · 12/13-D72-onay · Boot-C-akıbet-kararı.
+> Ayrıntı: memory-bank/archive_v2_20260906/D89_KAPANIŞ_TEMİZ_ZEMİN_İLAN.md
 
-## D94 — N2#23-PRE-REG-RATİFİYESİ (WITH-NOTES) + AM-N23-1 (Hakem-hükmü; 2026-09-04 15:3x +03)
+## D94 — N2#23-PRE-REG-RATİFİYESİ (WITH-NOTES) + AM-N23-1 (Hakem-hükmü; 2026-09-04 15:3x +03) *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **PUSH-{3}-teyit ✓** (ls-remote-notu-sağlam-okuma; kayıt-PUSH-KAYDI-8'de-aynen) — RED-YOK.
-- **Pre-reg-RATİFİYE-WITH-NOTES** — tablo-taşıma-tam (R-3-kilit-önerisi: `strategy_runtime`-dönüşü, Reis-işaretlerse-değişir · R-3-payload-**+FVG-id** · R-1-session.py-dokunuş-yok-aynen · **sentetik-şema-testi-İLK-ADIM**, Boot-C-doğal-izleme-ikinci · sınırlar-aynen).
-- **AM-N23-1 (tek-amendman):** R-1-STATE-payload'ına-d4-sinyal-alanları (**sweep-olan/olmayan · bias-kilit-ts · sweep_ts**; S9-şema-uyumu) — N2#22-S9-replay-bias-SINIF-2-zinciriyle-canlı-bağ; tek-satır-payload-zenginleştirmesi.
-- **Sıra-net:** Reis-✓-ÖNCE → Cline-icra — **kod-yasak-onay-öncesi-sürüyor** (v1.1-dokümantasyonu-kod-değil).
-- **Pre-reg-v1.1:** `results/N2_23_prereg_R3_R1.md`-güncellendi (amendmanlar-işlendi; ratifikasyon-durumu-bölümü-yenilendi).
-- **Charter-bloğu-Reis'te** (Hakem-§3-aynen); Reis-✓-sonrası: sentetik-test→implementasyon(≤4-dosya)→süit-yeşil→Boot-C-doğal-watch→commit→hash-bound-push-talebi {`06ff37b` + N2#23-commitleri}→push-kayıt-9→R-2+R-5→R-4→R-6.
-- **LOCAL:** unpushed-set {`06ff37b` + bu-commit} — nihai-push-Reis-yazılı-yetkisiyle. Boot-C-canlı-dokunulmadı.
+> Ayrıntı: memory-bank/archive_v2_20260906/D94_N2_23_PRE_REG_RATİFİYESİ.md
 
 ## PUSH-KAYDI-9 — N2#23-SET-PUSHİ (2026-09-04 ~20:15 +03)
 
@@ -2098,47 +1585,184 @@ Boot-B (PID-16880) **hâlâ-canlı** (SAFE_START, gate-CLOSED, audit-18). Akıbe
 - **Validation-özeti:** ilk-tam-koşum **594P/1S/9F/0-crash** — 9-F-tamamı-pre-existing-diferansiyel-kanıtlı (D90'da-üçlü-sınıflandırma).
 - **Bu-kayıt-kendisi:** local-commit — **sonraki-push-setine-ertelendi** (Hakem-deseni).
 
-## D90 — SUITE-İCRA-KABUL + 9-F-ÜÇLÜ-SINIFLANDIRMA + SUIT-OKUMA-KURALI (Hakem-hükmü; 2026-09-04 20:1x +03)
+## D90 — SUITE-İCRA-KABUL + 9-F-ÜÇLÜ-SINIFLANDIRMA + SUIT-OKUMA-KURALI (Hakem-hükmü; 2026-09-04 20:1x +03) *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **SUITE-İCRA-KABUL:** ilk-tam-koşum 594P/1S/9F/0-crash; born-red-e2e-fixi-tam-süitte-doğrulandı (run7/8/9-%11-sıfır-F). RED-YOK. **Waiver-listesi-güncellemesi: e2e-2-üye-KAPANIR** (D57-üçlüsünden-çıkış); kalan-9-F-pre-existing-olarak-ayrıştırıldı.
-- **9-F-üçlü-sınıflandırma (her-biri-ayrı-rotada):**
-  1. **tas4×8 = ÇEVRE-İHTİLAFI** — canlı-Boot-C-lock (`Already running (PID 18460)`-kanıtı). **Kod-debt-değil, test-env-telemetrisi.** Çözüm: süit-öncesi-canlı-stop (Reis-runbook) VEYA izole-SNIPER_STATE_DIR. **tas4-lock-path-hardening → N2#21-kuyruğu.** Runbook-satırı: test-süit-uyumlu-saat-penceresi (D70-launch-dersi-karşılığı).
-  2. **d49-C3×1 = EXACTLY-ONCE-FLAKE** — 4×COLD_REBUILD_OK/beklenen-1; run2-PASS/run9-FAIL (flaky); stash-diferansiyeli-FAILED → pre-existing. **N2#21-kuyruğuna: emit-exactly-once-auditi.** Şimdilik: waiver-dışı-izleme-borcu — üreten-koşum-aralığı-notlanır, kalıcı-izleme.
-  3. **native 0xc0000374 = non-det** — 2→4-görünüm (run1,6,7,8); run9-crashsiz; salt-import-5/5-temiz. Şüphe: canlı-MT5+full-suite-eşzamanlılığı. **D82-dosyası-güncellenir: izleme-sürer, pin-açma-yok, iki-bağımsız-oturum-izinde-değil.**
-- **YENİ-SÜİT-OKUMA-KURALI (deftere):** *"Süit-çıkışı üç-katmanlı-okunur: (i) kod-hataları (fix), (ii) çevre-ihtilafı (runbook/izole-state), (iii) native-dış-çevre (D82) — hepsi-ayrı-rotada; tek-sayıda-birleştirme-yasak."*
-- **N2#21-kuyruğuna-eklenen-borçlar:** tas4-lock-path-hardening · emit-exactly-once-audit · **LiveRunner-falsy-guard** (`audit or AuditChain()`) · D82-izleme-(kuyruk-dışı, gözlem).
-- **T0#10-RESTART-GATE = REİS-KARARI:** iki-canlı-süreci (PID 5580-venv + 18460-base, ~11:12-boot, **eski-kod**) → R-3+R-1-canlı-emissyonlar-restart-olmadan-görünemez. Hakem-önerisi **(A) restart-şimdi** (D86-protokolü; (A)-alınırsa-yeni-boot-log-alanı-örn. t10d- + safe-reason-kayıtları-BULGU-13-devamı) / (B) ertele. Çift-süreç-ihtilafı-taarrüz-riski-notlu.
-- **LOCAL:** bu-defter-commiti-unpushed — sonraki-hash-bound-sete-biner.
+> Ayrıntı: memory-bank/archive_v2_20260906/D90_SUITE_İCRA_KABUL_9_F_ÜÇL.md
 
-## D91 — T0#10-RESTART-İCRASI (A) + R-1-STATE-EMİTİ-CANLIDA-İLK-KEZ (2026-09-04 20:57-21:00 +03)
+## D91 — T0#10-RESTART-İCRASI (A) + R-1-STATE-EMİTİ-CANLIDA-İLK-KEZ (2026-09-04 20:57-21:00 +03) *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **REİS-ONAYI:** "A" (T0#10-RESTART ONAY; D86-protokolü; Cline-icra).
-- **(1) Coruma-N+1:** `state/t10d_preserve/` — orchestrator.lock.pre (`{pid:18460, phase:startup}` — kilit-sahibi-kanıtı) · audit_tail_pre.jsonl (13-satır) · ps_pre.txt.
-- **(2) κ-STOP** (`stop_kappa.json`, 20:57:29): taskkill /F 5580 → SUCCESS · taskkill 18460 → **"not found"** — **parent-kill→child-gitmesi = "İKİ-SÜREÇ-BİR-BOOT"-TEYİDİ: çift-boot-şüphesi-ÇÖZÜLDÜ** (tek-boot; venv-launcher→base-child ağacı; 1392-satır-bulgusunun-canlı-dogrulaması). Post-stop: run_production-sayısı-**0** ✓. Kilit-dosyası-kalıntı (dead-PID → stale-takeover-beklenen-patika; elle-unlink-YAPILMADI — dead-owner-stale-path-normal-işleyişi).
-- **(3) TEK-BOOT base-python** (D79-deseni, launcher-confound-yok): `C:\...\Python312\python.exe -u -m src.live.run_production`, CWD=repo-root, **tek-süreç PID-10944** (ne-parent-ne-child; ps-teyitli). stdout/stderr → `state/t10d_boot_stdout.log` / `t10d_boot_stderr.log`.
-- **Boot-sonuçları:** MT5-Bağlı (ICMarketsSC-Demo, 53012914, 9990.68) · kilit-devralma ✓ (`{pid:10944}` — dead-18460-stale-takeover-canlıda-doğrulandı) · `cold rebuild OK (replay_bars=4236)` — S9-TEK-emisyon-bu-bootta · S11 restored=True · **`entry gate CLOSED: startup_SAFE_START`** — SAFE-START-persisted (§7.2: persisted-safe-mode-degraded-boot, asla-sessiz-resume).
-- **safe-reasons-n (BULGU-13-devam):** `safe_mode_persisted`×8 + `expected_login_unset`×9 (yeni-kayıt-formu: iki-reason-tekrarlı; madde-7-girdisi).
-- **(4) Audit-devralma ✓ + R-1-STATE-EMİTİ-CANLIDA-İLK-KEZ:** audit.jsonl'de-`STATE {bar_index:4299, bar_ts:2026-09-04T08:15:00, bias:bullish, bias_lock_ts:2026-09-04T08:15:00, ...}` — **d4-alanları-canlıda-üretildi** (AM-N23-1-şeması-görünür). R-3-SIGNAL-emiti: bekliyor (sinyal-fires-anı; watch-devam).
-- **(5/6) SHUTDOWN-hedefi:** foreground-olmayan-boot (nohup) → sonraki-graceful-stop-döngüsünde-SHUTDOWN-audit-satırı-hedefi-duruyor; κ-kayıt-şartı-önceden-ödendi (stop_kappa.json).
-- **Watch-gündemi (Reis-ile-aynı-zaman):** (i) ilk-canlı-R-3-SIGNAL-satırı (payload+AM-N23-1) (ii) R-1-STATE-d4-alan-devamlılığı (iii) WB=0-append-devamı (iv) D82-native-izleme-yeni-boot-penceresi (v) safe-reasons-n-büyümesi.
-- **LOCAL:** bu-defter-commiti-unpushed — SET-2-hash-bound-sete-biner.
+> Ayrıntı: memory-bank/archive_v2_20260906/D91_T0_10_RESTART_İCRASI_A_R.md
 
-## D92 — LOG-VE-ENTRY-GENİŞLEMESİ CHARTER (Hakem-hükmü; 2026-09-05)
+## D92 — LOG-VE-ENTRY-GENİŞLEMESİ CHARTER (Hakem-hükmü; 2026-09-05) *(ARŞİV — checkpoint-v3-öncesi)*
 
-- **AM-N23-2 (ts-şartı):** her-emisyon-satırının-başlık-ts (event-time-epoch)-ZORUNLU; içerik-ts'ler-(bias_lock_ts-gibi)-ikincil-rapor-dili. **Canlı-dogrulama (probe, state/t10d_preserve/ts_integrity_probe.py):** 224/224-satır-ts-taşıyor · epoch-float · **0-monoton-ihlal** · payload-iso-bozuk-0 → **KARAR: mekanizma-KARARLI, deftere-düzeltme-komutu-GEREKMEZ.** Replay-semantiği-notu: S9-kümesinde-satır-ts=replay-anı (34-farklı-an, ~1s: 20:58:18-19), bar_ts=içerik-tarihi (temmuz-mezuniyet) — ikili-ayrık-alanlar-doğru-tasarım ("olay-ne-zaman"=satır-ts; "içerik-ne-zaman"=bar_ts).
-- **AM-N23-3 (insan-okunur-payload):** emisyon-payload'ları-insan-okunur-ölçüler-taşır (fvg_top/fvg_bottom/fvg_size_pip/direction); id-yanına-öz-ölçüler-zorunlu.
-- **N2#23-b (fvg_armed):** sweep-STATE→SIGNAL-arası-sessizliğin-kapatılması — `STATE(moment=fvg_armed)`-emit. **Canlı-motivasyon-kanıtı:** t10d-boot-sonrası-canlı-döngü-0-STATE (Cuma-gecesi-geçiş-yok) → arm-fazı-masa- için-görünmez. Pre-reg: `results/N2_23b_prereg_fvg_armed.md` — **Reis-onayı-ÖNCE-KOD-YOK**; census-sonrası-tek-ameliyat-deseni (D89).
-- **Trailing-perspektifi-pini:** trailing-log-R-2/R-5-adımlarında-census'la-çizilir; şimdilik-SIGNAL-çapa-payload'ı-yeterli.
-- **SAFE_START→FULL-geçiş-zinciri (3-şart):** N2#23-b-yeşil + süit-yeşil + Reis-onayı → FULL-boot (D30-trade_mode=4) → ilk-e2e-canlı-order-zinciri kanıtı (SIGNAL→RISK→ORDER→FILL→POSITION; FILL-pini-R-4-charter).
-- **YENİ-KALICI-KURAL (deftere):** *"Kripto-log-standardı-masanın-referansıdır: her-olay-üçlüsü (ne-zaman/ne-olmuş/ne-kadar) tek-bakışta-görünür; eksik-halinde-census-önce-yazılır, sonra-kod-dokunuşu."*
-- **LOCAL:** bu-defter-commiti-unpushed — SET-2-hash-bound-sete-biner.
+> Ayrıntı: memory-bank/archive_v2_20260906/D92_LOG_VE_ENTRY_GENİŞLEMESİ.md
 
+## D92-RATİFİYE — HAKEM (2026-09-05): N2#23-b-İCRA-CHARTER-AÇIK *(ARŞİV — checkpoint-v3-öncesi)*
 
-## D92-RATİFİYE — HAKEM (2026-09-05): N2#23-b-İCRA-CHARTER-AÇIK
+> Ayrıntı: memory-bank/archive_v2_20260906/D92_RATİFİYE_HAKEM_2026_09_0.md
 
-- **AM-N23-2-ratifiye:** canlı-dogrulama-kabul (224/224; düzeltme-komutu-GEREKMEZ — beklenti-üstü-kanıt). **Kalıcı-kural (deftere):** *"satır-ts = olay-momenti; bar_ts = içerik-momenti — iki-alan-ayrı-kelime; karışım-yasak."*
-- **N2#23-b-pre-reg RATİFİYE** (5-başlık-aynen): payload-genişleme ✓ · fvg_armed-emit ✓ · ≤4-dosya+3-test ✓ · boot-dokunulmaz ✓ · trailing-pini ✓.
-- **İcra-sırası (Hakem-onaylı):** sentetik-şema-testleri → implementasyon (≤4-dosya) → süit-yeşil (D90-üçlü-okuma) → commit (**SET-2-birleşik-hash-bound-talep: {`eb99cbe`, `d57ff78`, `8aa2d56`, +N2#23b-commitleri}**) → sonraki-D86-restart-penceresinde-canlı-doğrulama → **FULL-geçiş-kapısı** (N2#23-b-yeşil + süit-yeşil + Reis-onayı → D30-trade_mode=4 → ilk-e2e-canlı-order-zinciri).
-- **Reis-onay-bloğu** Hakem-§2'de-kutulu; **Reis-✓ = icra-için-tek-eksik-halka** (pre-reg-taahhüdü: Reis-onayı-ÖNCE-KOD-YOK).
-- **Kuyruk-önerisi (icra-sonrası):** SET-2-push→PUSH-KAYDI-10 · D86-restart→ilk-fvg_armed-canlı + geniş-SIGNAL-payload · FULL-geçiş → ilk-e2e-order-zinciri ∥ kripto-census+FULL (Reis-üç-onay-bloğu; BTC/ETH-sıra-Reis'te).
-- **LOCAL:** bu-defter-commiti-unpushed — SET-2-hash-bound-sete-biner.
+## N2 #22 FAZ-A2 — V6-HTF-FALLBACK-BENCHMARK (koşum+rapor; 2026-09-04 22:2x +03)
+- **Rol:** koşum+rapor-only. Karar/wire-in/canlı/commit/push YOK. Zincir: rapor→Hakem-arbitrajı(V5-vs-V6)→Reis-FAZ-C.
+- **Rapor:** `results/N2_22_v6_htf_fallback_benchmark.md` — 208-satır / sha256-ön-eki `79779c825c89668d`. §6-hüküm: **"V6>V5"** (beyanlı-istisna: trades-V5-lehine +15%).
+- **Pre-reg:** `results/N2_22_v6_htf_fallback_prereg.md` sha `25cd396d…` (§3-19:00-boundary-düzeltme-notlu-final). 24/24-dataset-hash ✓ (manifest-authority; pin-GBPUSD-RAW-65-hex-typo→DEV-5).
+- **Pass-1-census:** sweep-önceliği-v2 (v1-"ilk-olay-kazanır"-deviation-korundu=/tmp…v6_census_v1_deviation.py, INVALID-ilanlı). V6: est-3581 (sweep-3401+HTF-fallback-180), NEU%17.1→12.7, false_bias+16(0.39%-göreli), senaryo-A1595/B1047/C451(+2)/yetersiz1698/veto163. V6b(body-sens): C=3→iğne-yapısını-siliyor (karar-döngüsüne-GİRMEZ; RED-önerisi-raporda).
+- **Pass-2-downstream:** fork=kanonik-`run_test_a`+tek-değişken(sweep-kaynağı); walk-region-census-ile-diff-dogrulanmış. **V0-anchor-EXACT** 2302T/+2593.26R/PF4.97/DD5.00R = mühürlü-FAZ-A-birebir (parite-PASSED). **V6: 2365T/69.47%/+2684.10R/PF5.04/DD5.00R(2.22%)** → V5-yan-yana: TotalR+244.93/WR+4.72pp/PF+1.21/DD-daha-düşük; trades−418. Artifakt: `results/N2_22_v6_pass2_downstream.json` (1897B, sha `9abe3e32…`; stale-1845B-üzerine-beyanlı-yazım→DEV-4).
+- **S-a:** pre-run-baseline(20:31)→post-run: TMP-0-fark; tek-drift `src/live/strategy_runtime.py`=Cline-N2#23-b-AM-N23-3 paralel-hat (fvg-12-alan+_pip_size; mtime-22:11-koşum-penceresi-içi) → **koşuma-etki-0** (V0-anchor-EXACT-kanıtı); DEV-6-rapor-§2'de.
+- **D88-addendum-yorumu:** direktif-§6-"V6-satırı-D88-tablosuna-ek"-ifadesinde-D88=Cline'ın-log-census'ı-V6-ile-ilgisiz; mühürlü-dosyaya-DOKUNULMADI; yan-yana-tablo-V6-raporu-§4'te (yorum-Hakem-okumasına-sunuldu, rapor-§0.3).
+- **Açık-kalanlar (Hakem-ajandası):** trades-eksikliği(-418)-kalite-vs-miktar-arbitrajı; V6b-RED-önerisi; 180-fallback-gün-derin-attribüsyon; v1-karşı-senaryo-ölçülmedi.
+- **Git:** HEAD-`fcad1ee` (Cline-D92-ledger); unpushed-4-Cline-commit; benim-delta=yalnız-results/+-progress-append. Commit/push-YOK.
+
+## N2 #23-b — fvg_armed EMIT + AM-N23-2/3 İCRASI (Reis-onayı-sonrası 6-adım; 2026-09-04 22:1x-23:0x +03; Cline)
+
+- **İCRA-TRIGGER:** Hakem-D92-ratifiyesi-İCRA:BAŞLA masadayken ben-ayrık-Reis-✓-bekliyordum (pre-reg-taahhüdü); Reis-in-"ne onayı bekliyorsun?"-mesajı-beklemeyi-sonlandırdı → adım-1'den-icra. NO-CODE-taahhüdü-o-anda-sona-erdi (kanıt: bu-girdi-+ pre-reg-v1.1).
+- **Adım-1 (sentetik-testler):** `tests/test_n2_23b_fvg_armed.py` YENİ-4-test — T1-lifecycle: sweep-STATE→fvg_armed-STATE→SIGNAL-tek-zincir-sırası (GERÇEK-StrategyRuntime+LiveRunner; kalibre-senaryo sweep160→FVG165→touch/ARM166→fill/SIGNAL167) · T2-AM-N23-3-şema: SIGNAL-12-alan-KAPALI-set (fvg_id-KALIR; fvg_size_pip=4.0) · T3-AM-N23-2-ts-kanat: satır-ts-epoch-float+monoton; bar_ts=içerik-#166 ≠ satır-ts (ayrık-by-design) · T4-audit-siz-güvenlik (pre-reg-3+1: R-1-desen-paritesi). Mevcut-schema/wiring-12-alana-genişletildi (kontrat-büyütüldü; assert'ler-güçlendirildi-sıfır-zayıflatma). **N2#23-kümesi-10/10-yeşil; ruff-clean.**
+- **Adım-2 (implementasyon; 4/4-dosya):** `strategy_runtime.py` — `_emit_fvg_armed(fvg,i)` arm-anı-tek-STATE (12-alan-payload; hook=`_create_pending`-sonu; observation-layer; try/except-logged-never-raised) + `signal_audit_payload`-genişlemesi (fvg_top/bottom/size_pip/direction — Signal-zone-alanları; sıfır-model-değişimi) + `_pip_size` (JPY-quote-0.01/aksi-0.0001; pure). session.py-boot-dokunulmadı. **Canlı-PID-10944-eski-kodla-çalışmaya-devam; yeni-kod-sonraki-D86-restart'ta.**
+- **Adım-3 (tam-süit; D90-üçlü-okuma):** collect=1001-kesin (594P+1S+9F-baseline + 4-yeni = 608-koleksiyon ✓). **Run1/run2 (2/2):** #430-civarında-native-0xc0000374 (pandas-_consolidate; `orchestrator_startup::test_proceed_holds_lock`-#432-anı) → süit-tamamlanamıyor; + 1-F: d49-C3 (5×COLD_REBUILD_OK/beklenen-1). **Diferansiyeller:** (a) stash-diferansiyeli: C3-benim-diff-siz-de-FAIL (b) HEAD~1-worktree (8aa2d56-clean-checkout): C3-FAIL → **pre-existing-mühürlü** (c) izole: orchestrator_startup-16/16 · d53-11/11 · d49-dosyası-7/8 (yalnız-C3-F) · tas2-hedef-test-yeşil. **Sınıflandırma (D90-haritası):** C3 = D90-madde-2-exactly-once-flake (N2#21-kuyruk-borcu; üretim-aralığı-şu-an-AKTİF: 4/4-F) · native = D90-madde-3/D82-non-det (D90: 4/9; şüphe-canlı-boot-eşzamanlılığı-şimdi-de-geçerli) · kod-hatası-katmanı: **N2#23-b'den-sıfır-yeni-F.** Run3 (crash-test-deselectli) tamamlanma-okuması-deftere-eklenecek.
+- **Adım-4 (commit):** feat(n2_23b) — strategy_runtime+3-test+pre-reg-v1.1. progress.md-defter-girdisi (bu-blok) + Luna-FAZ-A2-girdisi-eşzamanlı-yazıcı (Luna: commit-YOK-beyanlı) → defter-commiti-yazarlık-çözümünden-sonra-SET-2-bound. **SET-2-hash-bound-push-talebi:** feat-commit-hash'i-bu-commitin-kendisinden-okunur (aşağıda-kayıt).
+- **Açık-borçlar:** N2#21-emit-exactly-once-audit (D90'dan-devir; C3-üretim-aralığı-notu: bu-saat-penceresinde-kalıcı-F-davranışı-gözlemlendi — 4/4) · D82-native-izleme (2/2-yeni-görünüm-eklendi; canlı-boot-eşzamanlılığı-hipotezi-güçlendi) · D86-restart-penceresi: ilk-canlı-fvg_armed + geniş-SIGNAL-doğrulaması · Boot-C-kaderi aynı-pencerede.
+- **ADDENDUM (Adım-3/4-tamamlanma; 23:1x +03):** **Run3 (crash-test-deselectli) TAMAMLANDI: 597P/1S/9F/1-desel, 8:49, crash-YOK** — 9-F-İDENTİTE-D90- baseline: 1×d49-C3 (madde-2-flake) + 8×tas4 (madde-1-çevre; test_orchestrator_tas4-canlı-lock-8'li-listesi-birebir) → **kod-hatası-katmanı-SIFIR; N2#23-b-sıfır-regresyon.** 597P = 594-baseline + 4-yeni − 1-desel ✓. C3-bu-koşumda-da-F → üretim-aralığı-5/5-aktif-notu. **COMMIT (Adım-4-TAMAM):** `1f509b417ca3d205a5300b05cb78210cefec1e3d` — feat(n2_23b), 5-dosya/+335/−4, hooks-Passed (ruff-format-hook-2-denemede: hook-ruff-versiyonu-farkı → hook-kendi-formatı-uygulandı + 10/10-re-teyit; §10.3-uyumlu: validated-blob-committed). **Unpushed-set=5** → SET-2-hash-bound-talebi → **PUSH-İCRA-EDİLDİ — D94-başlıkta-kayıt (PUSH-KAYDI-10).**
+
+## D94 — N2#23-b-KAPANIŞ + SET-2-PUSH (PUSH-KAYDI-10; Hakem-ratifiye + Reis-PUSH-ONAY; 2026-09-04 23:2x +03; Cline) *(ARŞİV — checkpoint-v3-öncesi)*
+
+> Ayrıntı: memory-bank/archive_v2_20260906/D94_N2_23_b_KAPANIŞ_SET_2_PU.md
+
+## FAZ-A3 KOŞUM-TAMAMLANDI — V6-İZOLE-BENCHMARK (2026-09-05, executor-kaydı)
+
+**Direktif:** Hakem-FAZ-A3: "V6-İZOLE-BENCHMARK: TEK-BIAS-KAYNAĞI-TESTİ (Reis-son-sorusu;
+fallback-katkısını-fallback'siz-mantıksal-çıkarımından-ayrı-ölç)." Rol: koşum+rapor-only;
+karar/wire-in/canlı/commit/push-YOK (FAZ-C).
+
+**Pipeline (tüm-gate'ler-geçti):**
+- Pre-reg `results/N2_22_v6i_isolated_prereg.md` FROZEN (sha `ffd8f9c2…`).
+- Pass-1 census: 12/12-walk; **V0-parite-6/6-ALL_MATCH=True** (FAZ-A-mühürlü-census-birebir);
+  V6i: est=1442 (est_sweep=0, sal=0, htf_fallback_breakout-only), ign=32828, senaryo-sayaçları-
+  hibrit-koşumla-birebir (A1595/B1047/C451+2e/conf163/ins1698); swept-metrik-3401/4956-gün.
+- Pass-2 downstream: 12/12-walk; **V0-anchor-EXACT** (2302T/+2593.26R/WR69.37/PF4.97/DD5.00R(2.24%)/
+  x1=1994; per-symbol-388/407/394/378/366/369-birebir); **V6-İZOLE: 1254T/683W/571L/54.47%WR/
+  +551.68R/PF2.31/DD5.87R(5.30%)/x1=670/x0.5=421/x0.25=163/paused=0**.
+- S-a: tek-drift=strategy_runtime.py (Cline-N2#23b-HEAD-blob-aynı; benchmark-import-etmiyor;
+  V0-anchor-EXACT-sıfır-etki-kanıtı); koşum-penceresi-içinde-ek-drift-YOK.
+
+**HÜKÜM (pre-reg §5-formu): "V6-İZOLE < V6-hibrit"** — beyanlı-ek-gerçek: **V6-İZOLE << V0**
+(TotalR-%21.3; WR-−15.0pu; PF-2.31-vs-4.97; DD-2.4-kat). Reis-sorusuna-yanıt: **V6-tam-bağımsız-
+bias-kaynağı-DEĞİL** — HTF-daily-fallback-sweep'in-alt-kolu; hibritin-değeri-sweep-önceliği+
+rollback-mimarisinden (V0-only-2139-swept-gün-hibritte-kapsam-içi; V6i'de-boş; ortak-günlerde-
+yön-çelişmesi-%64.7; tWN-2.5-kat).
+
+**Mühürler:** rapor `results/N2_22_v6_isolated_benchmark.md` (171L, sha `80f9162a68b04c6af2295ecf5ea6ea73d2ede0611c3299a9c6fa12f8db899232`);
+pass1-census `11427cdf…`; daytrace `7f96d16f…`; pass2 `c2818af1…`; v6i_census.py `fb972929…`;
+v6i_downstream.py `70a97cf9…`. DEV-1..4-rapor-§2'de (türetme-düzeltmesi/splice/S-a-drift/1-open-trade-sayım-notu).
+
+**Bekleyen:** FAZ-C-kararı (Hakem/Reis) — wire-in-yok; commit/push-yetkisi-beklemede.
+
+## N2 #24 FAZ-C — PRE-REG TESLİMİ: V6-HİBRİT-ÜRETİM-UYARLAMASI (2026-09-05, executor-kaydı)
+
+**Direktif:** Hakem-FAZ-C: "V6-HİBRİT-ÜRETİM-UYARLAMASI" — D93-mimarisinin (sweep-ana-kol +
+HTF-wick-fallback + rollback) `src/live/strategy_runtime` bias-junction'ına portu. Reis-FAZ-C-ONAYI
+yürürlükte (D96). **Rol:** icracı — İLK-TESLİM pre-reg; **KOD-YOK** (icra-Reis-onayı-sonrası-ayrı-tur).
+
+**Pre-reg:** `results/N2_24_v6_hybrid_prod_prereg.md` — **151-satır / sha256
+`31a6caf06b8bae4e245eae24c4262df6ef0d0c4cbaefca5edf212ebc3f27bfa6`** (untracked; Reis-onayına-kadar-
+FROZEN-adayı). U+FFFD-gürültüsü=0; 4-heredoc-parça, her-parça-verify (28→63→119→151L).
+
+**İçerik-özet:** §0-provenance (HEAD `1f509b4`; D93/D95-çapa-sha'ları; hedef-blob `ffa129ce`) ·
+§1-bağlam (FAZ-A3-hükmü: V6=sweep-ana-kol+HTF-alt-kol; hibrit-V0'ı-+90.84R-geçer) · §2-dört-modül:
+(a)-HTF-provider `src/live/htf_bias.py`-YENİ (D95-birebir; canlı-D1-15m'den-üretilir-feather-YOK;
+n≥40-gate; V6b-üretimde-YOK) · (b)-rollback (D93-§3.1; sal=700-çapa; session.py-GÖVDE-YOK) ·
+(c)-junction-tek-nokta (sweep-gün=V0-aynen / sweep-yok+uyumlu-brk=fallback / fallback-sonrası-sweep=
+rollback; AM-N22-2-mirası) · (d)-BREAKOUT-detektör (D66-frozen-band; motor-kararına-dokunmaz) ·
+§3-yüzey ≤4-dosya (htf_bias.py-YENİ / strategy_runtime-AMELİYAT / 2-test-YENİ; session.py-gövde-YOK;
+experiment/backtest-YOK; Cline-N2#21-kesişme-YOK-ADER-20) · §4-kanıt-planı (unit-senaryo-senti-D95-
+census-karşılaştırılabilir / rollback-kılavuz / junction-matrisi-D93-3581/180-ölçek-karşılaştırılabilir;
+state-roundtrip; D94-emit: R-1-STATE-payload-V6-alanları-S9-uyumlu-ekleme; tam-süit-yeşil-D90-üçlü-okuma;
+yeni-F=SIFIR) · §5-D86-restart-penceresi (tek-restart=N2#23b-emisyonları+V6-canlı-bias; canlı-SINIF-2-
+doğrulama) · §6-sınırlar (Boot-C-PID-18460-DOKUNULMAZ; V6-İZOLE-üretimde-YOK-D96-2; fail-safe-korunumu;
+restart-deterministik-reconstruction; push-yetkisi-Reis'te) · §7-açık-maddeler (satır-diff-icra-turunda;
+canlı-vs-census-diferansiyeli; build_daily-pencere-beyanı).
+
+**READ/CONTEXT-kanıtı (§1.1-MCP):** codebase-memory-projeler-listesi-teyitli (sniper_forex-HEAD-uyumlu);
+strategy_runtime-anatomisi-direkt-okuma (754L: on_bar-bias-akışı-TEK-yol-sweep; _emit_state-16-alan;
+to_state/from_state-persistence-noktaları; orchestrator:1290/1868-StrategyRuntime-injection);
+session.py-interface (update/_confirm_sweep/reset — gövde-dokunuş-YOK-sınırı-teyit); D93-junction-
+bloğu (v6_census :285-344) + D95-provider (v6i_census :110-180) birebir-çapa-okundu.
+
+**Bekleyen:** Reis-pre-reg-onayı → icra-turu (kod) → test-raporu → Hakem-arbitrajı → Reis-restart-
+penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç-şartı).
+
+## D97 — N2#21-FAZ-2: EXACTLY-ONCE-FIX-COMMIT + SÜİT-PENCERE-VERDİKTİ (2026-09-05 08:3x +03; Cline) *(ARŞİV — checkpoint-v3-öncesi)*
+
+> Ayrıntı: memory-bank/archive_v2_20260906/D97_N2_21_FAZ_2_EXACTLY_ONCE.md
+
+## PUSH-KAYDI-11 — SET-3 (2026-09-05 08:4x +03; Cline-icrası; Hakem-ratifiye + Reis-hash-bound-onay)
+
+- **Kim:** Cline (N2#21-FAZ-2-pencere) · **Ne:** tek-commit-set `6323e63` (fix(n2_21) audit_path→state_dir + n2_13-pin + prereg) · **Hangi-remote:** `origin/main` (github.com/ahmetonurof-lab/sniper_forex) · **Ne-zaman:** 2026-09-05 ~08:40 +03.
+- **Gate (§9.5):** origin/main=1f509b4 (=parent) · origin/main..HEAD=yalnız-1={6323e63} — onaylı-hash-seti-birebir; ride-along-YOK.
+- **Push:** `1f509b4..6323e63 main -> main` (EXIT=0).
+- **Doğrulama (§16):** origin/main..HEAD=count=0 ✓ · `ls-remote origin main` = `6323e63d163e08615082c253e464d9428f976252` == `rev-parse HEAD` ✓ · `main...origin/main`-sync ✓ · worktree-kalanı-bilinçli (index.json-erteleme / progress-defter-deferred / N2#24-strategy_runtime-dokunulmadı).
+- **Defter-durumu:** D97+D98+PUSH-KAYDI-11-çalışma-ağacında — **Luna-arbitrajı-defer**; sonraki-hash-bound-sete-biner.
+
+## D98 — HAKEM-HÜKMÜ: N2#21-FAZ-2-PENCERE-RATİFİYE + PUSH-GERÇEKLEŞTİ (2026-09-05) *(ARŞİV — checkpoint-v3-öncesi)*
+
+> Ayrıntı: memory-bank/archive_v2_20260906/D98_HAKEM_HÜKMÜ_N2_21_FAZ_2_.md
+
+## D99 — N2#24 DEVİR-İCRASI: TAM-SÜİT-DOĞRULAMA (GLM-BOŞLUĞU-KAPATMA; 2026-09-05 ~14:00-15:2x +03; Cline) *(ARŞİV — checkpoint-v3-öncesi)*
+
+> Ayrıntı: memory-bank/archive_v2_20260906/D99_N2_24_DEVİR_İCRASI_TAM_S.md
+
+## D102 — HAKEM-HÜKMÜ: BTC-İLE-V6-CANLI ONAY (2026-09-06; deftere işleme bu kayıttır)
+
+> **D102 (2026-09-06): BTC-V6-CANLI-port-onay — Reis-in-yetişen-full-authority-kararı.** Kripto-census-mini (nexus-log-yeterlilik) → BTC-trade_mode=4 → V6-hibrit-canlı-wick-ekstremleri → İLK-canlı-order-zinciri-demo'da (e2e). SAFE_START-forex-tarafında-KALIR; BTC-FULL-ŞİMDİ (7/24-piyasa; hata-toplama-modu). V6b-YASAK (FAZ-A2-RED-mühürlü); V6-İZOLE-bias-kaynağı-YASAK (V6-hibrit-içinde sweep+HTF birlikte test edilir). ADER-20: paralel-iş-tek-hat.
+
+**D102-kaydı-bulunamadı-notu:** ilk-tezahürü Hakem-hükmü-mesajında idi; progress.md-de-body-boşluğu tespit edildi (grep 'D102' boş) — bu giriş hem hükmün tasdiki hem eksik-kayıt-kapanışıdır.
+
+## D103 — BTİ-LİVE-PORT İCRASI (Cline; 2026-09-06)
+
+**Bağlam:** Reis-direktifi "şu an hangi dolar paritesi varsa kaldırıp yerine BTC koy" + D102-onay. Kripto-botu-repo'suna (nexus-mcp/sniper) DOKUNULMADI — kullanıcı-itirazı üzerine o yoldan vazgeçildi; iş bu-repo'da (sniper_forex).
+
+**Gerçek-yüzey (kanıt):** Bu-repo'da "CBDR_RISK_MATRIX" yapısı YOK (çapraz-grep); canlı S3 `_build_contract` MT5 `symbol_info`'dan tüm contract/trade_mode'u DINAMIK kurar (her-sembol; `trade_mode==FULL(4)` → PROCEED, diğer → `trade_mode_not_full` safe_reason) — BTC için ek mekanizma gerekmez. `SNIPER_SYMBOLS` env-zaten-aktif (D85-deseni). Bu-yüzden kod-katkısı fallback-tablosuna + varsayılan-sembole odaklandı.
+
+**Kod-değişiklikleri (5-dosya + 1-test):**
+1. `src/live/sizing.py` — `_GENERIC_MAJOR_PRESET` + `_SYMBOL_CONTRACT_PRESETS["BTCUSD"]` (digits=2, tick_size=0.01, contract_size=1.0, volume_step=0.01) + `contract_for_symbol()` (fallback tek-kaynak; S3-dinamik her zaman üstün).
+2. `src/live/live_runner.py` — `default_contract` tek-kaynağa bağlandı.
+3. `src/live/paper.py` — `_default_contract` tek-kaynağa bağlandı.
+4. `src/live/signal_runner.py` — `_contract_for` fallback tek-kaynağa bağlandı (AGENTS §2.2: paralel-implementasyon-YOK).
+5. `src/live/run_production.py` — `_env_symbols` varsayılanı `EURUSD`→`BTCUSD` (env-override üstünlüğü korunur).
+6. `tests/test_btc_symbol_port.py` — 7-test (preset / unknown-fallback / default_contract-BTC / EURUSD-unchanged / env-default-BTC / env-override / paper-shared-preset).
+
+**Doğrulama (izole-sorumlu):** import-OK · btc_symbol_port **7P** · komşular (risk_sizing+p1_paper+p0_2+signal_runner) **42P/1S** · e2e_live_chain+live_paper **25P** · orchestrator_n2_17 **14P** · orchestrator_tas4 **izole-20P**.
+
+**Ortam-notu (§4.4 kanıt-ayrımı):** orchestrator_tas4 izolesiz-koşuda 8F — neden: Boot-C (pid-10944) canlı + CWD-`state`-lock → pre-guard `Already running → exit 0` beklenti-sapması. Aynı-suit izole `SNIPER_STATE_DIR` ile **20/20-P** — kod-hatası-DEĞİL, ortam-faktörü; izolasyon-kuralı (D90) run_production-main-testleri için de geçerli.
+
+**Sınırlar / açık:** (1) Canlı-BTC-boot kararı + MT5-credential'lı lansman (S3 trade_mode=FULL→PROCEED / değil→SAFE_START+neden) REİS runbook-bloğudur — komut hazır: `SNIPER_SYMBOLS=BTCUSD python -u -m src.live.run_production` (+ taze-izole-SNIPER_STATE_DIR). (2) V6-HT F-daily-19:00-çapası kriptoda yeniden-pinlenme ayrı-araştırma (Hakem-notu; bu-turda-kanonik-mühürlü-dosyaya-dokunulmadı). (3) parite-gate BTC-feather-yok → skip (zararsız; değiştirilmedi).
+
+**Commit-yok:** çalışma-ağacı-bilinçli; §9.5-deferred — sonraki-hash-bound-sete-biner (push-yetkisi-YOK).
+
+## D104 — ACİL-ÇALIŞMA-EMRİ İCRA RAPORU: BTC-CANLI-SWAP (Cline; 2026-09-05 17:0x +03)
+
+**Hakem-emri (D104):** STOP-ALL (10944-κ) → BTCUSD-swap → V6-hibrit-canlı → safe_start-yok/FULL → canlı-watch-ilk-order-zinciri (hata-toplama-baskın).
+
+**İcra-zinciri (kanıt):**
+1. **Coruma:** 18-dosya → `state/D104_preserve/` + SHA256SUMS (eski-EURUSD audit/lock/safe/state + t10*-loglar + btc_boot1_audit.jsonl).
+2. **STOP-ALL:** taskkill /F /T 10944 (+child-20168) → python-yok (tasklist teyit) ✓.
+3. **Boot-1 (BTC):** PID-14564 — MT5-otologin (53012914/ICMarketsSC-Demo/12,646.17) · S9-replay-4343 · S11 SAFE_START (`trade_allowed_disabled` — AutoTrading-kapalı). **Kanıt-STATE:** `bias=bullish bias_locked=true locked=true body_high=79815.59 body_low=79596.14 moment=v6_rollback rollback_count=8 sweep_yes=true` — **CBDR-kilit + V6-HTF-fallback-bias + rollback canlı-birebir (D93/D95-davranışı-canlıda-İLK-KEZ)**.
+4. **Reis-AutoTrading-açtı** → boot-1-devir + safe-dosya-explicit-temizlik (operatör-aksiyonu; D104 "safe_start-yok").
+5. **Boot-2:** PID-10544 → **S11 verdict=PROCEED** · gate=open (safe_start-yok ✓, trade_mode_not_full-YOK → BTCUSD=FULL=4 ✓, expected_login-match ✓) · SNIPER_SIGNAL_ONLY=0 (order-kapısı-açık; orchestrator-signal_only→config-signal_only-és-env-kapısı-eklendi: default-True-korundu).
+6. **Spread-parite-kararı (Reis):** backtest-birebir-şartı — V6-canonik'te spread-filtresi-YOK (grep-kanıt) → Boot-3 SNIPER_MAX_SPREAD=1000000 (gate-pratik-kapalı-filtre).
+7. **Boot-3 (CANLI-FULL):** PID-16264 · PROCEED-warmup=4342 · gate=open-ok · lock-running · otologin-birebir.
+
+**İnsan-okunur-log-araç (Reis-"json-okuyamam"):** `state_btc_d104/D104_canli_izleme.log` — epoch→`YYYY-MM-DD HH:MM:SS`-dönüşüm (468-satır-boot-2-anı; canlı-yenilenir). Ham-kanıt=`audit.jsonl` (sistem-yazımı); .log=çeviri-araç (benim) — Reis'e-net-beyan. Kalıcı-araç-RATİFİYE (Hakem); audit-yazıcıya-ISO-alanı=N2#25-backlog-kod-ameliyatı.
+
+**Sınırlar:** SIGNAL/RISK/ORDER/FILL henüz-YOK (FVG-first-touch-bekleniyor) — beklenti-pre-reg-D105.
+
+## D105 — HAKEM-HÜKMÜ: D104-CANLI-SWAP-RATİFİYE + BOOT-3-CANLI-FULL (2026-09-06)
+
+> **D105 (2026-09-06): D104-BTC-SWAP-canlı-İCRA-kapandı** — 10944-κ-stop ✓ · BTCUSD-swap ✓ · **PROCEED-verdict-FULL (safe_start-yok)** ✓ · **V6-rollback-rollback_count=8-canlı-kanıtı** ✓✓ · tarih-basılı-.log-kalıcı-araç-ratifiye ✓ · **BOOT-3-PID-16264-canlı-FULL-açık (signal_only=0)** ✓ — **SIGNAL-anı-bekleniyor; FVG-touch-anında-üçlü-bildirim; Hakem-arbitrajı-anlık-görüntüyle.**
+
+**Hakem-ek-notlar:** spread-gate-filtersiz-noter-satırı ("backtest-parite-red-için-filtersiz"; geri-dönüş: pazartesi-CBDR-penceresi-sonrası-tekrar-değerlendirme) · copy-then-read-protokolü-süreği · kod-ameliyatı (ISO-alanı) N2#25-backlog.
+
+**Cline-icra-notu:** defter-girişi-bu-kayıt; canlı-izleme-sürüyor (audit-706+ satır akışta); commit/push-deferred (§9.5).
+## D101 — CHECKPOINT-V3 HAZIRLIK-TURU (Hakem-direktifi; 2026-09-06; Cline)
+
+> **D101 (2026-09-06): Checkpoint-v3 hazırlık-turu — Reis-onaylı-plan-bütçesinden.** Görevler: (1) eski-içerik-arşivi `memory-bank/archive_v2_20260906/` (35 D-girdisi D60-D101 uzun-metinleri ayrı-dosyalar; progress.md'de-kısa-ARŞİV-ref-satırları; SESSION_CHECKPOINT.md → `SESSION_CHECKPOINT_v1_20260902.md` git-mv; `MANIFEST.md` sha256-36-dosya). (2) `SESSION_CHECKPOINT_v3_DRAFT.md` FROZEN-aday (§0-canlı-durum / §1-D-map / §2-aktif / §3-kuyruk / §4-anayasa-v2-D99 / §5-ADER-1..22 / §6-dokunulmazlar). (3) `results/CHECKPOINT_v3_SET2b_beyani.md` — unpushed-commit-seti = `{}` (HEAD=6323e63=origin/main); çalışma-ağacı-deferred = 283 (11M/271??/1R). (4) Araçlar: `tools/checkpoint_v3_archive.py`, `tools/make_v3_draft.py`, `tools/make_readable_log.py` (tarih-basılı-log ratifiye-araç). Commit/push = Reis-hash-bound (§9.5-deferred; yapılmadı). Canlı-BTC-boot (PID-1924) dokunulmadı; kripto-botu-reposu dokunulmadı.
+
+**Not-sıralama:** D101 numarası D102'den-önce-olsa-da append-only-disiplini gereği EOF'a yazıldı; D102/D103/D104/D105 kayıtları bu-girdinin-üstündedir (zaman-sıralı).

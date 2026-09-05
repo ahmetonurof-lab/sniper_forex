@@ -1,0 +1,28 @@
+## D76 · D75'İN ÜÇ-İDDİASI ÇÜRÜDÜ + KÖK-NEDEN CANLI-YAKALANDI
+
+**Reis'in tam-terminal-transkripti geldi. D75'te-yazdığım-üç-iddia YANLIŞTI ve hepsi AYNI-kök-nedenle-yanlıştı: kanıtı-aramadan-sonuca-vardım (§1 ihlali, ikinci-kez).**
+
+| D75-iddiam | D76-gerçek | Kanıt |
+|---|---|---|
+| *"Reis AM-T7-8'i atladı"* | **İCRA ETMİŞTİ** | `state/audit_prev_2026-09-03b.jsonl` **13 satır / 4376 B @19:11:23** |
+| *"3416-devri gitti, artifact 0/10"* | **TAM korundu, KAYIP YOK** | içerik: `MT5_CONNECT 1 · STARTUP 4 · SAFETY 1 · WRITE_BLOCK 5 · ERROR 2` |
+| *"3416 nasıl-öldü kanıtlanamaz"* | **KANITLANDI** | `taskkill /F /PID 3416` → `SUCCESS: The process with PID 3416 has been terminated.` (Reis, ~19:13:23) |
+
+**Üçüncü-düzeltme:** O4 sayım-tabanı `3 WRITE_BLOCK / 1 ERROR` **değil**, **`5 / 2`**. Benim `18:51` okumam **eksik-devir-okumasıydı** (3 satır-sonra-geldi).
+
+**KÖK-NEDEN (seviye-1, stdout'da-canlı-yakalandı):** `[WinError 5] Access is denied: 'state\audit.jsonl.11476.tmp' -> 'state\audit.jsonl'` ⇒ **`os.replace` HEDEFTEKİ-HANDLE-yüzünden-engelleniyor** — `audit.py:106`'nün-kendi-etiketiyle-birebir: *"AV/sync handle"*. **nohup / venv / çift-instance hipotezLERİ ÖLDÜ.** Adaylar **ölçüldü:** `MsMpEng` PID 10004 + `SearchIndexer` PID 5112 **çalışıyor**; **OneDrive ELENDİ** (`User Shell Folders\Desktop = C:\Users\Administrator\Desktop`, yönlendirme yok). Kronik: bu-boot 4 WRITE_BLOCK (13 sn'de 3'ü, budget-tükenişi), önceki 5.
+**~~DENEY: Defender-exclusion~~ ⇒ AYNI-CEVAPTA-GERİ-ALINDI:** `orchestrator._write()` docstring'i (`~:890`) bunu-zaten-kaydetmiş: *"T0#6 still crashed with the same rename WinError 5 **WITH the Defender exclusion active**."* ⇒ **Denendi, işe-yaramadı.** Gerçek-öncül-hipotez (Hakem, N2 #17) bu-gece-ki çift-süreç keşfetimle **çakıştı**: *"dual-process writer (venv launcher + worker) contending on the lock"*. **KİLİT zaten çözülmüş** (in-place write, N2 #17); **AUDIT çözülmemiş** (hâlâ tmp+`os.replace`) ⇒ **yakaladığımız krış, tanılandırılmış-kusurun-düzeltilmemiş-kardeşidir.** **Farksial-tani (crash_log `self`/`parent`):** `3944` base←bash **TEK**→hayatta · `3416` base←nohup **TEK**→hayatta · `11476` **venv←venv ÇİFT**→**ÖLÜMCÜL**. ⇒ **Değişen-tek-değişken = `Activate.ps1`/venv-seçimi.** **Yeni-deny:** venv'i aktive **ETMEDEN** base-python ile foreground boot, tek-PID doğrulanır.
+
+**P1-BULGU-1 · gözlem-çökmesi erişilebilirlik-çökmesine-terfi-ediyor:** `_ATOMIC_WRITE_RUNTIME=False` (FROZEN, test-pinned) → budget-bitince **crash_log + RE-RAISE** → `run_production.py:174 except BaseException` → `shutdown(exit_code=1, "run_exception:...")`. ⇒ **Audit-rename'ının anlık-engellenmesi TÜM OTURUMU ÖLDÜRÜYOR.** **exit-code 1**, `:12`'deki "2 — safe-mode shutdown" **DEĞİL** ⇒ **§C'nin-beklediği-kod ÜRETİLMEDİ.** N2 #21 madde-1'e-yeni-boyut: *"audit-rename-başarısızlığı oturumu-öldürmemeli."*
+
+**P1-BULGU-2 · adli-zemin ölüm-anında KAPALI:** `crash_log.txt` **hâlâ yalnız 3 boot-kaydı**, 19:50 krışı **YOK**. `_crash_log_append` çağrıları `:313/:700/:784/:1593` = **hepsi orchestrator-içi**; `run_production.py:174` üst-seviye dalı **yalnız stderr'e basıyor.** ⇒ **Kampanyanın-tek-ölümcül-crash'i crash_log'da SIFIR iz.** Kurtuluş **tek-nedenli ve KAZARA:** Reis'in `Tee-Object`'i. O-olmasaydı → **audit-yazan-mekanizma-bizzat-bozuk ⇒ hata-metni HİÇBİR-YERDE.** **İki-bağımsız-başarısızlığın-bileşimi = tam-kanıt-kara-deliliği.** K2 docstring iddiası (*"flush-independent forensic floor"*) **karşılanmıyor.** Madde-adayı: `:174` dalına `_crash_log_append({"kind":"run_exception"})` — **mevcut-fonksiyon, yeni-soyutlama-yok (§2.2).**
+
+**OLUMSU · §7 İKİ seviye-1 kanıt:** (a) **anormal-çıkışta lock-unlink ÇALIŞIYOR** — krış-sonrası `orchestrator.lock` **YOK**, `shutdown(exit_code=1)` gerçekten-koştu, stale-lock terk-edilmedi. (b) **stale-lock TAKEOVER PID-liveness'a dayalı, zaman-aşımına-değil:** 3416 `19:13:23`'te öldü, lock **stale-kaldı** (Reis `{"pid":3416}` okudu), 11476 `19:17:10`'da **devraldı** → sapma **227 s ≪ `LOCK_STALE_SEC` 900 s**. ⇒ **§7.1 "kill vs ownership" canlı-doğrulandı.** *(Kod-teyidi yapılmadı — `acquire()` dalına bakılmadan MÜHÜRLENMEZ.)* (c) failed-rename tmp'si **toplanmış** (`audit.jsonl.11476.tmp` yok) ⇒ `finally` temizliği çalışıyor.
+
+**ARAÇ-BULGUSU · `Tee-Object -FilePath` UTF-16 LE yazar:** `k3_boot_stdout.log` **2388 B / 19:50** ⇒ **Tee TAMPONLAMIYOR**, program 19:17:25→19:50 gerçekten sessiz (gate kapalı). **AMA dosya UTF-16LE** (her-karakter-ardında `\u0000`) — benim "1944 B donmuş" ölçümüm **UTF-16 baytıydı** (~972 karakter). CRLF-bulgusunun-kardeşi: **encoding-drift**. Kural-adayı: *stdout-kanıtı `cmd /c "... > log 2>&1"` ile (bayt-sadık) alınır; encoding + bayt-sayısı BİRLİKTE kaydedilir.*
+
+**METODOLOJİK-ÖZ-ELEŞTİRİ (kendi-kendime, §12.1):** D75'te **"yeni kök-bulgu"** diye sunduğum truncation-mekanizması **D68'de benim-tarafımdan AM-T7-8 satırına YAZILMIŞTI.** Bugün **kendi-kontrol-listemi-grep'lemeden** sonuç-verdim, **dikiş-dosyasını-aramadan "imha" ilan ettim**, ve **Reis'i yanlış-la suçladım.** Üç-hata-tek-kök: **iddia-öncesi-kanıt-araması-atlandı.** ⇒ **Kural-adayı (ADER-12 adayı): "Bir kaybı/başarısızlığı ilan etmeden önce, o kaybı-önlemek-için-YAZMIŞ-OLDUĞUMUZ protokolü grep'le; protokol-varsа-ve-icra-edilmişse-ortada-kayıp-yoktur."**
+
+**Boundary:** kod DOKUNULMADI (`src/ tests/ index.json` diff **boş**) · commit YOK · push YOK · `state/`-e **yazılmadı** (yalnız-okundu) · **canlı-boot YOK** (3 PID de ölü) · yetimler (Sep-1 `audit.jsonl.tmp` 1483 B, `orchestrator.lock.tmp` 68 B) **KORUNDU** · D64 `8b18f70a` **DEĞİŞMEDİ** ✓ · **hiçbir-satır-silinmedi, hepsi üstü-çizili.**
+
+**YENİ-PİNLER (D76):** aşağıdaki-çizelgede.

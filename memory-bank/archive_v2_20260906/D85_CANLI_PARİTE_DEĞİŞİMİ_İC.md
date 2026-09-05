@@ -1,0 +1,10 @@
+## D85 — CANLI-PARİTE-DEĞİŞİMİ İCRASI (Boot-B-κ-stop → BOOT-C-AUDUSD) · TAMAMLANDI · 2026-09-04
+
+- **Yetki:** Hakem D85 hükmü (SCAN-RATİFİYE; RED-YOK). Tek-değişken: `SNIPER_SYMBOLS=AUDUSD` env-override; `.env` DOKUNULMAZ; SNIPER_STATE_DIR bilinçli unset (Boot-B-ile-aynı); modül-kipi-invariant.
+- **Coruma (adım-0):** 10-artefakt → `state/D85_preserve/` + SHA256SUMS.txt; audit-mührü 18-satır/5253B `5d56f03a835e8c9f…`.
+- **Boot-B-stop (adım-1):** graceful-dENEMESİ (AttachConsole+CTRL_C helper) → `ATTACH_FAIL err=5` (konsol-yok) → Hakem-ruhsatlı-κ-fallback taskkill /F /T: **2×SUCCESS (16880+18716)**; launcher-1288 kendiliğinden-çıktı; **audit-18/5253B-bayt-özdeş-DONDU, SHUTDOWN-YOK** (D78-üçüncü-örnek; SHUTDOWN-audit-açık-kalemi-devam). Lock-stale-16880.
+- **BOOT-C (adım-2):** PID-**18460** (venv-launcher-5580 altında, base-Python312; CimInstance-zinciri-kanıt); Reis-bildirim-artefaktı `state/t10c_reis_notice.txt`; lansman-tool-timeout-1'e-rağmen-hayatta.
+- **Startup-gözlem (adım-3):** audit **18→23** append — satır-19 MT5_CONNECT(symbol=AUDUSD), 20 STARTUP(symbols:[AUDUSD]), 21 **S9-REPLAY: bias=BEARISH** (replay_bars=4236, next_idx=4337, session_key=2026-09-04, signals_discarded=27), 22 S11-SAFE_START(**restored=false**=COLD-imzası; kirli-zincir **n=6→7** BULGU-13-büyümesi), 23 SAFETY-gate-CLOSED. **Dikiş-kanıtı:** post-C ilk-5253B sha=`5d56f03a…` bayt-özdeş — 4-boot-linyajı (T0#9+A+B+C). Heartbeat-lock-yeniden-yazımı ×3 gözlemlendi (588→809→909); audit-23-stabil = **WB=0** ✓.
+- **SINIF-1↔2-ZİNCİRİ-İLK-UYUM-MÜHÜRLÜ:** scan AUDUSD-SWEEP-BEARISH(06:30, SINIF-1) ↔ Boot-C-replay-bias=BEARISH(SINIF-2) — **pre-reg-pin-beklenen-yönde**; NEUTRAL-parite-bulgusu-yolu-açılmadı. EURUSD-NEUTRAL-uyumu-öncül-altında-2.uyum-noktası (D79→D85 çift-nokta).
+- **Topoloji-notu (beyanlı):** Boot-C'de-ayrı-COLD_REBUILD_OK-olayı/stderr-"cold rebuild OK"-alerti-YOK (Boot-B'de-var); yetkili-soğuk-imzalar S11-restored:false + S9-REPLAY-payload — araştırma-kalemi.
+- Rapor: `results/D85_live_symbol_swap.md`. Boot-C handoff-anında-CANLI-bırakıldı (akıbeti-Reis'te).

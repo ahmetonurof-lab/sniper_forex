@@ -1,0 +1,7 @@
+## D91 — FAZ-2-KARANTİNA-İCRASI (Hakem-BLOK-B-birebir; tek-commit; 2026-09-04 15:0x +03)
+
+- **Commit `4faa3b4`:** git-rm root `test_causality_extended.py` (`409fc17`-eski-variant; scripts/`2bff15b`-kanonik) + `.gitignore`+`.mypy_cache/`+`.pytest_cache/` + arşiv-taşımaları (stub-paketi→`archive/logs_20260904/fix_stub_package`, results-eski-artefaktlar→`archive/results_20260904/`) + manifest `results/D91_karantina_manifest.md` — **22-dosya / +86,611 / −223**, hooks-Passed.
+- **Commit-dışı-silme:** `nul` (MSYS-rm ✓), `%EXPERTS_DIR%/` (mq5-ikiz-kanıtla ✓), `-p/` (boş ✓); `pytest_*.log×6`→`archive/logs_20260904/pytest/` (ignored-kalıyor).
+- **DOKUNULMADI:** `logs/benchmark` C-v1.1-kanıtı (Bulgu-6a; BLOK-C'ye-kanıt-bölmesine-tevkil) + `.vscode/`+`data/`+`docs/`-kitlesi + Boot-C-PID-18460 (audit=23).
+- **Sapma-kayıtları (§12.1):** (1) **Eşzamanlı-yazıcı:** Reis-commit `f2fc17b` (D90, 15:03:57) benim-PUSH-KAYDI-7-eklememin-stagelanmasıyla-aynı-anda-düştü → PUSH7-ayrı-commit-gereksizleşti (içerik-`f2fc17b`-içinde-TAM; çift-commit-yok). (2) **İlk-D91-commit-aborte** (§10.3-normal): kancalar-stub'ları+manifesti-"Fixing"-ile-değiştirdi → fixed-bloblar-re-staged → 2.-denemede-Passed (mühür-hash'leri-D92'de). (3) **D90-başlığı-1790-satırında** (D88/D89-öncesi) — Reis-yerleşimi; gözlem-olarak-kayıtlı, dokunulmadı.
+- **LOCAL:** unpushed-set {`f2fc17b` (Reis-D90+PUSH7), `4faa3b4` (D91)} — nihai-push-Reis-yazılı-yetkisiyle.
