@@ -37,7 +37,9 @@ def main() -> int:
             except json.JSONDecodeError:
                 continue
             et = r["event_type"]
-            ts = datetime.datetime.fromtimestamp(r["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
+            ts = datetime.datetime.fromtimestamp(
+                r["timestamp"], tz=datetime.timezone.utc
+            ).isoformat(timespec="seconds")
             sym = r.get("symbol", "?")
             p = r.get("payload", {})
             if isinstance(p, dict) and isinstance(p.get("payload"), dict):
