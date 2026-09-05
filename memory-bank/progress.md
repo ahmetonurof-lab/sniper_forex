@@ -1766,3 +1766,17 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
 > **D101 (2026-09-06): Checkpoint-v3 hazırlık-turu — Reis-onaylı-plan-bütçesinden.** Görevler: (1) eski-içerik-arşivi `memory-bank/archive_v2_20260906/` (35 D-girdisi D60-D101 uzun-metinleri ayrı-dosyalar; progress.md'de-kısa-ARŞİV-ref-satırları; SESSION_CHECKPOINT.md → `SESSION_CHECKPOINT_v1_20260902.md` git-mv; `MANIFEST.md` sha256-36-dosya). (2) `SESSION_CHECKPOINT_v3_DRAFT.md` FROZEN-aday (§0-canlı-durum / §1-D-map / §2-aktif / §3-kuyruk / §4-anayasa-v2-D99 / §5-ADER-1..22 / §6-dokunulmazlar). (3) `results/CHECKPOINT_v3_SET2b_beyani.md` — unpushed-commit-seti = `{}` (HEAD=6323e63=origin/main); çalışma-ağacı-deferred = 283 (11M/271??/1R). (4) Araçlar: `tools/checkpoint_v3_archive.py`, `tools/make_v3_draft.py`, `tools/make_readable_log.py` (tarih-basılı-log ratifiye-araç). Commit/push = Reis-hash-bound (§9.5-deferred; yapılmadı). Canlı-BTC-boot (PID-1924) dokunulmadı; kripto-botu-reposu dokunulmadı.
 
 **Not-sıralama:** D101 numarası D102'den-önce-olsa-da append-only-disiplini gereği EOF'a yazıldı; D102/D103/D104/D105 kayıtları bu-girdinin-üstündedir (zaman-sıralı).
+
+## PUSH-KAYDI-12 — SET: checkpoint-v3-prep (2026-09-06; Cline-icrası; Reis-icra-bloğu-onaylı)
+
+- **Kim:** Cline (checkpoint-v3-hazırlık icra-bloğu; Reis-"EVET"-onayı + Hakem-ratifikasyonu).
+- **Ne/tam-set (hash-bound):** tek-commit **`583c76f`** (`chore(memory-bank): checkpoint-v3-prep — 35-D-archive + v3-draft + manifest`).
+- **Kapsam (43-path):** 35-D-girdisi archive_v2_20260906/ + MANIFEST + rename SESSION_CHECKPOINT→v1 + v3-DRAFT + progress.md + 3-tool (make_readable_log/checkpoint_v3_archive/make_v3_draft) + SET-2b-beyanı.
+- **Hariç-tutulan (deferred):** BTİ-port/D104-kod-değişiklikleri (src/live/*) + index.json + birikmiş-untracked — sonraki-hash-bound-set.
+- **Gate:** origin/main=6323e63 (parent) · origin/main..HEAD=1={583c76f} · ride-along-YOK.
+- **Push:** `6323e63..583c76f main -> main` (EXIT=0).
+- **Doğrulama (§16):** origin/main..HEAD=0 ✓ · ls-remote=583c76f==rev-parse-HEAD ✓ · staged-kalan=0 ✓ · deferred-worktree=241 (bilinçli).
+
+## D102-ICRA-SON-RATİFİYE-SATIRI (Hakem-in-bloğu-madde-3)
+
+> **D102 + D103 son-ratifiye:** BTİ-PORT + CANLI-BTC-FULL-onayı Hakem-hükmüyle RATİFİYE (D104/D105-icra-kayıtları yukarıda). checkpoint-v3-sonrası-D106-anomaly-census (V6-A/B/C) N2#25-ilk-iş.

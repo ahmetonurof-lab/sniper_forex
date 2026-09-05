@@ -1,6 +1,6 @@
-# SESSION_CHECKPOINT_v3_DRAFT (FROZEN aday)
+# SESSION_CHECKPOINT_v3 (AKTİF ana-sayfa)
 
-**Durum:** DRAFT · 2026-09-06 · Checkpoint-v3 hazırlık-turu (Hakem-direktifi) · commit/push = Reis-hash-bound-onayı-bekliyor
+**Durum:** AKTİF · 2026-09-06 · Checkpoint-v3 yürürlükte (Hakem-ratifikasyonu + Reis-icra-bloğu; commit 583c76f push'landı · PUSH-KAYDI-12). Yeni-oturum-bootstrap-sırası: bu-dosya → progress.md-son-50-satır → gerektiğinde archive_v2_20260906/.
 
 ## §0 CANLI-DURUM
 
