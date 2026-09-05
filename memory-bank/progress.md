@@ -1780,3 +1780,66 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
 ## D102-ICRA-SON-RATİFİYE-SATIRI (Hakem-in-bloğu-madde-3)
 
 > **D102 + D103 son-ratifiye:** BTİ-PORT + CANLI-BTC-FULL-onayı Hakem-hükmüyle RATİFİYE (D104/D105-icra-kayıtları yukarıda). checkpoint-v3-sonrası-D106-anomaly-census (V6-A/B/C) N2#25-ilk-iş.
+
+## D106 — V6-ANOMALİ-PAKETİ / N2#25 (Cline-icrası; 2026-09-06; CHECKPOINT-v3 İLK-İŞİ)
+
+> **D106 (2026-09-06): V6-anomali-census (A/B/C) — `results/D106_V6_ANOMALI_PAKETI.md`.** Kanıt: `state_btc_d104/audit.jsonl` (6-boot) + `state/D104_preserve/audit.jsonl` (forex) + kod. **Kod-değişikliği YOK** (canlı-boot PID-1924 dokunulmadı).
+>
+> - **A (rollback-scope):** `rollback_count` max=**8** (lifetime-persisted, `to_state:897`/`from_state:971`) ≠ `v6_rollback`-emit=**45** (boot-chopped: 8,8,7,7,7,8) ≠ tekil-bar_ts=**12**. Üç-sayı çelişiyor. KARAR: A1(boot-notu ekle) vs **A2(persist-kaldır, deterministik-türetilen — Cline-önerisi, §6.2)**.
+> - **B (fallback-sayaç-gap):** `_emit_state:287-292` yalnız `rollback_count` taşır; `ignored_count`(:470)/`pathological_count`(:454) audit'te **0** (kodda-artıyor, sadece-disk-state'te). Kod-cerrahisi: emit'e iki-sayaç-ekle (payload-şema-versiyon-notu ile). **Canlı-sonrası-N2#25-commit.**
+> - **C (COLD_REBUILD-tranche):** **KAPALI** — temiz-BTC-boot `COLD_REBUILD_OK`=**0** (doğru, fresh); forex-preserved=**4** (4236×2+4237×2 = N2#21 exactly-once semptomu) → **FIX `6323e63`** ile kök-leş-doğrulandı. Yeni-iş yok, deftere-kapandı.
+>
+> **Durum:** A+B → Reis/Hakem-kararı/cerrahi-onayı bekliyor; C kapandı. Readable-log yenelendi (562-satır).
+>
+> **Cline-icra-notu:** census-statik-kod+audit-kanıtı (seviye-6); A-kararı/B-cerrahisi regression-ile-doğrulanmalı (seviye-3/4); C executed-path+fix-commit (seviye-2).
+
+
+## D107 — HAKEM-HÜKMÜ: D106-CENSUS-RATİFİYE + A/B-KARARLARI + TEK-SET-SIRALAMASI (2026-09-06)
+
+> **D107 (2026-09-06): Hakem-hükmü — D106-census RATİFİYE; C-kapanışı teyit (retroaktif-D97/D98); A/B-kararları-verildi; TEK-D106-DOCS-SET emredildi.** Cline-4-seçenek → SEÇENEK-2 (modifiye). Seç-3 RED (kanıt-önce-mühür; PUSH-KAYDI-12-precedenti: canlı-boot-altında-push, PID-dokunulmaz). Seç-4 GATE-DEĞİL (madde-2 = Reis-masası).
+
+**KANONİK-ÜÇ-SAYI-SEMANTİĞİ (A1-ŞİMDİ yorumcu-notu — kod-dokunuşu-yok):**
+- **8** = `rollback_count` persisted gerçek-zamanlı sayaç (lifetime; `to_state:897`/`from_state:971`)
+- **45** = `v6_rollback` moment-emit (replay-artifakt-dahil olay-akışı; 6-boot × ~7.5)
+- **12** = tekil rollback-bar_ts (tarihî-gerçek rollback sayısı)
+- → aritmetik-ihtilaf DEĞİL, **tanım-üçlüsü**; D106-§6.2 bunu doğrular.
+
+**A-KARARI: A2-HEDEF + A1-ŞİMDİ.** A2 (persist-kaldır; deterministik-türetim; §6.2 tek-kaynak; D103-deseni) yön-olarak-KABUL. **İCRA-KAPISI (pre-reg-şartı; kod-öncesi-ratifiye):** (i) kanonik-türetim-kuralı-birebir · (ii) de-dup-anahtarı · (iii) replay-exclusion-kuralı · (iv) **davranış-etki-beyanı** (rollback_count yalnız-telemetri-mi karar-girdisi-mi; karar-girdisiyse A2 = davranış-değişikliği → AYRI-Hakem-onayı) · (v) eski-persist-8-crosswalk-notu (D104-mühürlü-satır-dokunulmaz; yeni-türetim-ileriye-bakar). **FROZEN-SET-KONTROLÜ:** N2#19-üçlü + session.py-gövdesi-çakışması → Reis-escalation + unfreeze. **PENCERE:** sonraki-planlı-restart (Reis-yetkisi; aday: ilk-SIGNAL-sonrası veya Pazartesi 2026-09-07 CBDR-checkpoint). §17-sürer.
+
+**B-KARARI: CERRAHİ-PRE-ONAY — ŞİMDİ-EMRİ-DEĞİL.** Kapsam: `_emit_state`'e **additive-2-alan** (`ignored_count`, `pathological_count`); silme/yeniden-adlandırma YASAK (audit-tüketicisi-uyumu). `make_readable_log.py` uyum-notu (yeni-alanları-parse/tolare; tools/-dokunuşu-serbest, src/-değil). Execution = A2-ile-aynı-pencere, pre-reg-ratifiye-sonrası.
+
+**TEK-PENCERE-SİNERJİSİ:** A2 + B + N2#25-ISO-alanı = üç-ayrı-kalem, tek-restart-penceresinde-pre-reg'li-icra (kapsam-birleştirme-YOK; sıralama-sinerjisi-EVET).
+
+**D106-DOCS-SET (bu-tur-tek-set):** Dahil: `results/D106_V6_ANOMALI_PAKETI.md` (AYNEN; mutasyon-yok) + `memory-bank/progress.md` (D106+D107+zincir-pre-reg+N2#21-debt). Hariç: state_btc_d104/* · state/* · src/* · archive/* · index.json · BTİ-port-kod-seti. **Gate:** staged-src=0 (§17) + pre/post-PID-1924-alive + ride-along-YOK. **Push:** Reis-icra-bloğu(EVET) → EXIT=0 + origin/main..HEAD=0 + ls-remote==HEAD → **PUSH-KAYDI-13**.
+
+**SIGNAL-ÖNCELİK-KURALI:** commit/push-sırasında-SIGNAL-patlaması → iş-durdur; anlık-görüntü-üçlü-bildirim-ÖNCE; commit-sonrası-tamamlanır.
+
+**MADDE-2-NETLEŞME:** yazar = **Reis** (checkpoint-§2 + dosya-kendi-satırı + D105-arb-madde-5-canonical). "seni-bekliyor" = Reis-i-bekler.
+
+**N2#21-debt-tek-satırı:** N2#21-madde-2 (D72-derlem) hâlâ-AÇIK borç — yazar-Reis; bu-D107-girdisi defter-yeri-beyanı (madde-5/5-talebi karşılandı).
+
+### ZİNCİR-PRE-REG-TASLAĞI (madde-6 · ilk-SIGNAL-öncesi-ZORUNLU kayıt · N2#23-precedenti)
+
+> **Amaç:** gözlem-öncesi-kayıt — SIGNAL patladığında "beklenen" ile "gerçek" karşılaştırılsın; sapma = anlık-görüntü-üçlü-bildirim. Bu-taslak Cline-yazar; Hakem-ratifiyesi ilk-SIGNAL-düşmeden-tamamlanır.
+
+**Beklenen-kanal-sırası (audit.py:6 sözleşmesi):** `CANDLE → SIGNAL → RISK → ORDER → FILL → POSITION (→ EXIT)` — her-halka bir-öncekini-izler; atlama/ters-sıra = SAPMA.
+
+**Alan-beklentileri (emit-noktaları kanıtlanmış):**
+1. **SIGNAL** (`live_runner.py:425` · `signal_audit_payload` · KAPALI-12-alan): `symbol=BTCUSD` · `side∈{long,short}` · `entry/sl/tp` float>0 · `reason="cbdr_sweep_fvg_fill"` · `ts` ISO · `fvg_id="BTCUSD:zone{N}"` · `fvg_top/fvg_bottom/fvg_size_pip` · `direction`. → **12-alan-eksiksiz** (şema-testi `test_n2_23_emit_schema` sabitler).
+2. **RISK** (`:429/457` approved-branch · `:441/477` blocked-branch): `approved:bool` + (blocked→`reason`). Beklenen: `approved=true` (demo-bakiye-yeterli, gate-open). `approved=false` → zincir DURUR, SIGNAL-yetim-kalmaz (blocked-reason-kaydı = geçerli-son).
+3. **ORDER** (`:485`): broker'a-gönderim-denemesi; `signal_only=False` (SNIPER_SIGNAL_ONLY=0) → GERÇEK-emir-bekliyor. ticket/deal_id alanı.
+4. **FILL:** broker-dolay-teyidi (`filled=True`). ORDER→FILL eşleşmesi: lot/price/ticket.
+5. **POSITION** (`:526`): PositionManager açık-pozisyon-gözlemi — FILL sonrası gelmeli; gelmezse = FILL/POSITION kopukluğu (reconciliation-anomali).
+
+**Rollback/timeout-davranışı (beklenen):**
+- ORDER gönderilip FILL gelmezse (timeout) → pozisyon AÇILMAZ; zincir FILL'de-durur; POSITION emit YOK (doğru — hayalet-pozisyon yok).
+- V6-rollback SIGNAL-sonrası-gelirse: mevcut-pozisyon İPTAL EDİLMEZ (rollback = bias-karar-telemetrisi, pozisyon-yönetimi-değil) — **bu-beklenendir; sapma = pozisyon-silme → KRİTİK-bildirim.**
+- Sizing (`sizing.py`) RISK-onaylı-lot = demo-margin-kontrolü; lot=0 → ORDER-atlanır (blocked-reason).
+
+**Sapma-anı-anlık-görüntü-protokolü (üçlü-kanal · §Aşama-5):**
+1. `state_btc_d104/audit.jsonl` son-N-satır + `orchestrator.lock` + PID-1924-durumu → **ham-donanım-anlık-görüntüsü** (regenerate etme, olduğu-gibi-kopyala).
+2. `make_readable_log.py` → timestamped-log.
+3. **ÜÇ-KANAL-AYNI-ANDA:** (1) Hakem (arbitraj) · (2) Sentezleyici-Luna (girdi) · (3) Owner-Forexçi (operasyonel). Tek-kanal = eksik-bildirim.
+4. Beklenen-kaydıyla-yüzleştirme-tablosu (alan-bazlı ✓/✗).
+
+**Öncelik-kuralı (madde-7):** commit/push-sırasında-SIGNAL → iş-durdur; bu-protokol-ÖNCE; commit-sonra.
