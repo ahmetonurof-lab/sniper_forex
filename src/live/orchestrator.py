@@ -330,7 +330,13 @@ class OrchestratorConfig:
     symbols: List[str] = field(default_factory=list)
     m1_warmup_count: int = 65000
     state_dir: str = "state"
-    audit_path: str = "state/audit.jsonl"
+    # N2 #21 (exactly-once audit): None -> derived from state_dir at boot
+    # (state_dir/audit.jsonl). The old hard-coded CWD-relative default
+    # ("state/audit.jsonl") anchored TEST orchestrators to the REPO-ROOT
+    # live journal (§19 CWD-persistence hazard): the N2#21-madde-1 boot
+    # load then pulled live events into test chains — the D90 C3
+    # "got 4/5" exactly-once root cause (4 live COLD_REBUILD_OK lines).
+    audit_path: Optional[str] = None
     margin_level_min_pct: float = 300.0
     tick_stale_sec: float = 30 * 60
     poll_interval_sec: float = 20.0
@@ -947,9 +953,16 @@ class Orchestrator:
         # chain first, then prefer the caller's chain when it is non-empty.
         # Also wire config.audit_path into auto_flush so the production
         # orchestrator persists the journal to disk (was the N2 #12 gap).
+        # N2 #21 (exactly-once audit): the journal anchors to state_dir
+        # unless explicitly configured — never to the CWD. run_production
+        # passes an explicit absolute path (unchanged); test orchestrators
+        # get tmp_state isolation by construction.
+        config_audit_path = getattr(self.config, "audit_path", None) or str(
+            self.state_dir / "audit.jsonl"
+        )
         prod_audit: AuditChain
-        if getattr(self.config, "audit_path", None):
-            prod_audit = AuditChain(auto_flush_path=self.config.audit_path)
+        if config_audit_path:
+            prod_audit = AuditChain(auto_flush_path=config_audit_path)
             # N2 #21 madde-1 (Hakem N1-a): boot LOADS the existing journal
             # BEFORE any flush. Combined with delta-append save() this
             # restores prior boots' events into the chain AND keeps them
@@ -958,7 +971,7 @@ class Orchestrator:
             # Continuity must never block the boot: a failed load degrades
             # to counter=0 (delta-append still preserves prior lines).
             try:
-                prod_audit.load(self.config.audit_path)
+                prod_audit.load(config_audit_path)
             except Exception:
                 pass
         else:

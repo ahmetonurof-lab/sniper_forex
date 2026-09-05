@@ -64,14 +64,17 @@ class TestB1AuditPathWiring:
         lines = [ln for ln in audit_path.read_text().splitlines() if ln.strip()]
         assert any('"phase": "test"' in ln for ln in lines)
 
-    def test_orchestrator_no_audit_path_uses_inmemory(self, tmp_state: Path):
-        """B1 control: without an explicit config_obj, the dataclass
-        default audit_path='state/audit.jsonl' is wired (Pin: the
-        Orchestrator MUST honor whatever the config says, not silently
-        disable disk persistence)."""
+    def test_orchestrator_no_audit_path_uses_state_dir(self, tmp_state: Path):
+        """B1 control: without an explicit audit_path, the journal anchors
+        to state_dir/audit.jsonl (Pin: the Orchestrator MUST keep disk
+        persistence wired — never silently disable it — and MUST anchor to
+        state_dir, never the CWD)."""
         orch = Orchestrator(state_dir=str(tmp_state))
-        # Dataclass default — pinned so a future change is visible.
-        assert orch.audit._auto_flush_path == "state/audit.jsonl"
+        # N2 #21 exactly-once audit: the old CWD-relative dataclass default
+        # ("state/audit.jsonl") leaked the REPO-ROOT live journal into test
+        # chains via the boot-load (D90 C3 "got 4/5" root cause). The
+        # default is now state_dir-derived; persistence stays wired.
+        assert orch.audit._auto_flush_path == str(tmp_state / "audit.jsonl")
 
 
 # ── B1b: timer-driven flush (quiet-loop disk persistence) ────────
