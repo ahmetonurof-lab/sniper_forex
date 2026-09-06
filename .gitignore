@@ -28,3 +28,5 @@ state_btc_d104/
 index.json
 archive/
 results/
+*.log
+*.tmp
