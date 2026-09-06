@@ -194,3 +194,31 @@ class RiskManager:
         ticks = stop_distance / contract.tick_size if contract.tick_size > 0 else 0.0
         loss = ticks * contract.tick_value * lot
         return loss / account.balance
+
+
+# ─── D129 §3 — CBDR Risk-Points Placeholder ────────────────────────
+def get_cbdr_multiplier(symbol: str, cbdr_width_pct: float) -> float:
+    """CBDR risk-points çarpanı (D129 §3 placeholder).
+
+    Implementasyon: her zaman 1.0 döner — ``CBDR_RISK_MATRIX`` bucket
+    kalibrasyonu ertelendi (``src/session_router.py``'deki Binance
+    CBDR_RISK_MATRIX, ``sniper`` repo'suyla sınırlı).
+
+    Kalibrasyon geldiğinde: ``buckets = cfg.CBDR_RISK_MATRIX[symbol]["buckets"]``
+    linear scan ile ``lo <= cbdr_width_pct < hi`` araması yapılır; match
+    ise ``mult`` döner; default ``1.0``. ``should_trade()`` ``mult == 0.0``
+    ise toxic zone kabul eder (fail-closed).
+
+    Args:
+        symbol: trading pair (e.g. "EURUSD").
+        cbdr_width_pct: CBDR body-width, relative percent
+            ``((body_high - body_low) / body_low) * 100``.
+
+    Returns:
+        1.0 (placeholder — kalibrasyon ertelendi).
+    """
+    # Kalibrasyon ertelendi: parametreler simdilik tuketilmiyor ama imza
+    # gelecek bucket-scan icin rezervli. Underscore-atama vulture'i
+    # susturur (behavior DEGISMEDI — hâlâ 1.0 dondurur).
+    _calib_input = (symbol, cbdr_width_pct)
+    return 1.0
