@@ -25,3 +25,4 @@ d49_*_*.txt
 .pytest_cache/
 state/
 state_btc_d104/
+index.json
