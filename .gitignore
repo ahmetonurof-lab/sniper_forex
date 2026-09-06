@@ -23,3 +23,5 @@ d49_*_*.txt
 # Tool caches (asla commit — hijyen)
 .mypy_cache/
 .pytest_cache/
+state/
+state_btc_d104/
