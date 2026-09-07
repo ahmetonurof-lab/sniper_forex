@@ -40,9 +40,19 @@ def test_default_contract_eurusd_unchanged():
     assert c.tick_size == 0.00001
 
 
-def test_env_symbols_default_is_btc(monkeypatch):
+def test_env_symbols_default_is_seven_majors(monkeypatch):
+    """İŞ-4a S1 (D159, karar-8): default universe = 7 FX majors (BTCUSD
+    crypto-era default retired; MT5-ölü, cTrader-first)."""
     monkeypatch.delenv("SNIPER_SYMBOLS", raising=False)
-    assert _env_symbols() == ["BTCUSD"]
+    assert _env_symbols() == [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "AUDUSD",
+        "USDCAD",
+        "USDCHF",
+        "NZDUSD",
+    ]
 
 
 def test_env_symbols_override_respected(monkeypatch):

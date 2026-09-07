@@ -264,7 +264,10 @@ class TestDualInstanceGuard:
             def __init__(self, *a, **k):
                 raise AssertionError("MT5Connection built despite live lock owner")
 
-        monkeypatch.setattr(rp_mod, "MT5Connection", _MustNotConstruct)
+        monkeypatch.setattr(
+            rp_mod, "_build_data_connection", _MustNotConstruct
+        )  # İŞ-4a D159: lazy wiring — the guard must fire BEFORE any data
+        # connection (MT5 or cTrader) is constructed.
         assert rp_mod.main() == 0
         assert "Already running" in capsys.readouterr().err
 
@@ -282,7 +285,7 @@ class TestDualInstanceGuard:
         state_dir = tmp_path / "state"
         _seed_lock(state_dir, payload)
         monkeypatch.setenv("SNIPER_STATE_DIR", str(state_dir))
-        monkeypatch.setattr(rp_mod, "MT5Connection", lambda: object())
+        monkeypatch.setattr(rp_mod, "_build_data_connection", lambda: object())
         monkeypatch.setattr(rp_mod, "Orchestrator", _FakeOrch)
         with pytest.raises(_StopHere):
             rp_mod.main()
@@ -290,7 +293,7 @@ class TestDualInstanceGuard:
     def test_main_proceeds_when_no_lock(self, tmp_path, monkeypatch):
         state_dir = tmp_path / "state"
         monkeypatch.setenv("SNIPER_STATE_DIR", str(state_dir))
-        monkeypatch.setattr(rp_mod, "MT5Connection", lambda: object())
+        monkeypatch.setattr(rp_mod, "_build_data_connection", lambda: object())
         monkeypatch.setattr(rp_mod, "Orchestrator", _FakeOrch)
         with pytest.raises(_StopHere):
             rp_mod.main()

@@ -31,13 +31,67 @@ import sys
 from pathlib import Path
 
 from src.live.orchestrator import Orchestrator, OrchestratorConfig, StartupVerdict, _pid_alive
-from src.trading.mt5_connection import MT5Connection
+
+# İŞ-4a S1 (D159, karar-8): MT5Connection import is LAZY. The module-level
+# import bound MetaTrader5 at import time — in an MT5-ölü environment the
+# cTrader-first production path would FATAL on import before S1 even ran.
+# The import now lives inside the MT5 branch of _build_data_connection().
+
+# İŞ-4a S1 (D159, karar-8): default data source is cTrader (MT5 is dead —
+# D120). SNIPER_DATA_SOURCE=mt5 restores the legacy path explicitly.
+DEFAULT_DATA_SOURCE = "ctrader"
+
+# İŞ-4a S1 (D159, karar-8): default symbol universe = 7 FX majors
+# (BTCUSD was the crypto-era default; majors are the production target).
+DEFAULT_SYMBOLS = "EURUSD,GBPUSD,USDJPY,AUDUSD,USDCAD,USDCHF,NZDUSD"
 
 
 def _env_symbols() -> list:
-    """Symbols from SNIPER_SYMBOLS (comma-separated) or the BTC default."""
-    raw = os.getenv("SNIPER_SYMBOLS", "BTCUSD")
+    """Symbols from SNIPER_SYMBOLS (comma-separated) or the 7-major default."""
+    raw = os.getenv("SNIPER_SYMBOLS", DEFAULT_SYMBOLS)
     return [s.strip().upper() for s in raw.split(",") if s.strip()]
+
+
+def _build_data_connection():
+    """İŞ-4a S1 (D159): build the production data connection.
+
+    SNIPER_DATA_SOURCE=ctrader (default):
+        CTraderConnection + CTraderDataAdapter. The adapter is duck-typed
+        by the Orchestrator (no `connect` attribute) → cTrader-mode S1.
+        Config comes from src.config.ctrader_config.get_ctrader_config()
+        and is validated fail-loud (missing credentials = FATAL, not a
+        silent MT5 fallback — §19).
+    SNIPER_DATA_SOURCE=mt5:
+        Legacy MT5Connection path, unchanged.
+    """
+    source = os.getenv("SNIPER_DATA_SOURCE", DEFAULT_DATA_SOURCE).strip().lower()
+    if source == "mt5":
+        from src.trading.mt5_connection import MT5Connection
+
+        return MT5Connection()
+    if source != "ctrader":
+        raise SystemExit(
+            f"[run_production] FATAL: unknown SNIPER_DATA_SOURCE={source!r} "
+            f"(expected 'ctrader' or 'mt5')"
+        )
+    from src.config.ctrader_config import get_ctrader_config, validate_ctrader_config
+    from src.ctrader.connection import CTraderConnection
+    from src.ctrader.data_adapter import CTraderDataAdapter
+
+    cfg = get_ctrader_config()
+    problems = validate_ctrader_config(cfg, require_credentials=True)
+    if problems:
+        raise SystemExit(
+            "[run_production] FATAL: ctrader config invalid: "
+            + "; ".join(problems)
+            + " (fail-loud: no silent MT5 fallback)"
+        )
+    # Token cache lives at an ABSOLUTE project-root path (D18 CWD-drift
+    # discipline; the connection layer must not depend on process cwd).
+    token_cache = Path(__file__).resolve().parents[2] / "token_cache.json"
+    conn = CTraderConnection(cfg, token_cache_path=str(token_cache))
+    conn.start()
+    return CTraderDataAdapter(conn)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -111,11 +165,14 @@ def main() -> int:
             )
             return 0
 
-    # ── mt5_conn ZORUNLU wiring (Taş 4) ─────────────────────────
-    # Production ALWAYS injects a real MT5Connection so the canonical
+    # ── mt5_conn ZORUNLU wiring (Taş 4 / İŞ-4a S1 D159) ──────────
+    # Production ALWAYS injects a real data connection so the canonical
     # fetch path (get_rates / get_tick_data) is used — never the test
-    # seam fallback to self._mt5.copy_rates_from_pos.
-    mt5_conn = MT5Connection()
+    # seam fallback. Source selection: SNIPER_DATA_SOURCE (default
+    # ctrader). The Orchestrator picks its S1 branch by duck-typing
+    # (adapter has no `connect`; MT5Connection does) — no env flag
+    # re-check inside the Orchestrator, wiring decides here.
+    mt5_conn = _build_data_connection()
 
     orch = Orchestrator(
         state_dir=config.state_dir,

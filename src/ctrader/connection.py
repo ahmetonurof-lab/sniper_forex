@@ -189,6 +189,45 @@ class CTraderConnection:
         return deferred
 
     # ------------------------------------------------------------------
+    # Veri-istekleri (İş-4a — D155): trendbar + spot abonelik.
+    # Yanıtlar event_queue'ya MESSAGE olarak düşer (mevcut
+    # _on_message_received yolu); hata(errback) TRENDBARS_ERROR/SPOTS_ERROR
+    # etiketiyle. data_adapter bu kuyruğu tüketir.
+    # ------------------------------------------------------------------
+    def request_trendbars(self, symbol_id, period, from_ms, to_ms, count=None):
+        """ProtoOAGetTrendbarsReq — geçmiş M1 trendbarları (İş-4a).
+
+        Rate limit: 5 geçmiş-istek/sn/connection (resmi dok).
+        Yanıt: ProtoOAGetTrendbarsRes (event_queue, MESSAGE).
+        """
+        req = Protobuf.get("ProtoOAGetTrendbarsReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        req.symbolId = int(symbol_id)
+        req.period = int(period)
+        req.fromTimestamp = int(from_ms)
+        req.toTimestamp = int(to_ms)
+        if count is not None:
+            req.count = int(count)
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addErrback(lambda f: self.event_queue.put(("TRENDBARS_ERROR", str(f))))
+        return deferred
+
+    def subscribe_spots(self, symbol_id):
+        """ProtoOASubscribeSpotsReq — spot fiyat aboneliği (İş-4a).
+
+        subscribeToSpotTimestamp=True: ProtoOASpotEvent.timestamp alanı
+        dolu gelir (adapter'ın quote-age kontrolü için gerekli).
+        Yanıt: ProtoOASubscribeSpotsRes + ProtoOASpotEvent akışı.
+        """
+        req = Protobuf.get("ProtoOASubscribeSpotsReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        req.symbolId.append(int(symbol_id))
+        req.subscribeToSpotTimestamp = True
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addErrback(lambda f: self.event_queue.put(("SPOTS_ERROR", str(f))))
+        return deferred
+
+    # ------------------------------------------------------------------
     # Token cache
     # ------------------------------------------------------------------
     def _load_token_cache(self):

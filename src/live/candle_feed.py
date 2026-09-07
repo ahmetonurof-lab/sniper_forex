@@ -24,13 +24,15 @@ runtime does NOT import from the frozen research engine.
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import pandas as pd
 
-from src.data.mt5_data import MT5DataLayer
 from src.live.clock import server_to_utc_historical
 from src.strategy.models import Bar
+
+if TYPE_CHECKING:  # import-time MetaTrader5 bind engellenir (İŞ-4a D159)
+    from src.data.mt5_data import MT5DataLayer
 
 # Canonical 15m bucket size in ms
 _15M_MS = 15 * 60 * 1000
@@ -92,8 +94,16 @@ def resample_15m(bars_1m: List[Bar]) -> List[Bar]:
 class M1CandleFeed:
     """Pull-based M1 feed from MT5 with dup/missing detection and 15m aggregation."""
 
-    def __init__(self, data_layer: Optional[MT5DataLayer] = None):
-        self.data = data_layer or MT5DataLayer()
+    def __init__(self, data_layer: Optional["MT5DataLayer"] = None):
+        # İŞ-4a S1 (D159): the MT5DataLayer import is LAZY — a module-level
+        # import bound MetaTrader5 at import time, so merely importing the
+        # orchestrator (→ candle_feed) bound MT5 even on the cTrader-first
+        # path. Only an actual M1CandleFeed() instantiation touches MT5.
+        if data_layer is None:
+            from src.data.mt5_data import MT5DataLayer
+
+            data_layer = MT5DataLayer()
+        self.data = data_layer
         self._last_15m_ts: Optional[pd.Timestamp] = None
         # Last detection results (surfaced for audit/safety)
         self.last_duplicates: List[pd.Timestamp] = []

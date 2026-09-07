@@ -1092,6 +1092,10 @@ class Orchestrator:
         self._mt5: Any = mt5
         # MT5Connection (production fetch path) — injectable for tests.
         self._mt5_conn: Any = mt5_conn
+        # İŞ-4a S1 (D159): cTrader-first mode flag. Set in S1 when the
+        # injected data connection is a cTrader adapter (duck-typed: no
+        # `connect` attribute). Default False — MT5 path unchanged.
+        self._ctrader_mode: bool = False
         # D38 (runner lifetime retention): the LiveRunner built in S5 is
         # retained on the orchestror for process lifetime. The Taş 3 loop
         # will call on_bar()/poll_deals()/sync_trailing() ONLY through
@@ -1201,18 +1205,57 @@ class Orchestrator:
             )
 
         # ── S1: Connect ─────────────────────────────────────────
+        # İŞ-4a S1 (D159): cTrader-first boot. When the injected data
+        # connection is a cTrader adapter (duck-typed: no `connect`
+        # attribute — MT5Connection HAS connect(), the adapter does not),
+        # the MetaTrader5 module import is SKIPPED entirely. MT5-ölü
+        # ortamda `import MetaTrader5` FATAL ("mt5_import_failed")
+        # üretiyordu — cTrader-üretim-yolu artık birincil. MT5 yolu
+        # DEĞİŞMEDİ (aynı import → init → login zinciri çalışır);
+        # sessiz-fallback YOK (§19): mode seçimi yalnızca enjekte-edinlen
+        # bağlantı-niteliğiyle belirlenir, env-bayrağıyla DEĞİL — yanlış
+        # wiring görünür bir hata üretir, sessizce MT5'e düşmez.
         self.lock.set_phase("S1_connect")
-        try:
-            import MetaTrader5 as mt5_mod
-
-            self._mt5 = mt5_mod
-        except ImportError:
-            self.lock.release()
-            return StartupResult(
-                verdict=StartupVerdict.FATAL,
-                phase=StartupPhase.S1_CONNECT,
-                reason="mt5_import_failed",
+        ctrader_mode = self._mt5_conn is not None and not hasattr(self._mt5_conn, "connect")
+        if ctrader_mode:
+            # cTrader birincil: adapter'ın bağlantı-kurulumu burada yapılır
+            # (reactor-thread + app-auth + account-auth zinciri). ensure_connected
+            # kısa-poll; fail-loud FATAL — cannot-reach-data = cannot-run.
+            try:
+                connected = self._mt5_conn.ensure_connected(max_attempts=5)
+            except Exception as e:
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S1_CONNECT,
+                    reason=f"ctrader_connect_exception: {type(e).__name__}: {e}",
+                )
+            if not connected:
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S1_CONNECT,
+                    reason="ctrader_connect_failed",
+                )
+            self._ctrader_mode = True
+            self.audit.append(
+                time.time(),
+                EventType.MT5_CONNECT,
+                self.configured_symbols[0] if self.configured_symbols else None,
+                {"transport": "ctrader", "phase": "S1_connect"},
             )
+        else:
+            try:
+                import MetaTrader5 as mt5_mod
+
+                self._mt5 = mt5_mod
+            except ImportError:
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S1_CONNECT,
+                    reason="mt5_import_failed",
+                )
 
         # Construct MT5Connection (production fetch path) if injected.
         # Taş 2 test seam: MT5Connection is NOT auto-constructed here
@@ -1223,7 +1266,7 @@ class Orchestrator:
         # When unset, _fetch_m1_tri_state falls back to self._mt5 (test
         # seam). B2 lesson (Taş 4 delta, S5): a silent seam must never be
         # silent in production - surface it in the audit chain.
-        if self._mt5_conn is None:
+        if self._mt5_conn is None and not ctrader_mode:
             self.audit.append(
                 time.time(),
                 EventType.SAFETY,
@@ -1231,126 +1274,172 @@ class Orchestrator:
                 {"phase": "S1_connect", "warning": "mt5_conn_unset_test_seam_active"},
             )
 
-        terminal_path = config.get("terminal_path", "")
-        try:
-            if terminal_path:
-                init_ok = self._mt5.initialize(path=terminal_path)
-            else:
-                init_ok = self._mt5.initialize()
-        except Exception as e:
-            self.lock.release()
-            return StartupResult(
-                verdict=StartupVerdict.FATAL,
-                phase=StartupPhase.S1_CONNECT,
-                reason=f"initialize_exception: {e}",
-            )
-
-        if not init_ok:
-            self.lock.release()
-            return StartupResult(
-                verdict=StartupVerdict.FATAL,
-                phase=StartupPhase.S1_CONNECT,
-                reason="initialize_failed",
-            )
-
-        try:
-            login_ok = self._mt5.login(
-                login=int(config["login"]),
-                password=config["password"],
-                server=config["server"],
-            )
-        except Exception as e:
-            self.lock.release()
-            return StartupResult(
-                verdict=StartupVerdict.FATAL,
-                phase=StartupPhase.S1_CONNECT,
-                reason=f"login_exception: {e}",
-            )
-
-        if not login_ok:
-            self._mt5.shutdown()
-            self.lock.release()
-            return StartupResult(
-                verdict=StartupVerdict.FATAL,
-                phase=StartupPhase.S1_CONNECT,
-                reason="login_failed",
-            )
-
-        # ── S2: Account + Identity ──────────────────────────────
-        self.lock.set_phase("S2_identity")
-        try:
-            account_info = self._mt5.account_info()
-        except Exception as e:
-            self.lock.release()
-            return StartupResult(
-                verdict=StartupVerdict.FATAL,
-                phase=StartupPhase.S2_IDENTITY,
-                reason=f"account_info_exception: {e}",
-            )
-
-        if account_info is None:
-            self._mt5.shutdown()
-            self.lock.release()
-            return StartupResult(
-                verdict=StartupVerdict.FATAL,
-                phase=StartupPhase.S2_IDENTITY,
-                reason="account_info_none",
-            )
-
-        try:
-            terminal_info = self._mt5.terminal_info()
-        except Exception:
-            terminal_info = None
-
-        account_dict = {
-            "login": str(getattr(account_info, "login", "")),
-            "server": str(getattr(account_info, "server", "")),
-            "balance": float(getattr(account_info, "balance", 0.0)),
-            "equity": float(getattr(account_info, "equity", 0.0)),
-            "currency": str(getattr(account_info, "currency", "USD")),
-            "leverage": int(getattr(account_info, "leverage", 0)),
-            "margin_level": float(getattr(account_info, "margin_level", 0.0)),
-        }
-        terminal_dict = None
-        if terminal_info is not None:
-            terminal_dict = {
-                "build": int(getattr(terminal_info, "build", 0)),
-                "path": str(getattr(terminal_info, "path", "")),
-                "trade_allowed": bool(getattr(terminal_info, "trade_allowed", False)),
+        if ctrader_mode:
+            # İŞ-4a S1: cTrader-mode skips the MT5 initialize/login chain
+            # AND the S2 account_info/terminal_info reads (they are MT5
+            # module calls). Identity is established by the cTrader
+            # account-auth inside ensure_connected(); the account snapshot
+            # fields are filled with explicit zeros and surfaced in the
+            # audit chain (visible, not silent — §19).
+            account_dict = {
+                "login": str(self._mt5_conn.config.get("account_id", "")),
+                "server": str(self._mt5_conn.config.get("host", "")),
+                "balance": 0.0,
+                "equity": 0.0,
+                "currency": "USD",
+                "leverage": 0,
+                "margin_level": 0.0,
             }
+            terminal_dict = None
+            self.audit.append(
+                time.time(),
+                EventType.MT5_CONNECT,
+                self.configured_symbols[0] if self.configured_symbols else None,
+                {
+                    "transport": "ctrader",
+                    "phase": "S2_identity",
+                    "account": account_dict,
+                    "note": "account_info_skipped_ctrader_mode",
+                },
+            )
+            # D12 identity check: MT5_EXPECTED_LOGIN is an MT5-path flag.
+            # In cTrader mode the identity is the ctidTraderAccountId from
+            # config; a set MT5_EXPECTED_LOGIN cannot match it — surface a
+            # WARN (not FATAL, not silent) and continue.
+            expected_login = self.config.expected_login or os.getenv("MT5_EXPECTED_LOGIN")
+            if expected_login:
+                self.audit.append(
+                    time.time(),
+                    EventType.SAFETY,
+                    self.configured_symbols[0] if self.configured_symbols else None,
+                    {
+                        "phase": "S2_identity",
+                        "warning": "expected_login_is_mt5_flag_ignored_in_ctrader_mode",
+                        "expected_login": str(expected_login),
+                    },
+                )
+            safe_reasons: List[str] = []
+        else:
+            terminal_path = config.get("terminal_path", "")
+            try:
+                if terminal_path:
+                    init_ok = self._mt5.initialize(path=terminal_path)
+                else:
+                    init_ok = self._mt5.initialize()
+            except Exception as e:
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S1_CONNECT,
+                    reason=f"initialize_exception: {e}",
+                )
 
-        self.audit.append(
-            time.time(),
-            EventType.MT5_CONNECT,
-            self.configured_symbols[0] if self.configured_symbols else None,
-            {"account": account_dict, "terminal": terminal_dict},
-        )
+            if not init_ok:
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S1_CONNECT,
+                    reason="initialize_failed",
+                )
 
-        # ── S2 identity check (D12, Taş 2 hardened) ────────────
-        # Empty/unset expected_login → warn + SAFE-START (not FATAL).
-        # Set + mismatch → FATAL. Set + match → clean.
-        # NEW-1 (redelivery 4): terminal_info.trade_allowed == 0 →
-        # SAFE_START (terminal present but trading disabled).
-        expected_login = self.config.expected_login or os.getenv("MT5_EXPECTED_LOGIN")
-        d12_safe_pending: List[str] = []
-        if expected_login:
-            actual_login = account_dict["login"]
-            if actual_login != str(expected_login):
+            try:
+                login_ok = self._mt5.login(
+                    login=int(config["login"]),
+                    password=config["password"],
+                    server=config["server"],
+                )
+            except Exception as e:
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S1_CONNECT,
+                    reason=f"login_exception: {e}",
+                )
+
+            if not login_ok:
+                self._mt5.shutdown()
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S1_CONNECT,
+                    reason="login_failed",
+                )
+
+            # ── S2: Account + Identity ──────────────────────────
+            self.lock.set_phase("S2_identity")
+            try:
+                account_info = self._mt5.account_info()
+            except Exception as e:
+                self.lock.release()
+                return StartupResult(
+                    verdict=StartupVerdict.FATAL,
+                    phase=StartupPhase.S2_IDENTITY,
+                    reason=f"account_info_exception: {e}",
+                )
+
+            if account_info is None:
                 self._mt5.shutdown()
                 self.lock.release()
                 return StartupResult(
                     verdict=StartupVerdict.FATAL,
                     phase=StartupPhase.S2_IDENTITY,
-                    reason=f"identity_mismatch: expected={expected_login} actual={actual_login}",
+                    reason="account_info_none",
                 )
-        else:
-            d12_safe_pending.append("expected_login_unset")
 
-        # NEW-1: trade_allowed == 0 -> SAFE_START.
-        if terminal_dict is not None and not terminal_dict.get("trade_allowed", True):
-            d12_safe_pending.append("trade_allowed_disabled")
+            try:
+                terminal_info = self._mt5.terminal_info()
+            except Exception:
+                terminal_info = None
 
-        safe_reasons: List[str] = list(d12_safe_pending)
+            account_dict = {
+                "login": str(getattr(account_info, "login", "")),
+                "server": str(getattr(account_info, "server", "")),
+                "balance": float(getattr(account_info, "balance", 0.0)),
+                "equity": float(getattr(account_info, "equity", 0.0)),
+                "currency": str(getattr(account_info, "currency", "USD")),
+                "leverage": int(getattr(account_info, "leverage", 0)),
+                "margin_level": float(getattr(account_info, "margin_level", 0.0)),
+            }
+            terminal_dict = None
+            if terminal_info is not None:
+                terminal_dict = {
+                    "build": int(getattr(terminal_info, "build", 0)),
+                    "path": str(getattr(terminal_info, "path", "")),
+                    "trade_allowed": bool(getattr(terminal_info, "trade_allowed", False)),
+                }
+
+            self.audit.append(
+                time.time(),
+                EventType.MT5_CONNECT,
+                self.configured_symbols[0] if self.configured_symbols else None,
+                {"account": account_dict, "terminal": terminal_dict},
+            )
+
+            # ── S2 identity check (D12, Taş 2 hardened) ─────────
+            # Empty/unset expected_login → warn + SAFE-START (not FATAL).
+            # Set + mismatch → FATAL. Set + match → clean.
+            # NEW-1 (redelivery 4): terminal_info.trade_allowed == 0 →
+            # SAFE_START (terminal present but trading disabled).
+            expected_login = self.config.expected_login or os.getenv("MT5_EXPECTED_LOGIN")
+            d12_safe_pending: List[str] = []
+            if expected_login:
+                actual_login = account_dict["login"]
+                if actual_login != str(expected_login):
+                    self._mt5.shutdown()
+                    self.lock.release()
+                    return StartupResult(
+                        verdict=StartupVerdict.FATAL,
+                        phase=StartupPhase.S2_IDENTITY,
+                        reason=f"identity_mismatch: expected={expected_login} actual={actual_login}",
+                    )
+            else:
+                d12_safe_pending.append("expected_login_unset")
+
+            # NEW-1: trade_allowed == 0 -> SAFE_START.
+            if terminal_dict is not None and not terminal_dict.get("trade_allowed", True):
+                d12_safe_pending.append("trade_allowed_disabled")
+
+            safe_reasons: List[str] = list(d12_safe_pending)
 
         # ── S3: ContractSpec ────────────────────────────────────
         self.lock.set_phase("S3_contract")
@@ -1429,7 +1518,43 @@ class Orchestrator:
                 sizer=self._sizer,
                 risk_manager=self._risk_manager,
             )
-            snapshot = self._runner.startup_snapshot(configured_symbols=self.configured_symbols)
+            # İŞ-4a S5 (D159, karar-5): in cTrader mode the LiveRunner is
+            # CONSTRUCTED but startup_snapshot() is NOT called — the MT5
+            # module calls inside it would fail on mt5=None and flip
+            # safe_mode=True, whose persistence (§7.2) would then force
+            # every future boot into SAFE-START (safe-mode persist loop).
+            # Instead we hand-build the snapshot shape: reconciliation is
+            # an explicit beyanlı NOT_RUN (audited below — not silent),
+            # positions/orders empty (cTrader positions are managed in a
+            # later İş item), mt5_connected from the adapter.
+            if self._ctrader_mode:
+                snapshot = {
+                    "mt5_connected": bool(
+                        self._mt5_conn.is_connected()
+                        if hasattr(self._mt5_conn, "is_connected")
+                        else False
+                    ),
+                    "reconciliation": {
+                        "status": "NOT_RUN",
+                        "block_trading": True,
+                        "details": ["ctrader_mode_reconciliation_not_run"],
+                    },
+                    "safe_mode": False,
+                    "positions": [],
+                    "pending_orders": [],
+                }
+                self.audit.append(
+                    time.time(),
+                    EventType.SAFETY,
+                    self._symbol,
+                    {
+                        "phase": "S5",
+                        "warning": "ctrader_snapshot_manual_beyanli",
+                        "reconciliation": "NOT_RUN",
+                    },
+                )
+            else:
+                snapshot = self._runner.startup_snapshot(configured_symbols=self.configured_symbols)
         except Exception as e:
             safe_reasons.append(f"snapshot_failed: {type(e).__name__}")
 
@@ -1662,8 +1787,15 @@ class Orchestrator:
                 pass
 
         # Release the broker handle (only if we hold it).
+        # İŞ-4a S1 (D159): cTrader-mode → conn.stop() (reactor thread +
+        # sockets). The adapter has no `shutdown`; MT5Connection HAS
+        # `shutdown` (duck-typing check preserved — same branch handles
+        # both: hasattr(shutdown) → MT5 path; ctrader_mode → adapter).
         try:
-            if self._mt5 is not None and hasattr(self._mt5, "shutdown"):
+            if self._ctrader_mode:
+                if self._mt5_conn is not None and hasattr(self._mt5_conn, "stop"):
+                    self._mt5_conn.stop()
+            elif self._mt5 is not None and hasattr(self._mt5, "shutdown"):
                 self._mt5.shutdown()
         except Exception:
             pass
@@ -1756,6 +1888,28 @@ class Orchestrator:
         safe_reason in S3.
         """
         if self._mt5 is None or not hasattr(self._mt5, "symbol_info"):
+            # İŞ-4a S3 (D159): cTrader-mode has no MT5 symbol_info. We use
+            # an EXPLICIT default contract preset for FX majors (beyanlı —
+            # audited, not silent): digits=5, tick_size=0.00001,
+            # contract_size=100000, volume 0.01..100 step 0.01,
+            # stops_level=0.0 (cTrader symbol details would refine this in
+            # a later İş item). trade_mode unknown → flagged ok
+            # conservatively; sizing uses tick_value which we set
+            # conservatively to 1.0 (per-point USD for a 0.00001 tick on a
+            # 100k contract — standard FX major value).
+            if self._ctrader_mode:
+                self._trade_mode_ok = True
+                return ContractSpec(
+                    symbol=symbol,
+                    volume_min=0.01,
+                    volume_max=100.0,
+                    volume_step=0.01,
+                    tick_size=0.00001,
+                    tick_value=1.0,
+                    contract_size=100000.0,
+                    stops_level=0.0,
+                    digits=5,
+                )
             self._trade_mode_ok = True  # unknown — don't falsely flag
             return None
         try:
@@ -1845,7 +1999,7 @@ class Orchestrator:
             # so the rebuild replays the FULL history (no gap).
             self._begin_cold_rebuild()
 
-        if self._mt5 is None:
+        if self._mt5 is None and not self._ctrader_mode:
             if warm_skip:
                 # D49: warm-skip path records an empty replay report (no replay).
                 self._replay_report = {
@@ -2364,6 +2518,12 @@ class Orchestrator:
 
     def is_connected(self) -> bool:
         """Check if MT5 connection is alive."""
+        # İŞ-4a S1 (D159): cTrader-mode delegates to the adapter.
+        if self._ctrader_mode:
+            try:
+                return bool(self._mt5_conn.is_connected())
+            except Exception:
+                return False
         if self._mt5 is None:
             return False
         if hasattr(self._mt5, "is_connected"):
@@ -2500,6 +2660,13 @@ class Orchestrator:
 
     def _get_account(self) -> Optional[Account]:
         """D4/D14: FRESH account per bar cycle; never cache across ticks."""
+        # İŞ-4a S1 (D159, karar-7): cTrader-mode has no MT5 account_info.
+        # We return an explicit ZERO account (beyanlı — audited once at
+        # boot, not per-bar): sizing sees balance=0/equity=0 → risk checks
+        # reject sizing → no order can ever be built. This is the second
+        # lock (with signal_only=1 default) on the no-real-orders path.
+        if self._ctrader_mode:
+            return Account(balance=0.0, equity=0.0)
         try:
             acc = self._mt5.account_info() if self._mt5 is not None else None
         except Exception:

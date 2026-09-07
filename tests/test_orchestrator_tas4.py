@@ -283,7 +283,7 @@ def test_run_production_fatal_maps_to_1(monkeypatch, tmp_path):
             calls["shutdown"] += 1
 
     monkeypatch.setattr(rp, "Orchestrator", FakeOrch)
-    monkeypatch.setattr(rp, "MT5Connection", lambda: object())
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: object())
     assert rp.main() == 1
     # K5 move: the finally belt-and-braces now covers the FATAL path too —
     # one idempotent shutdown() call (no-op on real lock state).
@@ -314,7 +314,7 @@ def test_run_production_proceed_maps_run_code(monkeypatch, tmp_path):
             pass
 
     monkeypatch.setattr(rp, "Orchestrator", FakeOrch)
-    monkeypatch.setattr(rp, "MT5Connection", lambda: object())
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: object())
     assert rp.main() == 2
 
 
@@ -342,7 +342,7 @@ def test_run_production_injects_mt5_conn(monkeypatch, tmp_path):
             pass
 
     monkeypatch.setattr(rp, "Orchestrator", FakeOrch)
-    monkeypatch.setattr(rp, "MT5Connection", lambda: "REAL_CONN")
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: "REAL_CONN")
     rp.main()
     assert captured["mt5_conn"] == "REAL_CONN"
 
@@ -371,7 +371,7 @@ def test_run_production_run_raises_calls_shutdown(monkeypatch, tmp_path):
             calls["shutdown"].append((exit_code, reason))
 
     monkeypatch.setattr(rp, "Orchestrator", FakeOrch)
-    monkeypatch.setattr(rp, "MT5Connection", lambda: object())
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: object())
     assert rp.main() == 1
     # shutdown fires twice: except-branch + finally belt-and-braces
     # (idempotent in the real Orchestrator — single event, double call OK).
@@ -412,7 +412,7 @@ def test_run_production_keyboard_interrupt_maps_to_0(monkeypatch, tmp_path):
 
     calls = []
     monkeypatch.setattr(rp, "Orchestrator", _ki_orch(calls))
-    monkeypatch.setattr(rp, "MT5Connection", lambda: object())
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: object())
     assert rp.main() == 0
     assert calls[0][0] == 0 and calls[0][1] == "keyboard_interrupt"
     assert len(calls) == 2  # except-branch + finally (idempotent)
@@ -425,7 +425,7 @@ def test_run_production_keyboard_interrupt_safe_start_maps_to_2(monkeypatch, tmp
 
     calls = []
     monkeypatch.setattr(rp, "Orchestrator", _ki_orch(calls, verdict=StartupVerdict.SAFE_START))
-    monkeypatch.setattr(rp, "MT5Connection", lambda: object())
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: object())
     assert rp.main() == 2
     assert calls[0][0] == 2 and calls[0][1] == "keyboard_interrupt"
 
@@ -436,7 +436,7 @@ def test_run_production_keyboard_interrupt_runtime_safe_maps_to_2(monkeypatch, t
 
     calls = []
     monkeypatch.setattr(rp, "Orchestrator", _ki_orch(calls, runtime_safe=True))
-    monkeypatch.setattr(rp, "MT5Connection", lambda: object())
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: object())
     assert rp.main() == 2
     assert calls[0][0] == 2
 
@@ -463,7 +463,7 @@ def test_run_production_keyboard_interrupt_during_startup(monkeypatch, tmp_path)
             calls.append((exit_code, reason))
 
     monkeypatch.setattr(rp, "Orchestrator", FakeOrch)
-    monkeypatch.setattr(rp, "MT5Connection", lambda: object())
+    monkeypatch.setattr(rp, "_build_data_connection", lambda: object())
     assert rp.main() == 0
     # except-branch + finally belt-and-braces (idempotent double-call OK)
     assert calls == [
