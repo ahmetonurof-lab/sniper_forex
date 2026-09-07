@@ -2692,3 +2692,29 @@ dosyalar test-hedefi OLAMAZ; izole kopya kullanılmalı.
 
 **Next:** Hakem'e T0#4 raporu (B1-B7 yeşil + çökme + iki kök-neden + karar
 sorusu). Yeni boot ÖNCE karar sonrası.
+
+---
+
+## D137-EK (2026-09-07) — Reis operatör-bilgisi: sandbox access-token ONAYI GELDİ
+
+- **Bilgi:** Reis: "sandbox Access token onayı geldi, hesap aktif."
+  → Sandbox-hesabı erişimi **AKTİF**; bir sonraki-iş için hazır-bekleyen
+  dış-bağlantı ön-koşulu tamamlandı sayılır (Reis operatör-beyanı;
+  agent tarafında bağımsız doğrulama YAPILMADI — gerekirse Reis'ten
+  hesap/kapsam detayı istenir).
+- **Durum:** Hakem'in D137-bilgilendirme-dosyasına (`HAKEM_EYE_20260903.md`
+  B1–B3) verdiği direktif **bekleniyor**. Yeni-iş başlatılmaz; report-only
+  disiplin aynen yürürlükte.
+- **Bekleyen kararlar (değişmedi):** (1) 7-parite config-yazımı Reis
+  yazılı-onayı; (2) trade-gating DEBT Adım-C ön-koşulu planlaması;
+  (3) Hakem'in B1–B3 kontrol-noktaları ratifiyesi.
+
+## D139-EK — Config-yazımı tamamlandı (2026-09-08)
+- `src/config/cbdr_band_config.py` yazıldı (data-only, 7 parite,
+  rev.4 §2 birebir, 3 anlamlı basamak). USDCHF/NZDUSD verified=False
+  (etiketli-giriş, Seçenek B). Cmt-kovası bilinçli çıkartıldı (§6.2).
+- Tüketici-kod YAZILMADI — percentile'ları okuyan production-mekanizma
+  repo'da yok; wiring ayrı Reis-onaylı görev (rev.4 §7.2).
+- Test: kapsam-beyanlı 539 passed / 2 skipped; 14 failed + 9 collect-error
+  pre-existing (5223d59 archive-taşınması → main_research_c_v1_0 yok).
+- Commit/push yok (§9.2 yazılı-onay şartı). Bekleyen: Reis'in yeni görevi.

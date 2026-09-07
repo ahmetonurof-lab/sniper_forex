@@ -35,7 +35,7 @@ from src.live.clock import _utcnow_naive, server_to_utc_historical
 from src.live.portfolio_dd import PortfolioDD
 from src.live.position_manager import Position
 from src.live.risk import Account, RiskManager
-from src.live.sizing import ContractSpec, PositionSizer
+from src.live.sizing import ContractSpec, PositionSizer, contract_for_symbol
 from src.live.strategy_runtime import Signal, StrategyRuntime
 from src.strategy.models import Bar
 
@@ -573,17 +573,7 @@ class PaperSession:
         }
 
     def _default_contract(self) -> ContractSpec:
-        return ContractSpec(
-            symbol=self.symbol,
-            volume_min=0.01,
-            volume_max=100.0,
-            volume_step=0.01,
-            tick_size=0.00001,
-            tick_value=1.0,
-            contract_size=100000.0,
-            stops_level=0.0,
-            digits=5,
-        )
+        return ContractSpec(symbol=self.symbol, **contract_for_symbol(self.symbol))
 
 
 def _rates_to_bars(rates: Any) -> List[Bar]:

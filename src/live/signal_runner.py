@@ -37,7 +37,7 @@ from src.live.audit import AuditChain, EventType
 from src.live.candle_feed import M1CandleFeed, resample_15m
 from src.live.clock import _utcnow_naive, server_to_utc_historical
 from src.live.risk import Account, RiskManager
-from src.live.sizing import ContractSpec
+from src.live.sizing import ContractSpec, contract_for_symbol
 from src.live.strategy_runtime import Signal, StrategyRuntime
 from src.strategy.models import Bar
 
@@ -267,14 +267,4 @@ class SignalRunner:
         Production should pull real spec from MT5 symbol_info."""
         if config.default_contract is not None:
             return config.default_contract
-        return ContractSpec(
-            symbol=symbol,
-            volume_min=0.01,
-            volume_max=100.0,
-            volume_step=0.01,
-            tick_size=0.00001,
-            tick_value=1.0,
-            contract_size=100000.0,
-            stops_level=0.0,
-            digits=5,
-        )
+        return ContractSpec(symbol=symbol, **contract_for_symbol(symbol))

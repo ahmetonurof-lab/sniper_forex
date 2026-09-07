@@ -1866,3 +1866,101 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
 - **Dokunulmazlar:** src/live/* + index.json + state/ + PID-1924 dokunulmadı (PID-1924 alive post-commit ✓).
 - **Açık:** PUSH-KAYDI-13 (progress.md, 10-satır) hâlâ uncommitted — ayrı chore-commit önerilir.
 - **Sıradaki:** D106-V6-anomali-paketi (kuyruk-6) — N2#25 sonrası.
+
+## D109-KAYDI — ADIM-B push + canlı-izleme + bot-reboot (2026-09-06; Cline-icrası; Hakem-hükmü + Reis-emri)
+
+- **ADIM-B push (hash-bound §9.5):** set `{baed47e, 5496284}` → `origin/main`. Push `50a0862..5496284 main -> main` (EXIT=0). §16: origin/main..HEAD=0 ✓ · ls-remote=54962845864ded43f44eaec5d75670c59086cbdc==rev-parse-HEAD ✓ · staged-kalan=0 ✓ · PID-1924-alive (push-öncesi) ✓.
+- **N2#25 canlı-doğrulama:** `state/audit.jsonl` EURUSD-stale (Sep-4) — canlı-BTCUSD-log `state_btc_d104/audit.jsonl`. N2#25 aracıyla dönüşüm: 562→659 özet-satır, tümü ISO-8601 UTC (`2026-09-05T22:13:00+00:00`). Son-epoch `2026-09-05T19:15:03+00:00` (boot-öncesi).
+- **Reboot (Reis-emri + REIS-ayrı-hüküm):** PID-1924 hard-stop (D58: MSYS-arka-plan boot'ta graceful-stop kanalı YOK; stale-lock takeover ile recoverable). Yeni-boot **PID-17488**, tam-komut: `MT5_EXPECTED_LOGIN=53012914 SNIPER_SYMBOLS=BTCUSD SNIPER_STATE_DIR=C:/Users/Administrator/Desktop/sniper_forex/state_btc_d104 SNIPER_SIGNAL_ONLY=0 SNIPER_MAX_SPREAD=1000000 python -u -m src.live.run_production` (base-Python312; env.exe-ebeveyn-şablonu birebir).
+- **Boot7 kanıt:** `startup PROCEED: ok (warmup_bars=4342)` · `entry gate OPEN: ok` · COLD_REBUILD replay_bars=4241 next_idx=4342 session=2026-09-06 signals_discarded=14 · S11 PROCEED restored=false · SAFETY gate=open. Lock takeover `{"pid":17488,"phase":"running"}`. Loglar: `state/d104_boot7_stdout.log` + `stderr.log` (state/-gitignored).
+- **T0_7 notu:** MT5_EXPECTED_LOGIN=53012914 set'i REIS'in açık ayrı-hüküm yetkisiyle yapıldı (askQuestions: "PROCEED reboot" seçildi). Demo-hesap (ICMarketsSC-Demo, balance 12646.17).
+- **Dokunulmazlar:** src/live/* + index.json + state/ kod-dosyaları dokunulmadı (yalnız state/-runtime-artefaktları yazıldı). PID-1924→17488 reboot'u Reis-emri.
+- **Açık:** D106-V6-anomali-paketi ASKIYA (hafta-sonu). Canlı-izleme: PID-17488 ilk-SIGNAL/ORDER/FILL zinciri bekleniyor (Reis sorumluluğunda).
+
+## D114 — WORKTREE KORUMA PROTOKOLÜ (Cline-icra; 2026-09-06; Hakem-hükmü D114)
+
+- **Kapsam:** src/live/*.py (±380 satır, D104/D102/N2#21/N2#24 kombinasyonu)
+- **Eylem:** git stash YERİNE patch-yedek (canlı-boot-dokunulmaz garantisi; Hakem §1 Cline-düzeltmesi-onayı)
+- **Yedek:** state/D104_preserve/worktree_src_live_20260906.patch (708 satır/33KB; SHA256-mühürlü, `sha256sum --check` OK)
+- **Protokol:** ADIM1 `git diff src/live/ > ...patch` · ADIM2 `sha256sum >> SHA256SUMS` · ADIM3 `--check` OK · ADIM4 bu-def-ter-girdisi
+- **Durum:** Deferred — canlı boot sonrası hash-bound sette commit edilecek. Canlı dosyalara DOKUNULMADI (salt-read yedek).
+- **Risk-notu:** git stash reddedildi — Python import mekaniği/diskten-load sebebiyle canlı bot (PID-17488) restart'ta eski-koda sessiz-divergence yazardı (§7.3/§6 ihlali). Patch-yedek aynı korumayı risksiz sağlar.
+
+## PUSH-KAYDI-14 (§9.3) — SET: N2#26 (2026-09-06; Cline-icrası; Hakem-D114 §3 AÇIK-YAZILI-YETKİ)
+
+- **Yetki:** Hakem-hükmü D114 §3 — "AÇIK YAZILI PUSH YETKİSİ" hash-bound {`bd74d1080842f83c69429860dfaf9f8e840ad89d`}.
+- **Ne/tam-set (hash-bound):** tek-commit `bd74d10` (`feat(n2_26): make_readable_log REIS revizyonu — yerel+offset, logs/<SYM>/live.log, bar_ts`).
+- **Kapsam (3-dosya):** `tools/make_readable_log.py` + `tests/test_make_readable_log.py` + `results/N2_26_human_readable_log_reis_revize.md`.
+- **Pre-gate:** HEAD==yetkili-hash ✓ · origin/main..HEAD=tam-1 ✓ · patch-protokolü (D114 ADIM1-4) tamamlandı ✓.
+- **Push:** 2026-09-06 · origin/main (github.com/ahmetonurof-lab/sniper_forex) · `5496284..bd74d10 main -> main` (EXIT=0).
+- **Post-teyit (§16 dört-dörtlük):** origin/main..HEAD=0 ✓ · ls-remote main==`bd74d1080842f83c69429860dfaf9f8e840ad89d`==local-HEAD ✓ · staged-kalan=0 ✓.
+- **Dokunulmazlar:** src/live/* (patch-li, deferred) + index.json + state/ dokunulmadı. PID-17488 canlı.
+- **Açık:** D106-V6-anomali-paketi ASKIYA (Pzt 2026-09-07 CBDR-checkpoint / ilk-SIGNAL). Multi-symbol Faz-2 planı Pzt. PUSH-KAYDI-14 (progress.md) hâlâ uncommitted — ayrı chore-commit önerilir.
+
+## D120-KAYDI — BOT KAPATMA + eTRADER GEÇİŞ KARARI (2026-09-06; Cline-icrası; Reis-direktifi)
+
+- **Bağlam:** PID-17488 "zombi" durumu — heartbeat-canlı ama audit.jsonl 8.2-saat donmuş (son STATE bar_ts 2026-09-06T01:30:00). MT5-terminali (PID-19928) + feed CANLI; salt-okur sorguda canlı M1 geldi. Kök-neden: botun MT5 API konsumption'ı kesintiye uğramış (hatasız sessiz-boşluk).
+- **D119-Hakem-hükmü:** ŞARTLI-restart-onayı + MT5-API-ön-koşul-testi. Test sonucu: MT5 API SAĞLIKLI (fresh M1 ≤120s) → Hakem-tablosuna göre "DUR — farklı teşhis" dalı. Ek-analiz: `server_to_utc_historical` dönüşümü inceleniyordu.
+- **Reis-direktifi (bu kayıt):** "botu kapatabilirsin mt5 bizim için bitmiştir. eTrader entegrasyonuna geçiyoruz."
+- **EYLEM (Cline-icra):** PID-17488 `taskkill /F` ile kapatıldı (cmd-wrapper-MSYS-yolu-guvenligi). Post-kill: python prosessi YOK; yalniz terminal64.exe (PID-19928) ayakta. Lock `{"pid":17488,...}` artik orphan/stale (hearbeats-duracagi icin).
+- **Etkilenen/kod-degisikligi:** YOK — src/live/* + index.json + state/ dokunulmadi. Salt runtime-isletimsel-eylem.
+- **Geçiş-hedefi:** Trade.com eTrader platformu entegrasyonu (henüz repoda referans YOK — yesil-alan). Detayli-arastirma + mimari-plân Ayrica-belgelenecek.
+- **Açık:** eTrader API erişim-detayi (auth/REST-websocket?), sembol-eslesmesi (EURUSD/BTCUSD vb.), komisyon/spread-semantigi, deploy-topology degisikligi. Plân Hazirlanacak.
+- **Kaynak-discipline:** Bu girdi progress.md'ye eklendi (kod-degil). Chore-commit opsiyonel — Hakem/Reis onayiyla.
+
+## D122-KAYDI — REPO TEMİZLİK İCRASI (2026-09-06; Cline-icrası; Hakem-D122 + Reis-onayı)
+
+- **Direktif:** Hakem D122 (7-adım temizlik) + Reis açık-onayı ("repo tertemiz miss gibi olsun").
+- **Güvenlik-önlemi (kanıt koruması):** Harici yedek `C:/Users/Administrator/Desktop/sniper_forex_D122_backup_20260906/` (results/ 80MB + archive/ + D104/D77/D82/D85/t10d_preserve patch'leri). Git-tag `pre-D122-cleanup-20260906` (tracked içerik sigortası). results/archive çoğu untracked idi → harici yedek kritik.
+- **ADIM1:** `state/` git'ten kaldırıldı + lokalde temizlendi + `.gitignore` (commit `bbde7bf`).
+- **ADIM2:** `index.json` git'ten kaldırıldı + silindi + `.gitignore` (commit `746504b`).
+- **ADIM3:** `archive/` git'ten kaldırıldı + lokalde temizlendi + `.gitignore` (commit).
+- **ADIM4:** `results/` git'ten kaldırıldı + lokalde temizlendi + `.gitignore` (commit).
+- **ADIM5:** `experiment/` — Hakem organize edecek (Cline dokunmadı).
+- **ADIM6:** Root geçici dosyalar silindi (collect_tmp.txt, n2_*.sh, n2_*.log, n2_24_iso*.txt).
+- **ADIM7:** Tüm `*.log` silindi + `*.log`/`*.tmp` `.gitignore` (commit `645db47`).
+- **Dokunulmazlar:** src/live/* (patch-backed, deferred) + memory-bank/ + tests/ + data/ + docs/ + experiment/ dokunulmadı.
+- **PUSH: YAPILMADI** — Reis/Hakem hash-bound onayı beklenir. 5 commit: bbde7bf, 746504b, +3 (archive/results/root).
+- **Açık:** eTrader geçişi (D120) + cTrader 5-kalem sorusu (D122 §4) sırada.
+
+## D122-EK — EXPERIMENT ARŞİV + LOG/JSON TEMİZLİĞİ (2026-09-06; Cline-icrası; Hakem-D122 + Reis-direktifi)
+
+- **Direktif:** Hakem "experiment içinde işi bitmiş ama gerekli olabilecek son versiyonları (v0-v1.1 gibi) arşivle" + Reis "log dosyalarından kurtul, kullanılmayan json'lardan kurtul, botun 3 log dosyası haricindekileri sil".
+- **Experiment arşiv:** 21 bitmiş deney script'i `archive/experiment_20260906/` altına taşındı (git mv → sonra reset + sadece silme commit'i; archive/ gitignore'da olduğu için dosyalar diskte untracked duruyor). Commit `5223d59` (20 dosya silindi, 13016 satır). Arşivlenenler: audit_expB_replay, exp4/4b, exp5b-f, exp_maxdd_A-F, main_research_c_v1_0/v1_1, main_research_d_v1_0, exp_cbdr_time_semantic_alignment, exp_sri001_breakout_variant.
+- **Korunan çekirdek:** `experiment/` içinde sadece gemini_benchmark.py + gemini_detector.py + trailing_adapter.py + config.py + __init__.py kaldı (canonical motor).
+- **Logs temizliği:** `logs/` içindeki tüm eski soak/audit kalıntıları silindi (audit_*.txt, soak_*.out, bot_*.py, phase5/smoke_audit.jsonl, adli/, runtime/, __pycache__/). Sadece `logs/BTCUSD/` korundu (bot'un live.log konumu).
+- **JSON temizliği:** Kullanılmayan jsonl'lar silindi. Kalan: `.vscode/settings.json` + `tools/code-index-system/config.json` (gerekli) + `state_btc_d104/audit.jsonl` (bot'un 3 logundan biri).
+- **Orphan lock:** `state_btc_d104/orchestrator.lock` (PID-17488, bot ölü) silindi.
+- **3 bot log dosyası (korunan):** `state_btc_d104/audit.jsonl` + `state_btc_d104/audit_readable.log` (yeniden üretilir) + `logs/BTCUSD/live.log` (yeniden üretilir).
+- **Dokunulmazlar:** src/live/* (patch-backed) + memory-bank/ + tests/ + data/ + docs/ dokunulmadı.
+- **PUSH: YAPILMADI** — Reis/Hakem hash-bound onayı beklenir. Commit set: bbde7bf, 746504b, 71df268, 041165a, 645db47, 5223d59.
+
+## D125-KAYDI — cTrader OPEN API RESMİ DOKÜMANTASYON ARAŞTIRMASI (2026-09-06; Cline-web; Hakem-D125 direktifi)
+
+- **Direktif:** Hakem D125 — D124'teki 29 eğitim-bilgisi iddiasını (7 grup A-G) resmi kaynaklara karşı çapraz doğrula, `docs/ctrader_openapi_official_research.md` çıktısı.
+- **Çıktı:** `docs/ctrader_openapi_official_research.md` (198 satır) — 29-iddia tablosu + 3 kritik bulgu + skor + revizyon önerileri.
+- **Kaynaklar (14):** help.ctrader.com/open-api (Getting Started, API Application, Terms, FAQ, Messages) + spotware GitHub (openapi-proto-messages, OpenApiPy, Open-API-Example-mobile-trader) + PyPI (ctrader-open-api 0.9.2) + Twisted docs (threading, reactor) + ctrader.com/brokers + TradingView/Google AI Bakışı.
+- **SKOR:** 24/29 DOĞRULANDI (%82.8) + 5/29 KISMEN DOĞRU (%17.2) + 0 YANLIŞ + 0 KAYNAK YOK. Hakem'in D124 eğitim bilgisi yüksek doğrulukta.
+- **KRİTİK-1 (A2/A3) ÇÖZÜLDÜ:** IC Markets bireysel hesaplara Open API erişimi VERİYOR. "Broker partner programı gerekir" YANLIŞ — docs: "available for anyone registered with a cTrader-affiliated broker", "supported by all trading accounts of any cTrader-affiliated brokers". IC Markets resmi cTrader broker listesinde + Spotware'ın resmi mobil örneğinde.
+- **KRİTİK-2 (E4/E5) DOĞRULANDI:** Açık pozisyon SL/TP için AYRI mesaj `ProtoOAAmendPositionSLTPReq` (positionId, stopLoss, takeProfit, guaranteedStopLoss, trailingStopLoss). `ProtoOAAmendOrderReq` bekleyen emirler içindir.
+- **KRİTİK-3 (G1/G2/G3) DOĞRULANDI:** IC Markets cTrader'da BTCUSD kripto CFD VAR (TradingView ICMARKETS:BTCUSD). Sembol adı: BTCUSD (slash yok). Trading: 7 gün/hafta (Pzt-Per 00:05-23:59, Cum 00:05-23:55, Cmt 00:45-23:59, Paz 00:05-23:59 server time). MT5'le birebir aynılık ayrıca doğrulanmalı (G2 açık).
+- **Revizyon önerisi (4 iddia):** A2 (partner programı → cTrader-affiliated broker + cTID + uygulama kaydı), C2 (token OAuth2 endpoint'inden, ProtoOAApplicationAuthReq'den değil), C5 (heartbeat iki yönlü, klient gönderir), F1 (modern Twisted restart destekler ama standart tek run).
+- **Ek bulgular:** Rate limits 50/5 req-sn; heartbeat ≥10s zorunlu; WebSocket destekli; FIX API de var (cTraderFixPy); ücretsiz; demo+live.
+- **Sonraki adım:** Hakem D124 karşılaştırması + Reis onayı → D124 revizyonu → eTrader geçişi (Adım A).
+
+## D132-KAYDI — cTrader Python cBot CBDR KALİBRASYONU (2026-09-06; Copilot; Adım 1-4 + 4c)
+
+- **Adım 1 ✅:** `docs/ctrader_python_cbot_api_research.md` — cTrader Python cBot API araştırması.
+- **Adım 2 ✅:** `src/ctrader/cbot/core.py` (saf compute engine) + `cbdr_calibration_bot.py` (shim) + `tests/test_cbdr_calibration_core.py` (14 test GREEN).
+- **Adım 3 ✅:** Görselleştirme yükseltmesi (CBDR body/FVG/sweep çizimi, statik panel, 30s timer).
+- **Adım 4 ✅:** 14 dosyalık C# scaffold (`src/ctrader/cbot/scaffold/`) → cTrader 5.9.10'da BUILD SUCCESS.
+- **Adım 4c ✅ (BUGFIX):** Backtest'te "No module named 'cbdr_calibration_bot'" hatası.
+  - **Kök neden:** cTrader 5.9.10 gömülü Python İÇERMİYOR; sistem Python 3.12.2 kullanıyor.
+    Spotware in-memory importer ESKİ `find_module`/`load_module` protokolünü kullanıyor —
+    Python 3.12'de `MetaPathFinder.find_module` KALDIRILDI → finder sessizce atlanıyor.
+  - **Kanıt:** .py dosyaları DLL'e gömülü (4 resource doğrulandı); modül haritası dolu; sorun protokol.
+  - **Fix:** `PythonHooks.cs` `InMemoryModuleLoaderPythonCode` → modern `find_spec`/`create_module`/`exec_module`.
+    Sistem Python 3.12'de gerçek `core.py` ile doğrulandı → import OK. Build SUCCESS 0 hata.
+  - **OnStop NullReferenceException:** `_pythonBridge` null (import başarısız) → `OnStop` NRE. Import fix'iyle çözülür.
+- **Adım 5 ⬜:** `results/cbdr_calibration_results.md` — per-pair CBDR genişlik dağılımları.
+- **PUSH YOK:** Reis Adım 5 sonrası onaylayana kadar (AGENTS.md §9).

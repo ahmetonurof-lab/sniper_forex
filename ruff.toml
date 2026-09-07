@@ -18,3 +18,8 @@ ignore = [
 "experiment/*" = ["F841"]
 "tests/*" = ["F841"]
 "scripts/*" = ["E402", "F841"]
+# cTrader cBot scaffold: robot_wrapper.py is a verbatim MIT-licensed
+# bridge shim (spotware/ctrader-python-algo-samples) using star-import
+# against the host cAlgo.API module, which ruff cannot resolve. Keep
+# verbatim (upstream-faithful); F403/F405 are expected there.
+"src/ctrader/cbot/scaffold/*" = ["F403", "F405"]

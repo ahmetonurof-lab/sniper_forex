@@ -35,7 +35,7 @@ from src.live.execution import Execution, OrderRequest
 from src.live.portfolio_dd import PortfolioDD
 from src.live.reconciliation import Reconciler
 from src.live.risk import Account, RiskManager
-from src.live.sizing import ContractSpec, PositionSizer
+from src.live.sizing import ContractSpec, PositionSizer, contract_for_symbol
 from src.live.strategy_runtime import Signal, StrategyRuntime, signal_audit_payload
 from src.live.trade_lifecycle import (
     OpenTradeContext,
@@ -64,18 +64,8 @@ class LiveRunnerStepResult:
 
 
 def default_contract(symbol: str) -> ContractSpec:
-    """Conservative USD-account default (5-digit major)."""
-    return ContractSpec(
-        symbol=symbol,
-        volume_min=0.01,
-        volume_max=100.0,
-        volume_step=0.01,
-        tick_size=0.00001,
-        tick_value=1.0,
-        contract_size=100000.0,
-        stops_level=0.0,
-        digits=5,
-    )
+    """Conservative USD-account default; per-symbol presets (D102-BTİ)."""
+    return ContractSpec(symbol=symbol, **contract_for_symbol(symbol))
 
 
 class LiveRunner:

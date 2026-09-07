@@ -1,5 +1,6 @@
 # Environment variables
 .env
+token_cache.json
 
 # Python
 __pycache__/
@@ -24,7 +25,6 @@ d49_*_*.txt
 .mypy_cache/
 .pytest_cache/
 state/
-state_btc_d104/
 index.json
 archive/
 results/

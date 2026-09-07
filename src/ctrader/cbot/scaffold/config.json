@@ -1,0 +1,87 @@
+{
+  "AddIndicators": true,
+  "AccessRights": "None",
+  "TimeZone": "UTC",
+  "AdditionalInfoUrl": null,
+  "Parameters": [
+    {
+      "DisplayName": "Eps Minutes",
+      "Name": "EpsMinutes",
+      "Description": "Intra-body clustering slack (minutes)",
+      "Type": "Integer",
+      "DefaultValue": 15,
+      "MinValue": 1,
+      "MaxValue": 60,
+      "Step": 1,
+      "Group": "CBDR",
+      "IsValueVisibleInTitle": true,
+      "EnumTypeFullName": null
+    },
+    {
+      "DisplayName": "ATR Period",
+      "Name": "AtrPeriod",
+      "Description": "Rolling ATR look-back (bars)",
+      "Type": "Integer",
+      "DefaultValue": 96,
+      "MinValue": 1,
+      "MaxValue": 500,
+      "Step": 1,
+      "Group": "CBDR",
+      "IsValueVisibleInTitle": true,
+      "EnumTypeFullName": null
+    },
+    {
+      "DisplayName": "Sweep ATR Tolerance Mult",
+      "Name": "SweepAtrToleranceMult",
+      "Description": "Sweep tolerance as ATR multiple",
+      "Type": "Double",
+      "DefaultValue": 0.02,
+      "MinValue": 0,
+      "MaxValue": 0.5,
+      "Step": 0.01,
+      "Group": "CBDR",
+      "IsValueVisibleInTitle": true,
+      "EnumTypeFullName": null
+    },
+    {
+      "DisplayName": "Sweep Default Tolerance",
+      "Name": "SweepDefaultTolerance",
+      "Description": "Sweep tolerance fallback (quote units)",
+      "Type": "Double",
+      "DefaultValue": 0,
+      "MinValue": 0,
+      "MaxValue": 0.01,
+      "Step": 0.001,
+      "Group": "CBDR",
+      "IsValueVisibleInTitle": true,
+      "EnumTypeFullName": null
+    },
+    {
+      "DisplayName": "Span Start HHMM",
+      "Name": "SpanStartHhmm",
+      "Description": "CBDR window open (UTC HHMM)",
+      "Type": "Integer",
+      "DefaultValue": 1900,
+      "MinValue": 0,
+      "MaxValue": 2359,
+      "Step": 100,
+      "Group": "CBDR",
+      "IsValueVisibleInTitle": true,
+      "EnumTypeFullName": null
+    },
+    {
+      "DisplayName": "Span End HHMM",
+      "Name": "SpanEndHhmm",
+      "Description": "CBDR window close (UTC HHMM, may roll past 2359)",
+      "Type": "Integer",
+      "DefaultValue": 100,
+      "MinValue": 0,
+      "MaxValue": 2359,
+      "Step": 100,
+      "Group": "CBDR",
+      "IsValueVisibleInTitle": true,
+      "EnumTypeFullName": null
+    }
+  ],
+  "Enums": []
+}

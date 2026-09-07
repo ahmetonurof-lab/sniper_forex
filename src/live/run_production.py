@@ -35,8 +35,8 @@ from src.trading.mt5_connection import MT5Connection
 
 
 def _env_symbols() -> list:
-    """Symbols from SNIPER_SYMBOLS (comma-separated) or a sane default."""
-    raw = os.getenv("SNIPER_SYMBOLS", "EURUSD")
+    """Symbols from SNIPER_SYMBOLS (comma-separated) or the BTC default."""
+    raw = os.getenv("SNIPER_SYMBOLS", "BTCUSD")
     return [s.strip().upper() for s in raw.split(",") if s.strip()]
 
 
@@ -84,6 +84,7 @@ def _build_config() -> OrchestratorConfig:
         backoff_multiplier=float(os.getenv("SNIPER_BACKOFF_MULT", "2")),
         backoff_max_sec=float(os.getenv("SNIPER_BACKOFF_MAX", "300")),
         feed_cap=_env_int("SNIPER_FEED_CAP", 1024),
+        signal_only=os.getenv("SNIPER_SIGNAL_ONLY", "1") not in ("0", "false", "FALSE", "False"),
     )
 
 

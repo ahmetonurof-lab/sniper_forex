@@ -18,8 +18,51 @@ Lot formula (standard MT5):
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Dict
 
 from src.live.strategy_runtime import Signal
+
+# ── Per-symbol contract presets (fallback/simulation core) ──────
+# D102-BTİ-port: production S3 pulls the live ContractSpec from MT5
+# symbol_info (dynamic — works for ANY symbol, incl. BTCUSD). These
+# presets ONLY back the conservative fallbacks used by test/paper/
+# signal-only paths. BILINMEYEN symbol -> generic 5-digit major spec.
+# Single source of truth: live_runner.default_contract, paper._default_contract
+# and signal_runner._contract_for must NOT duplicate this table.
+_GENERIC_MAJOR_PRESET: Dict[str, float] = {
+    "volume_min": 0.01,
+    "volume_max": 100.0,
+    "volume_step": 0.01,
+    "tick_size": 0.00001,
+    "tick_value": 1.0,
+    "contract_size": 100000.0,
+    "stops_level": 0.0,
+    "digits": 5,
+}
+
+# Crypto CFD (IC Markets rail A): 2-digit, 0.01 tick, 1.0 contract size.
+_SYMBOL_CONTRACT_PRESETS: Dict[str, Dict[str, float]] = {
+    "BTCUSD": {
+        "volume_min": 0.01,
+        "volume_max": 100.0,
+        "volume_step": 0.01,
+        "tick_size": 0.01,
+        "tick_value": 1.0,
+        "contract_size": 1.0,
+        "stops_level": 0.0,
+        "digits": 2,
+    },
+}
+
+
+def contract_for_symbol(symbol: str) -> Dict[str, float]:
+    """Return the conservative per-symbol contract preset (single source).
+
+    Live S3 always supersedes this with MT5 ``symbol_info``; this table
+    is the fallback only. Unknown symbol -> generic 5-digit major preset
+    (pre-BTC behavior preserved).
+    """
+    return dict(_SYMBOL_CONTRACT_PRESETS.get(symbol, _GENERIC_MAJOR_PRESET))
 
 
 @dataclass

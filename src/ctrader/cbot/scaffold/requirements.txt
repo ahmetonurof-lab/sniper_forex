@@ -1,0 +1,3 @@
+# CBDR Calibration cBot — Python dependencies.
+# The bot is stdlib-only (math, collections, enum, typing, datetime).
+# No third-party packages are required by the cTrader Python runtime.

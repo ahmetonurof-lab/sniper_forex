@@ -349,6 +349,10 @@ class OrchestratorConfig:
     backoff_multiplier: float = 2.0
     backoff_max_sec: float = 300.0  # < LOCK_STALE_SEC(900) — heartbeat aralığı güvenli
     feed_cap: int = 1024
+    # ── D104: real-order gate (controlled-demo PHASE-11) ──────────
+    # Default True (safety). Runbook controlled-demo sets SNIPER_SIGNAL_ONLY=0
+    # explicitly to let the chain reach ORDER→FILL→POSITION on the DEMO rail.
+    signal_only: bool = True
     # ── D49: restore staleness threshold (in 15m slots) ───────────
     # A restored runtime whose last processed bar is >= this many 15m
     # slots behind `now` is STALE → cold rebuild (full fetch + warmup +
@@ -536,8 +540,12 @@ class Lock:
     Taş 2 hardening:
       - Windows-safe PID liveness (``_pid_alive``) so a CRASHED process
         is detected even when its lock file is still fresh on disk.
-      - ``heartbeat()`` refreshes ``created_at`` so a long-running but
-        quiet process is not misclassified as stale.
+      - ``heartbeat()`` rewrites the lock body IN-PLACE renewing
+        ``created_at`` (the freshness carrier for the "wedged quietly,
+        no heartbeat" staleness criterion — contract UNCHANGED) while
+        preserving the current lifecycle ``phase`` set via
+        ``set_phase()`` (N2 #21 madde-5), so the advertised phase never
+        silently reverts to "startup" on a healthy run.
 
     acquire()  → raises LockError on conflict (existing live lock)
     release()  → no-op if we don't own the lock (pid mismatch)
@@ -571,6 +579,19 @@ class Lock:
         # refresh keeps the process alive and retries next tick; the flag
         # is surfaced for tests/monitoring and cleared on next success.
         self._write_degraded = False
+        # N2 #21 madde-5 (prereg §3): lifecycle phase advertised in the
+        # lock body. Default preserves the historical "startup" schema
+        # for non-orchestrator users; set_phase() transitions it and
+        # every _write() persists the current value (the old code
+        # re-stamped phase="startup" on each heartbeat, so a live lock
+        # forever claimed "startup" — BULGU-3 stickiness).
+        # created_at stays the heartbeat-freshness carrier (prereg §3c:
+        # LOCK_STALE_SEC arithmetic untouched) — it is deliberately NOT
+        # latched: _is_stale reads it to detect "wedged quietly, no
+        # heartbeat", so renewing it per heartbeat IS the liveness
+        # contract (a latch here would falsely mark every healthy
+        # long run stale-eligible and enable live takeover).
+        self._phase: str = "startup"
 
     def _diagnose_path_write(self) -> None:
         """N2 #17 boot-writer diagnostic (one-shot, non-fatal).
@@ -688,6 +709,9 @@ class Lock:
             except OSError:
                 pass
         self._owned = False
+        # N2 #21 madde-5: a released lock advertises the historical
+        # default again — the next acquire() starts a fresh lifecycle.
+        self._phase = "startup"
 
     def _log_io_guard(self, op: str, e: Exception) -> None:
         """Katman-2: LOUD-warn for every lock-file IO anomaly.
@@ -835,7 +859,15 @@ class Lock:
         holder PIDs/names (or the probe error — never silent) are
         embedded in the WRITE_BLOCK audit event.
         """
-        data = LockData(pid=os.getpid(), created_at=time.time(), phase="startup")
+        data = LockData(
+            pid=os.getpid(),
+            # created_at renewed per write: freshness carrier for
+            # _is_stale's "no heartbeat" criterion (contract unchanged,
+            # prereg §3c). phase is the LIVE label (set_phase), never
+            # the old frozen "startup" literal (BULGU-3).
+            created_at=time.time(),
+            phase=self._phase,
+        )
         payload = json.dumps(data.to_dict())
         # Parent-dir creation matches the N2 #15 helper contract (tests
         # and callers rely on acquire() working into a fresh state dir).
@@ -903,6 +935,38 @@ class Lock:
         if not _pid_alive(data.pid):
             return True
         return (time.time() - data.created_at) > LOCK_STALE_SEC
+
+    def set_phase(self, phase: str) -> None:
+        """N2 #21 madde-5 (BULGU-3): transition the advertised lifecycle
+        phase on the lock body ("S0_config" ... "S9_warmup", "S11_ready",
+        "running" once the Taş-3 loop starts).
+
+        Contract:
+        - OWNERSHIP REQUIRED: only the lock owner mutates the shared
+          body. Calling before acquire() / after release() raises
+          LockError — a phase transition is never silently dropped.
+        - IMMEDIATE WRITE: the transition is flushed to the lock body
+          right away so external observers (conflict error messages,
+          operator triage) read the CURRENT phase, and boot-phase
+          transitions actually reach disk (the next heartbeat may be a
+          full warmup away). Fail-safe = heartbeat semantics (N2 #17
+          Katman-4): a FAILED phase write is NONFATAL and LOUD (crash
+          -log + latched ``_write_degraded``); the in-memory label is
+          already advanced and the next heartbeat tick re-attempts the
+          flush. Phase metadata never refreshes ``created_at``.
+        """
+        if not self._owned:
+            raise LockError(
+                f"set_phase('{phase}') requires lock ownership "
+                "(call acquire() first) — refusing to mutate foreign state"
+            )
+        self._phase = str(phase)
+        try:
+            self._write()
+            self._write_degraded = False
+        except OSError as e:
+            self._write_degraded = True
+            self._log_io_guard("set_phase_write", e)
 
     @property
     def owned(self) -> bool:
@@ -1123,6 +1187,9 @@ class Orchestrator:
 
     def _run_phases(self) -> StartupResult:
         # ── S0: Config ──────────────────────────────────────────
+        # N2 #21 madde-5: advertise the startup lifecycle on the lock
+        # body (immediate in-place write, Katman-4 nonfatal on failure).
+        self.lock.set_phase("S0_config")
         try:
             config = get_mt5_config()
         except ValueError as e:
@@ -1134,6 +1201,7 @@ class Orchestrator:
             )
 
         # ── S1: Connect ─────────────────────────────────────────
+        self.lock.set_phase("S1_connect")
         try:
             import MetaTrader5 as mt5_mod
 
@@ -1209,6 +1277,7 @@ class Orchestrator:
             )
 
         # ── S2: Account + Identity ──────────────────────────────
+        self.lock.set_phase("S2_identity")
         try:
             account_info = self._mt5.account_info()
         except Exception as e:
@@ -1284,6 +1353,7 @@ class Orchestrator:
         safe_reasons: List[str] = list(d12_safe_pending)
 
         # ── S3: ContractSpec ────────────────────────────────────
+        self.lock.set_phase("S3_contract")
         if not self.configured_symbols:
             self.lock.release()
             return StartupResult(
@@ -1317,6 +1387,7 @@ class Orchestrator:
         contract_dict = contract.__dict__ if contract else None
 
         # ── S4: Margin level ────────────────────────────────────
+        self.lock.set_phase("S4_margin")
         # _safe() heuristic: margin_level_low maps to S4 (not S2).
         margin_level = float(account_dict.get("margin_level", 0.0))
         if margin_level > 0 and margin_level < self.config.margin_level_min_pct:
@@ -1325,6 +1396,7 @@ class Orchestrator:
             )
 
         # ── S5: Broker snapshot (Taş 2 — INJECTION) ────────────
+        self.lock.set_phase("S5_snapshot")
         # Orchestrator OWNS contract / lifecycle / runtime / sizer / risk_manager
         # and hands them to the LiveRunner by reference. The live_runner
         # constructor is NOT edited.
@@ -1350,7 +1422,7 @@ class Orchestrator:
                 mt5=self._mt5,
                 audit=self.audit,
                 magic=self.magic,
-                signal_only=True,
+                signal_only=self.config.signal_only,
                 contract=self._contract,
                 lifecycle=self._lifecycle,
                 runtime=self._runtime,
@@ -1362,6 +1434,7 @@ class Orchestrator:
             safe_reasons.append(f"snapshot_failed: {type(e).__name__}")
 
         # ── S6: SL/TP audit from snapshot ──────────────────────
+        self.lock.set_phase("S6_sltp_audit")
         positions = snapshot.get("positions", [])
         sltp_issues = []
         for p in positions:
@@ -1377,6 +1450,7 @@ class Orchestrator:
             )
 
         # ── S7: Local state recovery (D33, redelivery 2) ──────────
+        self.lock.set_phase("S7_recovery")
         # load() restores the runtime (bars buffer + FVG state);
         # load_lifecycle() restores the journal + DD from disk.
         # Partial restore: lifecycle OK + runtime cold → NOT a warm
@@ -1414,6 +1488,7 @@ class Orchestrator:
         self._restored = bool(self._runtime_restored or self._lifecycle_restored)
 
         # ── S8: Recon gate ──────────────────────────────────────
+        self.lock.set_phase("S8_recon_gate")
         recon = snapshot.get("reconciliation", {})
         recon_status = recon.get("status", "NOT_RUN")
         if recon_status != "OK":
@@ -1421,6 +1496,7 @@ class Orchestrator:
                 safe_reasons.append(f"recon_blocked: {recon_status}")
 
         # ── S9: Warmup + real-terminal smoke (D28/D33) ─────────
+        self.lock.set_phase("S9_warmup")
         warmup_count = getattr(self.config, "m1_warmup_count", 65000)
         warmup_ok = False
         warmup_bars = 0
@@ -1461,6 +1537,7 @@ class Orchestrator:
             safe_reasons.insert(0, f"safe_mode_persisted: {self._persisted_safe_reason}")
 
         # ── S11: READY ──────────────────────────────────────────
+        self.lock.set_phase("S11_ready")
         if safe_reasons:
             self._write_safe_mode("; ".join(safe_reasons))
             self.audit.append(
@@ -2533,6 +2610,17 @@ class Orchestrator:
         consecutive_errors = 0
         backoff = float(self.config.poll_interval_sec)
 
+        # N2 #21 madde-5 (BULGU-3): the lock body must advertise the live
+        # runtime loop instead of the frozen "startup" label. The phase
+        # write is DEFERRED until after the first D35 ownership-validated
+        # heartbeat: an immediate write here would rewrite the shared body
+        # (with OUR pid) BEFORE ownership triage — a foreign/tampered body
+        # planted between acquire() and the loop would be silently masked
+        # and ownership loss would never fire (regression caught by
+        # test_ownership_lost_exits_1 / test_ownership_loss_fatal: the
+        # loop must not mutate the shared body before ownership is proven).
+        phase_advertised = False
+
         while True:
             # 1) kill switch (D11) — FIRST. A human kill request wins over
             #    ownership state: its exit code (0/2) must not be overridden
@@ -2570,6 +2658,14 @@ class Orchestrator:
                 # records the SHUTDOWN event + flushes + releases lock.
                 self.shutdown(exit_code=1, reason="ownership_lost")
                 return 1
+
+            # 2a-bis) N2 #21 madde-5: advertise "running" — ownership is
+            #     proven for this tick, so the body mutation is now safe.
+            #     One-shot: healthy runs write it once, then heartbeats
+            #     keep re-stamping the same live label (never "startup").
+            if not phase_advertised:
+                self.lock.set_phase("running")
+                phase_advertised = True
 
             # 2b) N2 #13 — B1 disk audit: persist buffered audit events on
             #     a timer independent of append volume. The journal is

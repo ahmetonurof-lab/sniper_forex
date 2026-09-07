@@ -1,0 +1,229 @@
+#!/usr/bin/env python
+"""cTrader Open API Connection — D126 Adım A.2
+
+D126 direktifindeki iskeletin GERÇEK SDK API'sine göre düzeltilmiş hali.
+
+D126 iskeleti ile gerçek SDK arasındaki farklar (şeffaf beyan, AGENTS.md §3):
+  1. `Client(host, port, client_id, client_secret, redirect_uri, access_token=...)`
+     → GERÇEK: `Client(host, port, TcpProtocol)` — kimlik bilgileri ayrı mesajlarla
+       gönderilir (ProtoOAApplicationAuthReq + ProtoOAAccountAuthReq).
+  2. `self.client.start()` → GERÇEK: `self.client.startService()` (ClientService API).
+  3. `Protobuf.ProtoHeartbeatEvent()` → GERÇEK: `Protobuf.get('ProtoHeartbeatEvent')`.
+  4. Auth akışı D126'da eksikti: bağlantı sonrası uygulama auth → hesap auth sırası
+     resmi örnekten (OpenApiPy samples) doğrulandı.
+
+Reactor ayrı thread'de tek run; heartbeat watchdog 10s'de bir; reconcile
+callFromThread ile ana thread ↔ reactor köprüsü.
+"""
+
+import json
+import queue
+import threading
+import time
+from pathlib import Path
+
+from ctrader_open_api import Client, EndPoints, Protobuf, TcpProtocol
+from twisted.internet import reactor
+
+# Heartbeat aralığı (saniye) — D126: "en az 10 saniyede bir"
+HEARTBEAT_INTERVAL_SEC = 10.0
+# Reconcile/istek zaman aşımı (saniye)
+REQUEST_TIMEOUT_SEC = 5.0
+
+
+class CTraderConnection:
+    """cTrader Open API bağlantı yöneticisi.
+
+    Reactor'u ayrı bir worker thread'de çalıştırır (tek run).
+    Ana thread'den gelen istekler `callFromThread` ile reactor thread'ine
+    köprülenir. Gelen mesajlar `event_queue`'ya konur.
+    """
+
+    def __init__(self, config, token_cache_path=None):
+        self.config = config
+        self.token_cache_path = Path(token_cache_path) if token_cache_path else None
+        self.token_cache = self._load_token_cache()
+        self.event_queue = queue.Queue()
+        self._last_heartbeat_sent = 0.0
+        self._connected = False
+        self._stop = False
+        self._thread = None
+
+        # GERÇEK SDK imzası: Client(host, port, protocol)
+        self.client = Client(
+            config["host"],
+            EndPoints.PROTOBUF_PORT,
+            TcpProtocol,
+            numberOfMessagesToSendPerSecond=5,
+        )
+
+        # Callback'ler
+        self.client.setConnectedCallback(self._on_connected)
+        self.client.setDisconnectedCallback(self._on_disconnected)
+        self.client.setMessageReceivedCallback(self._on_message_received)
+
+    # ------------------------------------------------------------------
+    # Yaşam döngüsü
+    # ------------------------------------------------------------------
+    def start(self):
+        """Reactor'u ayrı thread'de başlat — tek run."""
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop = False
+        self._thread = threading.Thread(target=self._run_reactor, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        """Bağlantıyı kapat (reconnect içeren ClientService durdurulur)."""
+        self._stop = True
+        try:
+            reactor.callFromThread(self._do_stop)
+        except Exception:
+            pass
+
+    def _run_reactor(self):
+        """Worker thread gövdesi — reactor tek sefer çalışır."""
+        self.client.startService()
+        reactor.run(installSignalHandlers=False)
+
+    def _do_stop(self):
+        if self.client.running:
+            self.client.stopService()
+        if reactor.running:
+            reactor.stop()
+
+    # ------------------------------------------------------------------
+    # Callback'ler (reactor thread'inde çalışır)
+    # ------------------------------------------------------------------
+    def _on_connected(self, client):
+        self._connected = True
+        self.event_queue.put(("CONNECTED", None))
+        # Bağlantı sonrası auth zinciri: uygulama auth → hesap auth
+        self._send_application_auth()
+
+    def _on_disconnected(self, client, reason):
+        self._connected = False
+        self.event_queue.put(("DISCONNECTED", str(reason)))
+
+    def _on_message_received(self, client, message):
+        payload_type = message.payloadType
+        # Heartbeat'leri log'a boğma — sadece sayaç
+        if payload_type == Protobuf.get_type("ProtoHeartbeatEvent"):
+            self.event_queue.put(("HEARTBEAT", None))
+            return
+        try:
+            extracted = Protobuf.extract(message)
+            self.event_queue.put(("MESSAGE", extracted))
+        except Exception as exc:  # pragma: no cover
+            self.event_queue.put(("PARSE_ERROR", str(exc)))
+
+    # ------------------------------------------------------------------
+    # Auth zinciri
+    # ------------------------------------------------------------------
+    def _send_application_auth(self):
+        """Uygulama kimliği doğrulaması (ProtoOAApplicationAuthReq)."""
+        req = Protobuf.get("ProtoOAApplicationAuthReq")
+        req.clientId = self.config["client_id"]
+        req.clientSecret = self.config["client_secret"]
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addCallbacks(self._on_app_auth_res, self._on_auth_error)
+
+    def _on_app_auth_res(self, result):
+        self.event_queue.put(("APP_AUTH_RES", result))
+        # Uygulama auth başarılı → hesap auth
+        self._send_account_auth()
+
+    def _send_account_auth(self):
+        """Hesap doğrulaması (ProtoOAAccountAuthReq) — accessToken ile."""
+        req = Protobuf.get("ProtoOAAccountAuthReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        req.accessToken = self.token_cache.get("access_token") or ""
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addCallbacks(self._on_account_auth_res, self._on_auth_error)
+
+    def _on_account_auth_res(self, result):
+        self.event_queue.put(("ACCOUNT_AUTH_RES", result))
+
+    def _on_auth_error(self, failure):
+        self.event_queue.put(("AUTH_ERROR", str(failure)))
+
+    # ------------------------------------------------------------------
+    # Heartbeat watchdog (D126: 10s'de bir klient göndermeli)
+    # ------------------------------------------------------------------
+    def send_heartbeat(self):
+        """Ana thread'den çağrılır — callFromThread ile reactor'a köprülenir."""
+        now = time.time()
+        if now - self._last_heartbeat_sent >= HEARTBEAT_INTERVAL_SEC:
+            self._last_heartbeat_sent = now
+            try:
+                reactor.callFromThread(self._do_send_heartbeat)
+            except Exception:
+                pass
+
+    def _do_send_heartbeat(self):
+        self.client.send(Protobuf.get("ProtoHeartbeatEvent"))
+
+    # ------------------------------------------------------------------
+    # Reconcile (D126: callFromThread ile)
+    # ------------------------------------------------------------------
+    def reconcile(self):
+        """Ana thread'den çağrılır — hesap durumunu sunucudan yeniden kurar."""
+        reactor.callFromThread(self._do_reconcile)
+
+    def _do_reconcile(self):
+        req = Protobuf.get("ProtoOAReconcileReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addErrback(lambda f: self.event_queue.put(("RECONCILE_ERROR", str(f))))
+
+    # ------------------------------------------------------------------
+    # Sembol keşfi (Adım A.3)
+    # ------------------------------------------------------------------
+    def request_symbols_list(self, include_archived=False):
+        """ProtoOASymbolsListReq — sembol listesi iste (BTCUSD symbolId için)."""
+        req = Protobuf.get("ProtoOASymbolsListReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        req.includeArchivedSymbols = include_archived
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addErrback(lambda f: self.event_queue.put(("SYMBOLS_ERROR", str(f))))
+        return deferred
+
+    # ------------------------------------------------------------------
+    # Token cache
+    # ------------------------------------------------------------------
+    def _load_token_cache(self):
+        if self.token_cache_path and self.token_cache_path.exists():
+            try:
+                return json.loads(self.token_cache_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {"access_token": None, "refresh_token": None, "expires_at": None}
+
+    def save_token_cache(self):
+        """Token cache'i diske yaz (access_token doldurulduğunda çağrılır)."""
+        if self.token_cache_path:
+            self.token_cache_path.write_text(
+                json.dumps(self.token_cache, indent=2), encoding="utf-8"
+            )
+
+    # ------------------------------------------------------------------
+    # Durum
+    # ------------------------------------------------------------------
+    @property
+    def is_connected(self):
+        return self._connected
+
+    def drain_events(self):
+        """Ana thread'den event kuyruğunu boşalt — (tip, veri) listesi döner.
+
+        vulture-fix (D148): ``timeout`` parametresi hiçbir çağrı-yerinde
+        kullanılmıyordu (repo-taraması: tek-referans bu tanım) ve gövde
+        onu okumuyordu (get_nowait non-blocking). Ölü-param silindi —
+        davranış değişmedi (parametre zaten etkisizdi)."""
+        events = []
+        try:
+            while True:
+                events.append(self.event_queue.get_nowait())
+        except queue.Empty:
+            pass
+        return events

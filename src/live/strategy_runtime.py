@@ -49,6 +49,11 @@ from experiment.trailing_adapter import (  # noqa: E402
     check_exit,
 )
 from src.live.audit import AuditChain, EventType  # N2 #23 R-1 (observation layer)
+from src.live.htf_bias import (  # N2 #24 V6-hibrit (AM-N24-2: yalniz hibrit-junction cagrisi)
+    build_daily,
+    fold_bar_into,
+    htf_wick_bias,
+)
 from src.strategy.models import Bar, Direction, SweepEvent
 from src.strategy.session import SessionManager
 
@@ -211,6 +216,32 @@ class StrategyRuntime:
         self._bias_lock_ts: Optional[str] = None
         if audit is not None:
             self.audit = audit
+        # N2 #24 V6-hibrit junction state (D93 gunluk-kayit-semantigi).
+        # Katman-ayrimi: session state = sweep-truth (V0); V6 alanlari =
+        # fallback-bias OVERLAY. session.py govdesi DOKUNULMAZ; fallback
+        # kiliti session.bias_locked'i KURMAZ (yoksa ayni gundeki sweep
+        # gorunmez olur ve rollback imkansizlasir — D93-aynen).
+        self._v6_day_key: Optional[str] = None
+        self._v6_est: bool = False
+        self._v6_dir: Optional[str] = None
+        self._v6_source: Optional[str] = None  # "sweep" | "htf_fallback_breakout" | None
+        self._v6_ev_bar: Optional[int] = None
+        self._v6_ev_ts: Optional[str] = None
+        self._v6_sweep_price: Optional[float] = None
+        self._v6_ref_level: Optional[float] = None
+        self._htf_daily: Optional[Dict[str, Dict[str, float]]] = None
+        self._htf_dir: Optional[str] = None
+        self._htf_senaryo: Optional[str] = None
+        self._v6_rollback_count: int = 0
+        self._v6_ignored_count: int = 0
+        self._v6_pathological_count: int = 0
+        # N2 #24 icra-turu duzeltmesi: inkremental-fold izleme sayaci.
+        # _htf_daily, self.bars[0:_v6_folded_count] araligini kapsar;
+        # gun-degisiminde yalniz bars[folded:] araligi fold edilir.
+        # Persist EDILMEZ (to_state'te yok) — restart'ta tam-rebuild
+        # (from_state sonrasi ilk gun-degisiminde build_daily ile
+        # yeniden-kurulur; deterministik-rekonstruksiyon korunur).
+        self._v6_folded_count: int = 0
 
     def _emit_state(
         self,
@@ -253,6 +284,12 @@ class StrategyRuntime:
                     "session_key": self.session.current_cbdr_key,
                     "bar_ts": bar.timestamp.isoformat(),
                     "bar_index": int(bar.index),
+                    # N2 #24 AM-N24-3: V6 EK-alanlari — ayni payload-dili;
+                    # mevcut 16 alan AYNEN korunur (d4 alanlari dahil).
+                    "htf_source": self._v6_source,
+                    "htf_dir": self._v6_dir,
+                    "htf_senaryo": self._htf_senaryo,
+                    "rollback_count": self._v6_rollback_count,
                 },
             )
         except Exception:
@@ -295,6 +332,143 @@ class StrategyRuntime:
         except Exception:
             _LOG.warning("N2 #23-b: fvg_armed STATE emit failed", exc_info=True)
 
+    # -- N2 #24 V6-hibrit junction ----------------------------------------
+    def _v6_junction(
+        self,
+        bar: Bar,
+        i: int,
+        sweep: Optional[SweepEvent],
+        in_w: bool,
+        sweep_tol: float,
+    ) -> None:
+        """D93-birebir junction: sweep/fallback/rollback tek-nokta karari.
+
+        Census karsiligi (v6_census.py :285-344): gunluk-kayit (est/dir/
+        source) runtime-V6-alanlarinda tutulur; session state'e YAZILMAZ
+        (bias_locked sweep'e ait kalir). HTF-sorgusu gunun ILK barinda
+        yapilir (D95: build_daily + htf_wick_bias use_body=False).
+
+        AM-N24-2: fallback dali YALNIZ sweep-yok gunlerde ulasilabilir —
+        asagidaki dal-yapisi bunu kod-seviyesinde kanitlar (sweep-dali
+        return ile cikar; fallback bolumune sweep-bar gecemez).
+        """
+        day_key = self.session.current_cbdr_key
+        if day_key is None:
+            return
+
+        # -- gun-degisimi: per-gun V6 alanlarini sifirla + HTF-sorgusu --
+        # D95-birebir-esdegerlik: census build_daily'yi TUM bar-listesinden
+        # bir kez kurar; canli yolda gunun ilk barinda self.bars'tan kurulur.
+        # Gun-K sorgusu yalniz D-1/D-2'ye bakar (ikisi de o anda TAMAMLANMIS
+        # durumdadır: key-K ilk barı 19:00'da gelir, D-1 18:45'te kapanmistir)
+        # -> sonuc census ile birebir aynidir. Yeni-fetch YOK, feather YOK.
+        #
+        # N2 #24 icra-turu duzeltmesi (donma-kok-nedeni): onceki surum her
+        # gun-degisiminde build_daily(self.bars) ile TUM listeyi bastan
+        # kuruyordu -> O(D×N) patlama; tam-suit parity-gate replay'inde
+        # (test_check_all_six_majors_returns_report, py-spy-kanitli)
+        # saatler-suren donma. Inkremental-fold O(N) toplamdir: yalniz
+        # bars[_v6_folded_count:] araligi fold edilir. Ozdeslik:
+        # build_daily saf-fold'dur (associatif; open/high/low/n siradan
+        # bagimsiz, close=son-bar) -> inkremental ≡ tam-rebuild; ozdeslik
+        # test_n2_24_v6_junction.py icinde sabitlenmistir.
+        if day_key != self._v6_day_key:
+            self._v6_day_key = day_key
+            self._v6_est = False
+            self._v6_dir = None
+            self._v6_source = None
+            self._v6_ev_bar = None
+            self._v6_ev_ts = None
+            self._v6_sweep_price = None
+            self._v6_ref_level = None
+            if self._htf_daily is None:
+                # Ilk-gun-veya-restore-durumu (_htf_daily persist edilmez):
+                # o ana kadarki tum listeyi kur (build_daily ile —
+                # deterministik-rekonstruksiyon).
+                self._htf_daily = build_daily(self.bars)
+                self._v6_folded_count = len(self.bars)
+            else:
+                # Normal-gun-degisimi: yalniz son gun-degisiminden beri
+                # eklenen barlari fold et (O(N) toplam; invariant:
+                # _htf_daily == build_daily(self.bars[0:_v6_folded_count])).
+                for _b in self.bars[self._v6_folded_count :]:
+                    fold_bar_into(self._htf_daily, _b)
+                self._v6_folded_count = len(self.bars)
+            # URETIM-KURALI (D96-2 / FAZ-A2-RED): use_body=False ZORUNLU.
+            self._htf_dir, self._htf_senaryo = htf_wick_bias(
+                self._htf_daily, day_key, use_body=False
+            )
+
+        sweep_dir = None
+        if sweep is not None:
+            sweep_dir = "bullish" if sweep.direction == Direction.BULLISH else "bearish"
+
+        # -- rollback (D93 :285-300 aynen): fallback-kilitli-gune sweep
+        #    gelirse V6-kilidi GERI ALINIR; gun sweep'e gider (V0-kurali:
+        #    iki-motor asla ayni gune bias vermez). Sweep kendisi session
+        #    tarafindan normal islenir (_confirm_sweep) — V0-aynen.
+        if sweep is not None and self._v6_est and self._v6_source == "htf_fallback_breakout":
+            self._v6_rollback_count += 1
+            self._v6_est = False
+            self._v6_dir = None
+            self._v6_source = None
+            self._v6_ev_bar = None
+            self._v6_ev_ts = None
+            self._v6_sweep_price = None
+            self._v6_ref_level = None
+            self._emit_state("v6_rollback", bar, in_window=in_w, sweep_tol=sweep_tol)
+
+        # -- sweep-kilit-kaydi (V0-aynen; session._confirm_sweep kurdu) --
+        if sweep_dir is not None and not self._v6_est:
+            self._v6_est = True
+            self._v6_dir = sweep_dir
+            self._v6_source = "sweep"
+            self._v6_ev_bar = i
+            self._v6_ev_ts = bar.timestamp.isoformat()
+            self._v6_sweep_price = float(sweep.sweep_price)
+            self._v6_ref_level = float(sweep.reference_level)
+            return  # sweep-gunde fallback devreye girmez (D93 gate)
+
+        # -- fallback dali: YALNIZ sweep-yok gunlerde (AM-N24-2) --
+        if sweep_dir is not None or self._v6_est:
+            return
+        brk_dir = None
+        if (
+            not in_w
+            and self.session.cbdr.body_high > 0
+            and self.session.cbdr.body_low != float("inf")
+        ):
+            BH = self.session.cbdr.body_high
+            BL = self.session.cbdr.body_low
+            long_b = (bar.high > BH + sweep_tol) and (bar.close > BH)
+            short_b = (bar.low < BL - sweep_tol) and (bar.close < BL)
+            if long_b and short_b:
+                brk_dir = "both"
+            elif long_b:
+                brk_dir = "bullish"
+            elif short_b:
+                brk_dir = "bearish"
+        if brk_dir is None:
+            return
+        if brk_dir == "both":
+            self._v6_pathological_count += 1
+            return
+        if self._htf_dir is None:
+            return  # HTF-NEUTRAL -> gun NEUTRAL (breakout islenmez)
+        if brk_dir == self._htf_dir:
+            self._v6_est = True
+            self._v6_dir = brk_dir
+            self._v6_source = "htf_fallback_breakout"
+            self._v6_ev_bar = i
+            self._v6_ev_ts = bar.timestamp.isoformat()
+            self._v6_sweep_price = float(bar.high if brk_dir == "bullish" else bar.low)
+            self._v6_ref_level = float(
+                self.session.cbdr.body_high if brk_dir == "bullish" else self.session.cbdr.body_low
+            )
+            self._emit_state("v6_fallback_lock", bar, in_window=in_w, sweep_tol=sweep_tol)
+        else:
+            self._v6_ignored_count += 1
+
     # -- Warmup -----------------------------------------------------------
     def warmup(self, bars_15m: List[Bar]) -> None:
         """Initialize ATR + session from historical 15m bars.
@@ -312,6 +486,10 @@ class StrategyRuntime:
         self.session.atr = self.atr_val
         self.bars = list(bars_15m[: warmup + 1])
         self.nexus_bars_full = [_to_nexus_bar(b) for b in bars_15m[: warmup + 1]]
+        # N2 #24: bar-listesi tamamen degisti — V6 fold durumunu sifirla
+        # (stale-fold-trap onleme; sonraki gun-degisiminde taze-rebuild).
+        self._htf_daily = None
+        self._v6_folded_count = 0
         self._start_idx = warmup + 1
         self._next_idx = self._start_idx
         self._warmed = True
@@ -435,6 +613,12 @@ class StrategyRuntime:
             self._sweep_ts = None
             self._bias_lock_ts = None
             self._emit_state("cycle_reset", bar, in_window=_in_w, sweep_tol=_sweep_tol)
+
+        # ── N2 #24 V6-hibrit junction (tek-nokta; D93-birebir) ──
+        # sweep-gunu = V0-aynen · sweep-yok+uyumlu-breakout = HTF-fallback ·
+        # fallback-sonrasi-sweep = rollback. Motor-kararina dokunmaz: FVG
+        # tarayicisi sweep-gated kalir (asagidaki gate AYNEN degismez).
+        self._v6_junction(bar, i, sweep, _in_w, _sweep_tol)
 
         if not self.sweep_detected or self.last_sweep is None:
             self._next_idx = i + 1
@@ -696,6 +880,24 @@ class StrategyRuntime:
                 "daily_bias": self.session.cbdr.daily_bias.value,
                 "current_cbdr_key": self.session.current_cbdr_key,
             },
+            # N2 #24: V6 junction state (deterministik-reconstruction;
+            # persisted IKINCIL kaynak — _htf_daily persist EDILMEZ,
+            # bir sonraki gun-degisiminde runtime-barlarindan kurulur).
+            "v6": {
+                "day_key": self._v6_day_key,
+                "est": self._v6_est,
+                "dir": self._v6_dir,
+                "source": self._v6_source,
+                "ev_bar": self._v6_ev_bar,
+                "ev_ts": self._v6_ev_ts,
+                "sweep_price": self._v6_sweep_price,
+                "ref_level": self._v6_ref_level,
+                "htf_dir": self._htf_dir,
+                "htf_senaryo": self._htf_senaryo,
+                "rollback_count": self._v6_rollback_count,
+                "ignored_count": self._v6_ignored_count,
+                "pathological_count": self._v6_pathological_count,
+            },
         }
 
     def from_state(self, state: dict) -> None:
@@ -752,3 +954,27 @@ class StrategyRuntime:
         self.session.cbdr.sweep_index = s["sweep_index"]
         self.session.cbdr.daily_bias = Direction(s["daily_bias"])
         self.session.current_cbdr_key = s["current_cbdr_key"]
+        # N2 #24: V6 junction state restore. Pre-N2#24 formatlarda "v6"
+        # anahtari yoktur — audited fallback (asla sessiz; R1/R2 deseni).
+        v6 = state.get("v6")
+        if v6 is not None:
+            self._v6_day_key = v6.get("day_key")
+            self._v6_est = bool(v6.get("est", False))
+            self._v6_dir = v6.get("dir")
+            self._v6_source = v6.get("source")
+            self._v6_ev_bar = v6.get("ev_bar")
+            self._v6_ev_ts = v6.get("ev_ts")
+            self._v6_sweep_price = v6.get("sweep_price")
+            self._v6_ref_level = v6.get("ref_level")
+            self._htf_dir = v6.get("htf_dir")
+            self._htf_senaryo = v6.get("htf_senaryo")
+            self._v6_rollback_count = int(v6.get("rollback_count", 0))
+            self._v6_ignored_count = int(v6.get("ignored_count", 0))
+            self._v6_pathological_count = int(v6.get("pathological_count", 0))
+        else:
+            _LOG.warning(
+                "N2 #24: 'v6' missing from persisted state (pre-N2#24 "
+                "format); audited fallback: V6 junction state = defaults "
+                "(est=False, counts=0) for %s",
+                self.symbol,
+            )

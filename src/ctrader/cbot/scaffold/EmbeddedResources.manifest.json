@@ -1,0 +1,8 @@
+{
+  "RootNamespace": "CBDRCalibrationBot",
+  "PythonFiles": [
+    "cbdr_calibration_bot.py",
+    "core.py",
+    "robot_wrapper.py"
+  ]
+}

@@ -605,3 +605,217 @@ class TestLockConflict:
         result = orch.startup()
         assert result.verdict == StartupVerdict.FATAL
         assert "lock_conflict" in result.reason
+
+
+class TestLockPhaseN2_21M5:
+    """N2#21 madde-5 pins (BULGU-3): lock fazı CANLI, donuk "startup" değil.
+
+    BULGU-3 (canlı-kanıt): heartbeat her _write()'da phase="startup"
+    literalini yeniden damgalıyordu — saatlerce sağlıklı çalışmanın lock
+    gövdesi hâlâ "startup" okuyordu. İnceleme-kararı (prereg §3c):
+    created_at heartbeat-tazelik-taşıyıcısı OLARAK KALIR (stale-sözleşme);
+    yalnızca faz-canlılığı düzeltildi (set_phase + kalıcılık).
+    """
+
+    def test_set_phase_requires_ownership(self, tmp_state: Path):
+        """set_phase sahiplik ister; yabancı-gövde-mutasyonu-red ✓."""
+        lock = Lock(tmp_state / "orch.lock")
+        with pytest.raises(LockError):
+            lock.set_phase("S9_warmup")  # not owned — must refuse loudly
+        lock.acquire()
+        lock.set_phase("S9_warmup")  # owner: accepted silently (no IO)
+        body = json.loads((tmp_state / "orch.lock").read_text(encoding="utf-8"))
+        assert body["pid"] == os.getpid()
+
+    def test_heartbeat_renews_created_at__freshness_pin(self, tmp_state: Path):
+        """created_at = heartbeat-TAZELİK-taşıyıcısı (prereg §3c-inceleme
+        sonucu: sözleşme-DOKUNULMAZ). Heartbeat YESİLENLEMELİ — aksi-halde
+        _is_stale 'no-heartbeat' kriteri sağlıklı-uzun-koşuyu-stale-ilan-
+        edip canlı-takeover'a-kapı-açar (D35-vari-hazard; bu-pin-sözleşmeyi
+        sabitler)."""
+        lock = Lock(tmp_state / "orch.lock")
+        lock.acquire()
+        c1 = json.loads((tmp_state / "orch.lock").read_text(encoding="utf-8"))["created_at"]
+        time.sleep(0.05)
+        lock.heartbeat()
+        body = json.loads((tmp_state / "orch.lock").read_text(encoding="utf-8"))
+        assert body["created_at"] > c1  # freshness renewed — liveness contract
+
+    def test_heartbeat_preserves_phase__bulgu3_pin(self, tmp_state: Path):
+        """set_phase sonrası heartbeat fazı KORUMALI (N2#21 öncesi her
+        heartbeat fazı "startup"'a geri çeviriyordu)."""
+        lock = Lock(tmp_state / "orch.lock")
+        lock.acquire()
+        lock.set_phase("S9_warmup")
+        lock.heartbeat()
+        lock.heartbeat()
+        body = json.loads((tmp_state / "orch.lock").read_text(encoding="utf-8"))
+        assert body["phase"] == "S9_warmup"
+
+    def test_release_resets_phase(self, tmp_state: Path):
+        """release → faz-varsayılana-döner; yeni-acquire-yeni-lifecycle
+        (release-edilmiş-lock-eski-fazıyla-reklam-yapmaz)."""
+        lock = Lock(tmp_state / "orch.lock")
+        lock.acquire()
+        lock.set_phase("S3_contract")
+        assert (
+            json.loads((tmp_state / "orch.lock").read_text(encoding="utf-8"))["phase"]
+            == "S3_contract"
+        )
+        lock.release()
+        lock.acquire()  # fresh lifecycle
+        body = json.loads((tmp_state / "orch.lock").read_text(encoding="utf-8"))
+        assert body["phase"] == "startup"
+
+    # ÜRETİM-YOLU testi aşağıda ayrı metottadır (§4.2).
+
+    def test_set_phase_write_failure_is_nonfatal_and_loud(self, tmp_state, monkeypatch):
+        """Katman-4: phase-yazımı-çökmez — OSError→LOUD+degraded-latch,
+        bellek-değeri-yine-ilerler (sonraki-heartbeat-yeniden-dener)."""
+        lock = Lock(tmp_state / "orch.lock")
+        lock.acquire()
+
+        def boom():
+            raise OSError("disk blocked (simulated)")
+
+        monkeypatch.setattr(lock, "_write", boom)
+        lock.set_phase("S5_snapshot")  # must NOT raise
+        assert lock._write_degraded is True
+        assert lock._phase == "S5_snapshot"  # in-memory advanced for next tick
+
+    def test_startup_transitions_then_run_marks_running(self, tmp_state: Path, monkeypatch):
+        """ÜRETİM-YOLU kanıtı (§4.2): gerçek startup() S0→S11 akışı lock
+        gövdesini faz-faz damgalıyor (son: S11_ready); gerçek run() İLK
+        BAŞARILI ownership-validasyonundan hemen sonra "running" yazıyor
+        (gövde-mutasyonu-ownership-kanıtından-önce-yasak güvenlik sırası;
+        2. kill çağrısı advert-edilmiş gövdeyi yakalar)."""
+
+        class FakeAccount:
+            login = 53012914
+            server = "ICMarketsSC-Demo"
+            balance = 10000.0
+            equity = 10000.0
+            currency = "USD"
+            leverage = 100
+            margin_level = 1000.0
+
+        class FakeTerminal:
+            build = 6140
+            path = "C:/MT5/terminal64.exe"
+            trade_allowed = True
+
+        class FakeSymbolInfo:
+            point = 0.00001
+            digits = 5
+            trade_tick_value = 1.0
+            volume_min = 0.01
+            volume_max = 100.0
+            volume_step = 0.01
+            trade_contract_size = 100000.0
+            trade_mode = 4  # FULL — MetaTrader5 enum (Bug B fix 2026-09-01)
+
+        class FakeMT5:
+            TIMEFRAME_M1 = 1
+
+            @staticmethod
+            def initialize(path=None):
+                return True
+
+            @staticmethod
+            def login(**kwargs):
+                return True
+
+            @staticmethod
+            def account_info():
+                return FakeAccount()
+
+            @staticmethod
+            def terminal_info():
+                return FakeTerminal()
+
+            @staticmethod
+            def symbol_select(symbol, visible=True):
+                return True
+
+            @staticmethod
+            def symbol_info(symbol):
+                return FakeSymbolInfo()
+
+            @staticmethod
+            def positions_get(ticket=None, group=None, symbol=None):
+                return []
+
+            @staticmethod
+            def orders_get(group=None, symbol=None):
+                return []
+
+            @staticmethod
+            def copy_rates_from_pos(symbol, tf, start, count):
+                from datetime import datetime, timezone
+
+                import pandas as pd
+
+                base = datetime(2026, 8, 1, 0, 0, tzinfo=timezone.utc)
+                rows = []
+                for i in range(min(count, 1600)):
+                    t = base + pd.Timedelta(minutes=i)
+                    ts = int(t.timestamp())
+                    row = {
+                        "time": ts,
+                        "open": 1.1000 + i * 0.0001,
+                        "high": 1.1001 + i * 0.0001,
+                        "low": 1.0999 + i * 0.0001,
+                        "close": 1.1000 + i * 0.0001,
+                        "tick_volume": 100,
+                    }
+                    rows.append(row)
+                return rows
+
+        import sys
+
+        sys.modules["MetaTrader5"] = FakeMT5
+        monkeypatch.setattr(
+            "src.live.orchestrator.get_mt5_config",
+            lambda: {
+                "login": "53012914",
+                "password": "x",
+                "server": "ICMarketsSC-Demo",
+                "terminal_path": "",
+            },
+        )
+        orch = Orchestrator(
+            state_dir=str(tmp_state),
+            configured_symbols=["EURUSD"],
+            config_obj=OrchestratorConfig(
+                symbols=["EURUSD"],
+                state_dir=str(tmp_state),
+                expected_login="53012914",
+            ),
+        )
+        result = orch.startup()
+        assert result.verdict == StartupVerdict.PROCEED
+        body = json.loads((tmp_state / "orchestrator.lock").read_text(encoding="utf-8"))
+        assert body["phase"] == "S11_ready"  # startup S0→S11 son damgası
+
+        seen: dict = {}
+
+        def kill_and_capture() -> bool:
+            # Çağrı-1: iteration-1 kill-check → False (D11 kill-first korunur;
+            # döngü ownership-validasyona ilerler). Çağrı-2: iteration-2
+            # kill-check → gövdeyi yakala ve True. set_phase("running") ilk
+            # BAŞARILI ownership-validasyonundan hemen sonra çalışır
+            # (yabancı-gövde-masking regresyon düzeltmesi: gövde mutasyonu
+            # ownership kanıtından ÖNCE yapılamaz); bu yüzden advert-edilmiş
+            # gövde ancak 2. kill çağrısında görülür.
+            seen["calls"] = seen.get("calls", 0) + 1
+            if seen["calls"] == 2:
+                seen["body"] = json.loads(
+                    (tmp_state / "orchestrator.lock").read_text(encoding="utf-8")
+                )
+                return True
+            return False
+
+        code = orch.run(kill_switch_fn=kill_and_capture, sleep_fn=lambda s: None)
+        assert code == 0  # PROCEED + insan-kill → temiz-0 (§7.1 kill≠ownership)
+        assert seen["body"]["phase"] == "running"
+        del sys.modules["MetaTrader5"]
