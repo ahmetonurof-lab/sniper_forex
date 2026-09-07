@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from src.config.cbdr_band_config import classify_width_regime
 from src.live.portfolio_dd import compute_lot_multiplier
 from src.live.strategy_runtime import Signal
 
@@ -196,18 +197,31 @@ class RiskManager:
         return loss / account.balance
 
 
-# ─── D129 §3 — CBDR Risk-Points Placeholder ────────────────────────
+# ─── D129 §3 → D152 — CBDR Risk-Points Multiplier (gerçek-implementasyon) ──
+# D150 Hakem-tasarımı (§2): tek zincir width% → regime → multiplier.
+# (a) bucket-şeması ile (b) 4-band regime BİRLİKTE: bucket = per-pair
+# percentile-band (cbdr_band_config), multiplier = rejim-tablosu.
+# Multiplier değerleri Reis-onaylı (D150: "3 de uygun 1.-2.-3 OK"):
+#   sıkışma (w < p25)   → 0.0  (trade yok — fail-closed, §19)
+#   tipik               → 1.0
+#   yükselmiş           → 1.2
+#   makro   (w ≥ p90)   → 1.5
+# Kripto orijinal-tablosunun (0.0/0.8/1.0/1.2/1.5) forex-uyarlaması;
+# rev.4 percentile-sınırlarını verdi, multiplier-değerlerini Reis verdi.
+CBDR_REGIME_MULTIPLIER = {
+    "sikisma": 0.0,
+    "tipik": 1.0,
+    "yukselmis": 1.2,
+    "makro": 1.5,
+}
+
+
 def get_cbdr_multiplier(symbol: str, cbdr_width_pct: float) -> float:
-    """CBDR risk-points çarpanı (D129 §3 placeholder).
+    """CBDR risk-points çarpanı (D129 §3 placeholder → D152 gerçek).
 
-    Implementasyon: her zaman 1.0 döner — ``CBDR_RISK_MATRIX`` bucket
-    kalibrasyonu ertelendi (``src/session_router.py``'deki Binance
-    CBDR_RISK_MATRIX, ``sniper`` repo'suyla sınırlı).
-
-    Kalibrasyon geldiğinde: ``buckets = cfg.CBDR_RISK_MATRIX[symbol]["buckets"]``
-    linear scan ile ``lo <= cbdr_width_pct < hi`` araması yapılır; match
-    ise ``mult`` döner; default ``1.0``. ``should_trade()`` ``mult == 0.0``
-    ise toxic zone kabul eder (fail-closed).
+    Zincir (Hakem D150 §2): ``width% → classify_width_regime → multiplier``.
+    Per-pair percentile-bantları ``src/config/cbdr_band_config.py``'den
+    (D139, rev.4 §2 tablosu) okunur — paralel-mekanizma YOK (§2.2).
 
     Args:
         symbol: trading pair (e.g. "EURUSD").
@@ -215,10 +229,13 @@ def get_cbdr_multiplier(symbol: str, cbdr_width_pct: float) -> float:
             ``((body_high - body_low) / body_low) * 100``.
 
     Returns:
-        1.0 (placeholder — kalibrasyon ertelendi).
+        Rejim-multiplier: 0.0 (sıkışma — trade yok) | 1.0 (tipik) |
+        1.2 (yükselmiş) | 1.5 (makro). Bilinmeyen sembol → KeyError
+        (fail-loud, sessiz-fallback YOK — AGENTS.md §19).
+
+    Çağıran sözleşme: ``should_trade``/evaluate-yolunda multiplier 0.0
+    toxic-zone kabul edilir (fail-closed) — D129 docstring-sözü burada
+    gerçekleşti.
     """
-    # Kalibrasyon ertelendi: parametreler simdilik tuketilmiyor ama imza
-    # gelecek bucket-scan icin rezervli. Underscore-atama vulture'i
-    # susturur (behavior DEGISMEDI — hâlâ 1.0 dondurur).
-    _calib_input = (symbol, cbdr_width_pct)
-    return 1.0
+    regime = classify_width_regime(symbol, cbdr_width_pct)
+    return CBDR_REGIME_MULTIPLIER[regime]
