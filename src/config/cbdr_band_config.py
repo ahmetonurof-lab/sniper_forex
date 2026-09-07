@@ -17,9 +17,15 @@ Provenance chain (AGENTS.md §8.1):
     digits.
   * Reis written approval: D138/D139 (memory-bank/HAKEM_EYE_20260903.md
     D137 block + activeContext.md D137-EK).
-  * USDCHF & NZDUSD: matching-bot verification was not possible (no
-    feather data); entered as VERIFIED-LABELLED per Reis decision
-    (matching_bot_report.md §6.1 Seçenek B) — see VERIFIED_NOTES.
+  * USDCHF & NZDUSD: initially entered as labelled (verified=False,
+    matching_bot_report.md §6.1 Seçenek B — no feather data at D139
+    time). Verified 2026-09-07 via matching-bot run 20260907_150541
+    ( Reis operator order): RAW m1 → feather (65.728/65.711 15m bars,
+    validate ALL PASS) → MATCH_A body 0/0 both pairs; sweep 100%
+    tol-attributed; closed 6/6 (Sat); single NZDUSD 07-14 1.5-pip
+    data-source note (§10.6, root-caused: single-1m-bar bucket drop).
+    Flags flipped to verified=True per matching_bot_report.md §10.4
+    ("eşleşme-temizliği 7/7 parite") + Reis approval D157.
 
 Regime semantics (rev.4 §117-120, per pair, own percentiles):
   * width <  p25          → "sıkışma"   (compressed)
@@ -57,12 +63,11 @@ CBDR_BAND_PERCENTILES: Dict[str, BandWidthPercentiles] = {
     "GBPUSD": BandWidthPercentiles(p25=0.0996, p75=0.184, p90=0.281, median=0.128, verified=True),
     "USDJPY": BandWidthPercentiles(p25=0.106, p75=0.223, p90=0.361, median=0.164, verified=True),
     "AUDUSD": BandWidthPercentiles(p25=0.145, p75=0.290, p90=0.466, median=0.196, verified=True),
-    # Labelled entries (Seçenek B): no feather data → matching-bot
-    # verification not possible. Values are the measured cBot-log
-    # percentiles; "verified" flag stays False until a matching run
-    # covers them.
-    "USDCHF": BandWidthPercentiles(p25=0.152, p75=0.254, p90=0.374, median=0.203, verified=False),
-    "NZDUSD": BandWidthPercentiles(p25=0.182, p75=0.365, p90=0.520, median=0.234, verified=False),
+    # Verified 2026-09-07 (matching-bot run 20260907_150541, §10.3/§10.4):
+    # MATCH_A body 0/0 both pairs; values unchanged (measured cBot-log
+    # percentiles, rev.4 §2).
+    "USDCHF": BandWidthPercentiles(p25=0.152, p75=0.254, p90=0.374, median=0.203, verified=True),
+    "NZDUSD": BandWidthPercentiles(p25=0.182, p75=0.365, p90=0.520, median=0.234, verified=True),
 }
 
 # Regime classification thresholds, per pair (rev.4 §117-120).
