@@ -2325,3 +2325,64 @@ izlenmeden cevap-verilmez.
 **Sıra (Reis-onayı-bekliyor):** DEBT-W1 wiring (Step-C ön-koşulu) ->
 Adım-C çoklu-sembol sinyal-only -> progress.md birikmiş-blok commit'i
 (hash-bound push-onayı §9.5).
+
+---
+
+## D174 — DEBT-W1 WIRING TAMAMLANDI (2026-09-08)
+
+**Kapsam:** D129-B.1..B.4 log-modülleri Orchestrator'a bağlandı
+(commit `a3d572e`, parent `6f22728`). Step-C ön-koşulu kalktı.
+
+**Tasarım (test-first):**
+- RED-kanıtı: `tests/test_orchestrator_log_wiring.py` ilk-koşuda
+  FileNotFoundError (canli-dosyası-yok) — wiring-eksikliği-davranış-olarak
+  yakalandı; import'lar-çalışıyor, fixture-pattern (tas3 make_orch)
+  çalışıyordu.
+- `_wire_live_logging()` (lazy, run()-başında-bir-kez, fail-safe):
+  log_dir = state_dir'in-kardeşi `logs/` (production: repo-root/logs;
+  test: tmp/logs). ConsoleReporter + canli_trade-logger +
+  TradeHistoryWriter(logs/trade_history.json) bağlanır; STARTUP-audit
+  event'i wired-durumunu-işaretler; hata-durumunda ERROR-audit +
+  degrade (loop-asla-log-yüzünden-çökmez).
+- Hook'lar: (1) gate-transition → GATE OPEN/CLOSED satırı (console-dedup
+  + günlük-dosya; SAFETY-audit'ten-sonra — audit-authoritative kalır);
+  (2) poll_deals-exits → EXIT satırı (deal_id-dedup) + status=recorded
+  ise D129-B.4 trade-record (gerçek-ctx-alanları; quarantined-exit
+  asla-sahte-ctx-üretmez — §2.2 tek-kaynak); (3) shutdown → final
+  SHUTDOWN satırı (guarded, idempotent).
+- live_runner.poll_deals: exit-payload'a additive price/time
+  enrichment (broker-gerçek-exit-fill kaydı).
+
+**Kök-neden-dersi (§12.1 — pytest-capture-handler tuzağı):**
+`setup_canli_trade_log` singleton-guard'ı (`if logger.handlers: return`)
+pytest'in LogCaptureHandler'ları logger'a-girince erken-dönüyordu →
+log-satırı-başarılı-ama-dosya-yok (sessiz-yönlendirme). Çözüm: wiring
+hedef-log_dir'li DailyUtcFileHandler yoksa handler'ları-temizleyip
+yeniden-kurar. Production-etkisi-YOK (taze-proses → boş-handler-listesi
+→ setup-tam-bir-kez). İzole-simülasyon-çalışıp-pytest-içinde-çalışmama
+çelişkisi, geçici-dump-testiyle (T1/T2 handler-dökümü) kesinleşti;
+diagnoz-dosyaları-silindi.
+
+**Kanıt:**
+- 8/8 wiring-test GREEN (RED→GREEN zinciri yukarıda).
+- Orchestrator-ailesi regresyon: tas3+tas4+console+canli+audit_rotation
+  +n2_17 = 72 passed.
+- Full tests/ (9-bilinen-collection-error-hariç: 6 exp5*/main_research_c
+  + 3 experiment.main_research_c_v1_0-ModuleNotFound ailesi):
+  615 passed, 14 failed (parity/research-baseline — fail-listesi
+  birebir-karşılaştırıldı, wiring-dosyalarıyla-ilgisiz), 2 skipped.
+- ruff+format+mypy+vulture hook'ları Passed (bir-reformat-döngüsü:
+  hook-değişikliği-doğrulanıp-re-stage).
+- index.json --full regen (2068 fonksiyon; §10.2 — untracked,
+  .gitignore-kapsamı).
+
+**Açık-kalemler (bilinçli):**
+- trade-record'da cbdr_context/fvg/trigger/exit_reason/entry_time
+  placeholder (OpenTradeContext bu-alanları-taşımıyor); audit-EXIT
+  authoritative-kalıyor. Zenginleştirme-isteği ayrı-hüküm.
+- ProtoOATraderReq-bakiye-entegrasyonu (orchestrator `_get_account`
+  ZERO-döndürüyor) — ayrı-iş.
+- Adım-④ kontrollü-demo-ilk-emir — ayrı-Reis-onayı.
+
+**Push:** YENİ-commit-seti (a3d572e + progress-blok) için hash-bound
+yazılı-onay-İSTENECEK (§9.5 — "ediyorum"-onayı yalnız-6f22728-içindi).
