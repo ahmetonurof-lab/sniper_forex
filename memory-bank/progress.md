@@ -2142,3 +2142,90 @@ Not: `problems`-mesajındaki-"; "-join-listesi-bug'ın-yan-ürünü (dict-keys-j
 **Kapsam-dışı-not:** RED-çıktısında-mesaj-biçimi-değişti (";"-birleşik-liste→validator-ilk-hata-mesajı) — beklenen-davranış (validator-ilk-ValueError'ı-raise'eder); çıktı-daha-kesin-hale-geldi.
 
 **Sıradaki (§3-onaylı):** ② cTrader-order-execution-katmanı-tasarımı (Hakem-RED/GREEN-döngüsü) → ③ demo-ilk-emir. Commit-öncesi-index-regen sorusu: run_production-82-95-satır-ofseti-değişti → index.json §10.2-regen-gerekli.
+
+## D168 — PUSH İCRASI + POST-PUSH DOĞRULAMA (2026-09-08)
+
+**Hakem-hükmü D168:** §1 D167-ratifiye ✅ · §2 PUSH-ONAYI ✅ (a40eac4→origin/main, ride-along-yasak) · §3 adım-②-tasarım-süreci-BAŞLATILDI.
+
+**PUSH-PROVENANCE (§9.3):**
+- who: Cline (agent, Reis-hüküm-iletimi)
+- what: D167 validator-dict-truthy bug-fix (src/live/run_production.py min-diff + 3-test + ledger)
+- when: 2026-09-08 (D168 hükmü)
+- commit(s): **a40eac4ae7c275a95be38e511d6f2c13e571b543** (TEK-commit; push-öncesi `origin/main..HEAD`=yalnız-bu-hash → ride-along-YOK §9.5)
+- remote: origin/main (https://github.com/ahmetonurof-lab/sniper_forex.git)
+- verification (§16): push-çıktısı `7dadaab..a40eac4 main -> main`, EXIT=0 · post-push: `origin/main..HEAD`=BOŞ ✓ · `ls-remote origin main`=`a40eac4...` == `rev-parse HEAD` ✓ · tracked-tree-TEMİZ ✓
+
+**Sıradaki:** Adım-② tasarım-taslağı (9-Hakem-noktası: Execution-analiz, ProtoOANewOrderReq-şeması, volume-dönüşümü, risk-kapıları, SL/TP-amend-ayrımı, reconcile, AuditChain, error-handling, test-stratejisi) → Hakem-RED/GREEN.
+
+## D168-B — PUSH-TAMAM + ADIM-② TASARIM-TASLAĞI (2026-09-08)
+
+**PUSH-İCRASI (D168-§2-onayı):** `a40eac4` → origin/main. Post-push-§16: `origin/main..HEAD`=BOŞ, `ls-remote`==HEAD (`a40eac4ae7c275a95be38e511d6f2c13e571b543`), tracked-tree-temiz. Provenance-progress.md-D168-blokta (§9.3).
+
+**ADIM-② TASARIM-TASLAĞI:** `docs/CTRADER_ORDER_EXECUTION_DESIGN_D168.md` → Hakem-RED/GREEN. Kanıt-bazları:
+- Execution-arayüzü (execution.py: OrderRequest/ExecutionResult/ModifyResult/send-akışı) — **yeniden-kullanım (Karar-A)**: `CTraderExecution` aynı-sözleşme, dataclass-import, MT5-sınıfına-dokunma (§2.2).
+- Resmi-Spotware-dok-çekimi (2026-09-08): ProtoOANewOrderReq-alan-şeması. **KRİTİK-BULGU:** absolute-stopLoss/takeProfit = "Not supported for MARKET orders" → market-SL/TP **relativeStopLoss/relativeTakeProfit** (1/100000-ölçek; BUY: SL=entry−rel) ile-AYNI-istekte (Karar-B; korumasız-pencere-yok).
+- Volume: protocol = lot×contract_size×100 (EURUSD-0.01→100000); kuantizasyon-mevcut-sizing'de (tek-kaynak); ProtoOASymbol.volumeStep-doğrulaması-fail-loud.
+- SL/TP-amend-ayrımı: AmendPositionSLTPReq (pozisyon) ≠ AmendOrderReq (pending) — D120-EK-§5-birebir-tablo.
+- Reconcile: mevcut `CTraderConnection.reconcile()` + `Reconciler`-yeniden-kullanım; event-driven-ExecutionEvent + 5-dk-döngü → block_trading=SAFETY.
+- Audit: ORDER/FILL/EXIT/SAFETY-mevcut-EventType-değerleri; dry_run-da-ORDER(dry_run:true).
+- Error: ErrorRes(retryAfter→bekle-retry) / OrderErrorEvent(terminal) / partial-fill→terminal (MT5-paraleli).
+- Test: mock-unit (volume, rel-SL/TP-matematiği, dry_run-kanıtı, dup, error-eşleme, §2.2-pin) + adım-③-kontrollü-demo + MT5-parite-şema-kanıtı.
+- **4-AÇIK-SORU Hakem'e:** clientOrderId-format · partial-fill-politika-onayı · ProtoOATraderReq-bakiye (öneri: ayrı-hüküm) · isLimitedRisk-fail-loud (öneri: evet).
+
+**EMİR-GÖNDERİLMEDİ** — taslak-aşaması; implementasyon-yalnız-Hakem-GREEN-sonrası (test-first).
+
+## D169 — HAKEM KOŞULLU GREEN + taslak entegrasyonu (2026-09-08)
+
+- **Hüküm:** KOŞULLU GREEN — §3 cevaplarını + §4 pipPosition düzeltmesini taslağa ekle, kısa özet sun, final onay sonra test-first implementasyon.
+- **Entegrasyon (docs/CTRADER_ORDER_EXECUTION_DESIGN_D168.md):**
+  - Nokta-2: D169-§4 birebir eklendi — ölçek = 10^pipPosition (EURUSD=5→100000, JPY=3→1000), runtime symbolId→pipPosition lookup, hardcoded YOK. Şeffaflık-notu: resmi dok "sabit 1/100000" yazar; pipPosition-dinamik savunma-katmanı olarak zorunlu; implementasyonda canlı-doğrulama adım-③ öncesi.
+  - Nokta-4/kapı-5: clientOrderId = `SNIPER_{symbol}_{timestamp_ms}_{uuid_short}` (§3①).
+  - Nokta-4/kapı-7: isLimitedRisk fail-loud boot-kontrolü (§3④); nuans: alan ProtoOATrader.isLimitedRisk (hesap-seviyesi, model-messages-kanıtı) + ProtoOASymbol.guaranteedStopLoss (sembol-seviyesi) çift-kontrol.
+  - Nokta-8: partial-fill = TERMINAL + pozisyon-kapat; ORDER(partial_fill=True) + SAFETY(partial_fill_rejected); istisna-YOK (§3②).
+  - Nokta-9: pipPosition-dinamik + clientOrderId + partial-fill + limited-risk testleri eklendi.
+  - Açık-sorular → D169-§3 çözümleri tablosu; icra-sırası güncellendi (boot-kontrolü + EURUSD/JPY canlı-doğrulama adımları).
+- **Bakiye-okuma (§3③):** ayrı-hüküm; CTraderExecution bakiye okumaz, mevcut PositionSizer kalır.
+- **Sonraki:** Hakem final GREEN → test-first (tests/test_ctrader_execution.py RED → src/ctrader/execution.py GREEN).
+
+## D170 — Adım-③ icra: CTraderExecution test-first (2026-09-08)
+
+**Hüküm:** D170 FİNAL-GREEN + test-first yetki (Reis). Kapsam:
+tests/test_ctrader_execution.py + src/ctrader/execution.py +
+src/ctrader/connection.py ince-ekleri. MT5-Execution DOKUNULMAZ.
+
+**Adım-③-A (RED):** tests/test_ctrader_execution.py — 11 test (D170-§3
+birebir: volume EURUSD/JPY, relative-SLTP EURUSD/JPY, pipPosition-missing
+fail-loud, clientOrderId format, partial-fill TERMINAL, limited-risk
+çift-kontrol, dry-run default, ERROR_RES retryAfter, §2.2 contract-pin).
+RED kanıtı: 11 failed (hepsi pytest.fail "RED: src/ctrader/execution.py
+henüz yok") + --collect-only 11 tests collected. Gizli-skip YOK (§4.4).
+
+**Adım-③-B (GREEN):** src/ctrader/execution.py — CTraderExecution:
+send(OrderRequest)->ExecutionResult (aynı sözleşme; OrderRequest/
+ExecutionResult src.live.execution'dan import — §2.2 duplicate-YASAK);
+protocol_volume = lot x contract_size x 100; relative SL/TP scale=10^pipPosition
+(D169-§4 dinamik; lookup-eksik -> emir-YOK + SAFETY pip_position_missing);
+clientOrderId SNIPER_{sym}_{ms}_{uuid8} <=50; partial-fill TERMINAL
+(ORDER partial_fill=true + SAFETY partial_fill_rejected; retry/istisna-YOK);
+signal_only default True (dry_run ORDER audit dry_run:true); ERROR_RES
+retryAfter -> bekle+retry; validate_limited_risk çift-kontrol (CTraderSafetyError).
+connection.py send_order() ince-ek: ProtoOANewOrderReq (MARKET=1, BUY=1/SELL=2,
+volume 0.01-unit, relative*, clientOrderId, label) — mevcut desen birebir
+(callFromThread + errback ORDER_ERROR). FakeExecConnection test-double'ı
+send_order-payload kaydı + script'li event (production-path dispatch kanıtı).
+
+**Test-tecrübe:** clientOrderId-format testinde 2. send'e fill-event
+script'lenmemisti -> retry (4 coid) — test-tasarımı hatası; event-yok
+retry beklenen davranış, fixture düzeltildi (implementasyon-DOKUNMADI).
+
+**Kanıtlar:** RED 11 failed -> GREEN 11 passed (3.50s); ruff check+format
+temiz (3 dosya); ctrader-ailesi 52 passed; full-suite (§13 scope: tests/
+--ignore 9 collection-error dosyasi) = 14 failed (pre-existing-14F parity
+baseline; differential: commit 5223d59 exp5*/main_research modüllerini
+archive/experiment_20260906/ a tasidi, testleri tasimadi -> 9 collection-error
+PRE-EXISTING) + 607 passed + 2 skipped. Yeni-fail YOK.
+
+**Açık:** orchestrator-bağlantısı (ayrı hüküm-S6); adım-④ kontrollü demo
+ilk emir (ayrı onay; mock-only korundu); pipPosition EURUSD/JPY canlı
+doğrulama (adım-④ öncesi); ProtoOATraderReq bakiye (ayrı hüküm); commit
++ hash-bound push-onayı (§9.5) bekliyor.

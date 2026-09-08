@@ -228,6 +228,52 @@ class CTraderConnection:
         return deferred
 
     # ------------------------------------------------------------------
+    # Emir gönderimi (D170-§3-Adım-③-B — send_order ince-ek).
+    # Payload CTraderExecution tarafından hazırlanır (src/ctrader/
+    # execution.py); bu katman yalnızca ProtoOANewOrderReq'e çevirir.
+    # Yanıtlar (ProtoOAExecutionEvent / ProtoOAErrorRes) mevcut
+    # _on_message_received yoluyla ("MESSAGE", extracted) olarak
+    # event_queue'ya düşer; errback ORDER_ERROR etiketiyle.
+    # NOT: Absolute stopLoss/takeProfit MARKET emirde desteklenmez —
+    # relative* alanları CTraderExecution tarafında hesaplanır (D169-§4).
+    # ------------------------------------------------------------------
+    # ProtoOAOrderType: MARKET=1; ProtoOATradeSide: BUY=1, SELL=2.
+    ORDER_TYPE_MARKET = 1
+    TRADE_SIDE_BUY = 1
+    TRADE_SIDE_SELL = 2
+
+    def send_order(self, payload):
+        """ProtoOANewOrderReq — MARKET emir (volume 0.01-unit çarpanlı).
+
+        payload (dict, CTraderExecution üretimi):
+            symbol_id: int
+            trade_side: "BUY" | "SELL"
+            volume: int (protocol volume; lot x contract_size x 100)
+            relativeStopLoss / relativeTakeProfit: int (scale=10^pipPosition)
+            clientOrderId: str (<=50 char; kapı-5)
+            label: str
+        Ana thread'den çağrılır — callFromThread ile reactor'a köprülenir.
+        """
+        reactor.callFromThread(self._do_send_order, dict(payload))
+
+    def _do_send_order(self, payload):
+        req = Protobuf.get("ProtoOANewOrderReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        req.symbolId = int(payload["symbol_id"])
+        req.orderType = self.ORDER_TYPE_MARKET
+        req.tradeSide = (
+            self.TRADE_SIDE_BUY if payload.get("trade_side") == "BUY" else self.TRADE_SIDE_SELL
+        )
+        req.volume = int(payload["volume"])
+        req.relativeStopLoss = int(payload["relativeStopLoss"])
+        req.relativeTakeProfit = int(payload["relativeTakeProfit"])
+        req.clientOrderId = str(payload["clientOrderId"])
+        req.label = str(payload.get("label") or "SNIPER_FOREX")
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addErrback(lambda f: self.event_queue.put(("ORDER_ERROR", str(f))))
+        return deferred
+
+    # ------------------------------------------------------------------
     # Token cache
     # ------------------------------------------------------------------
     def _load_token_cache(self):
