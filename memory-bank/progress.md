@@ -2592,3 +2592,35 @@ CLOSED-koruyucu-doğru-davranış (fail-closed). **Ne-zaman-kapanır:**
 cTrader-position-reconciliation-iş-kalemi (ProtoOATraderReq/
 position-list-snapshot) tamamlanınca-OK-status-üretilecek → gate-
 OPEN. Yani-CLOSED=beklenen-geçici-koruma, silent-degradation-DEĞİL.
+
+---
+
+## PUSH-KAYDI-20 (§9.3) — SET: D178 + D178-EK + PUSH-KAYDI-19 (2026-09-09; Copilot-icrası; Reis-yazılı-push-onayı + Hakem-4-nokta-kabulü)
+
+- **Onay:** Reis-yazılı-onayı (Hakem-4-nokta-değerlendirmesi-sonrası
+  "onay verildi"); hash-bound (§9.5): `2d9c5fa` + `57b286a` + `9f0fe80`
+  (3-commit), hedef `origin/main`, ride-along-YASAK.
+- **Ön-doğrulama:** origin/main..HEAD == {2d9c5fa, 57b286a, 9f0fe80}
+  (birebir-onaylı-set, fazlalık-YOK); tracked-working-tree-TEMİZ;
+  remote-HEAD-önce = dc8db2f.
+- **İcra:** `git push origin main` → `dc8db2f..9f0fe80 main -> main`.
+- **Son-doğrulama (§16):** origin/main..HEAD=0 (BOŞ);
+  ls-remote=`9f0fe80ee9dd2048c76fea96685baa2b59645c70` == local-HEAD;
+  tracked-working-tree-TEMİZ (yalnız-bilinen-untracked).
+- **Set-içeriği:** 2d9c5fa = PUSH-KAYDI-19 (D176-provenance; önceki-
+  turda-bilinçli-set-dışı — bu-turda-kaçınılmaz-atası-olarak-onaylı);
+  57b286a = D178 (ms-timestamp + account-auth-gate + fix#2b; 58/58-
+  ctrader-aile); 9f0fe80 = D178-EK (Hakem-4-nokta-yanıtı:
+  TestWaitAccountAuthorized-3-test + belge-tamamlama; 61/61).
+- **Validasyon-push-öncesi:** ctrader-aile-61/61-GREEN; orchestrator-
+  aile-98P; full-suite-1F-pre-existing (parity-gate
+  ModuleNotFoundError — stash-differansiyel-HEAD-teyitli); ruff-temiz;
+  index-regen-2095 (gitignore'lı — 746504b-kararı).
+- **Hakem-kapanış:** 4-madde-tamamı-KAPANDI (1: FlipAfterTwo-regresyon;
+  2: ms-RED/GREEN-zinciri; 3: index.json-746504b-çelişki-yok;
+  4: MISMATCH-fail-closed-zinciri). "Push'u-engelleyen-madde-yok."
+- **Açık-kalemler:** persisted-safe-mode-temizliği (operatör-kararı,
+  §7.2); cTrader-position-reconciliation (gate-OPEN-şartı); paper-soak-
+  izleme (ilk-60sn-startup-bloğu-Hakem'e; 3-bar-15m-grid `% 900==0`);
+  Windows-heap-crash-0xc0000374 (_diagnose_path_write — ayrı-inceleme);
+  Adım-C-per-symbol-runtime.
