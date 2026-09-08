@@ -1964,3 +1964,13 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
   - **OnStop NullReferenceException:** `_pythonBridge` null (import başarısız) → `OnStop` NRE. Import fix'iyle çözülür.
 - **Adım 5 ⬜:** `results/cbdr_calibration_results.md` — per-pair CBDR genişlik dağılımları.
 - **PUSH YOK:** Reis Adım 5 sonrası onaylayana kadar (AGENTS.md §9).
+
+## PUSH-KAYDI-15 (§9.3) — SET: İş-4a S1 + D159 (2026-09-08; Copilot-icrası; Reis-yazılı-push-onayı "push onay > REIS")
+
+- **Onay:** Reis D160-ratifikasyonu-sonrası yazılı-onay (§9.2). Set §9.5'e-göre-hash-bağlı: `78fa8a4` + `2b5eabc`.
+- **Ön-doğrulama:** origin/main..HEAD = 2-commit (onaylı-setle-birebir; büyüme/kırpma/amend-YOK); working-tree-temiz; remote-base `d9ef591` (fast-forward).
+- **İcra:** `git push origin main` → `d9ef591..2b5eabc main -> main` exit 0.
+- **Son-doğrulama (§16):** origin/main..HEAD = 0 (boş); ls-remote = local HEAD = `2b5eabc83179df8b80cd3705b169754b7860c00f`; working-tree-temiz.
+- **Kapsam:** İş-4a S1 cTrader-birincil-boot (kod+testler, 10-dosya) + D159-memory-bank. `.env`/`token_cache.json` dahil-DEĞİL.
+- **Validasyon-zinciri:** 33/33 ctrader-boot+adapter; full-suite 585P/14F (14F = pre-existing differential, d9ef591-stash-kanıtlı).
+- **Açık-kalemler:** (1) cTrader-65k-warmup chunked-pagination — Hakem-onaylı, sonraki-iş; (2) GBPJPY-kalibrasyon — Reis-kararı-bekliyor.
