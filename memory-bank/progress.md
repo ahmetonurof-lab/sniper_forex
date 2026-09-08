@@ -2666,3 +2666,42 @@ OPEN. Yani-CLOSED=beklenen-geçici-koruma, silent-degradation-DEĞİL.
   paper-soak (runbook-artık-cTrader-doğru); heap-crash-paralel (YÜKSELTİLDİ);
   cTrader-position-recon (gate-OPEN-şartı); WARN→INFO DEBT-candidate;
   5d8e067-hash-bound-sonraki-push-onayı.
+
+---
+
+## D180 — SAFE-MODE TEMİZLİĞİ (Reis-onaylı) + SMOKE-BOOT DOĞRULAMA (2026-09-09 01:05-01:10; Copilot-icrası)
+
+- **Reis-yazılı-onayı:** "temizlik → soak" — Hakem-önerisiyle
+  **arşivleme** (sessiz-silme-DEĞİL): `state/orchestrator_safe.json` →
+  `state/archive/orchestrator_safe_20260908_prepend5.json`.
+  SHA256: `a1f43811...463cbf` (500-byte, prepend×5 zinciri — D178-öncesi
+  auth-race bug'ının son-fiziksel-kanıtı, §12.1 korundu).
+- **Stale-lock-temizliği:** `orchestrator.lock` PID-14504 (boot-7) ölü
+  (tasklist-boş) → PID-ölü-takeover-meşru-yol; lock-silindi.
+- **SMOKE-BOOT (temiz-state, 01:07:22):** `startup SAFE_START:
+  recon_blocked: NOT_RUN (warmup_bars=3075)` — **historical-zincir-TEMİZ**
+  (safe_reasons yalnız recon-NOT_RUN; D178-bug-eserleri-YOK;
+  safe_mode_persisted-prefix-YOK). Yeni-safe-file: `{"safe_mode": true,
+  "reason": "recon_blocked: NOT_RUN"}` — beklenen-by-design-persist
+  (Hakem-nüansı teyit: her-boot-yeniden-yazılır, recon-implementasına-dek).
+- **Gate:** CLOSED (reconciliation MISMATCH) — fail-closed-doğru;
+  signal_only'de-zararsız.
+- **BULGU (yeni, §18-önemli):** SIGTERM (timeout-150) → process-ölü ama
+  **SHUTDOWN-audit-event-YOK + lock-kaldı** (audit'te tek-SHUTDOWN =
+  ESKİ-ts 1788899629, boot-3-era). Orchestrator sinyal-handler'ları
+  kuruyor (orchestrator.py:2742-2743) AMA run_production-timeout-kill
+  penceresinde graceful-path-TETİKLENMEDİ. **Soak-öncesi-çözülmesi-
+  gereken-soru:** operatör-Ctrl-C/SIGTERM senaryosunda shutdown-simetrisi
+  (§18 startup/shutdown-simetri maddesi) — kill-drill'i soak-İÇİNDE
+  test-etmek-planlıydı; ama-şimdiden-bilinen-risk: timeout-kill =
+  temiz-kapanış-DEĞİL (beklenen: SIGTERM→kill-flag→SHUTDOWN-audit+
+  snapshot+lock-release). Soak-başlatma-KARARI Reis'e: (a) bu-bulgu ile
+  soak-başlat (kill-drill zaten-72s-listesinde) veya (b) önce-sinyal-
+  penceresi-incelemesi. Copilot-önerisi: (a) — SIGTERM-timeout-kill
+  operatör-akışı-değil; gerçek-drill Ctrl-C-ile-yapılacak.
+- **State-son-durum:** archive/ (kanıt) + audit.jsonl (385KB, büyümeye-
+  devam) + crash_log.txt (writer_diag 8-kayıt, hepsi-temiz) +
+  orchestrator_safe.json (yalnız-recon-reason) + lock-TEMİZ.
+- **Açık-kalemler:** SOAK-BAŞLATMA (Reis-kararı a/b); heap-crash-paralel
+  (YÜKSELTİLDİ); cTrader-position-recon (gate-OPEN-şartı); WARN→INFO
+  DEBT-candidate; push-set: 5d8e067+a696a03(+D180-commit) hash-bound-onay.
