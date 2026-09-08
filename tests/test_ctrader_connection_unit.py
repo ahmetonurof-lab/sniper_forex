@@ -165,3 +165,30 @@ def test_symbols_list_msg_settable(tmp_path):
     parsed = Protobuf.get("ProtoOASymbolsListReq")
     parsed.ParseFromString(req.SerializeToString())
     assert parsed.includeArchivedSymbols is False
+
+
+class TestAuthorizedGate:
+    """D178: is_connected=True means TCP+app-auth STARTED, NOT account-auth
+    DONE. Live evidence (2026-09-08): ensure_connected returned True while
+    ACCOUNT_AUTH_RES was still ~2s away; the adapter's first
+    request_symbols_list hit the server pre-authorization ->
+    ProtoOAErrorRes 'INVALID_REQUEST: Trading account is not authorized'
+    -> symbols_response_timeout -> warmup_failed -> SAFE_START forever.
+    Fix: connection tracks account-authorized state; adapter's
+    ensure_connected waits for it (bounded)."""
+
+    def test_account_authorized_false_until_res(self, tmp_path):
+        """Offline: property default False before any auth callback — no
+        network needed (start() opens a real reactor; not a unit concern)."""
+        conn, _tok = _make_conn(tmp_path)
+        assert conn.account_authorized is False  # default, no callbacks yet
+
+    def test_account_authorized_true_after_res(self, tmp_path):
+        conn, _tok = _make_conn(tmp_path)
+        conn._on_account_auth_res(object())  # production callback path
+        assert conn.account_authorized is True
+
+    def test_account_authorized_false_on_auth_error(self, tmp_path):
+        conn, _tok = _make_conn(tmp_path)
+        conn._on_auth_error("boom")
+        assert conn.account_authorized is False

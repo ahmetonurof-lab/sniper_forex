@@ -144,7 +144,8 @@ class FakeConnection:
         self.event_queue.put(
             (
                 "MESSAGE",
-                ProtoOASpotEvent(symbol_id, 6_000_010_000, 6_000_020_000, int(time.time())),
+                # D178: real server sends ms — fake mirrors that contract.
+                ProtoOASpotEvent(symbol_id, 6_000_010_000, 6_000_020_000, int(time.time() * 1000)),
             )
         )
 
@@ -586,3 +587,32 @@ class TestGetRatesChunked:
         ad = CTraderDataAdapter(conn, server_offset_hours=2)
         assert ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1) is None
         assert not [c for c in conn.calls if c[0] == "trendbars"]
+
+
+class TestSpotTimestampMilliseconds:
+    """D178: ProtoOASpotEvent.timestamp arrives in MILLISECONDS (official
+    proto: int64 'Timestamp of the event (in milliseconds)'). _record_spot
+    stored it raw as seconds -> age = now - ts became ~ -1.78e12s -> the
+    symmetric stale guard rejected EVERY quote -> gate CLOSED forever.
+    Live evidence: 'ctrader_adapter_stale_quote: EURUSD age=-1787109159285s'
+    (2026-09-08 first paper boot). Fix: ms->s conversion at _record_spot."""
+
+    def test_ms_timestamp_converted_to_seconds(self):
+        conn = FakeConnection()
+        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0, server_offset_hours=2)
+        # Feed a spot event with a ms-epoch timestamp (as the real server does).
+        ms_now = int(time.time() * 1000)
+        ad._spot_subscribed.add("BTCUSD")
+        ad._symbol_ids["BTCUSD"] = 10026  # resolve map: event -> symbol name
+        ad._record_spot(ProtoOASpotEvent(10026, 6_000_010_000, 6_000_020_000, ms_now))
+        tick = ad.get_tick_data("BTCUSD")
+        assert tick is not None, "fresh ms-timestamped quote must NOT be rejected"
+        assert abs(tick["time"] - time.time()) < 60  # seconds, not ms
+
+    def test_ms_timestamp_stale_still_rejected(self):
+        conn = FakeConnection()
+        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0, server_offset_hours=2)
+        ms_old = int((time.time() - 300) * 1000)
+        ad._spot_subscribed.add("BTCUSD")
+        ad._record_spot(ProtoOASpotEvent(10026, 6_000_010_000, 6_000_020_000, ms_old))
+        assert ad.get_tick_data("BTCUSD") is None

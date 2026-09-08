@@ -2473,3 +2473,70 @@ p25/p75/p90-güven-kademeleri; Adım-C-öncesi-trade-gating-artık-TAMAM
 - **Açık-kalemler (D177-§3):** Adım-C-çoklu-sembol-sinyal-only (SIRADA — per-symbol-runtime-mimarisi); DEBT-V2-GBPJPY-MATCH_C; ProtoOATraderReq-bakiye (ayrı-hüküm); token-rotate (Reis).
 - **Not:** Bu-blok-yeni-commit-olacak ve-push-onaylı-sete-DAHİL-DEĞİL (set-icra-edildi) — sonraki-push-turunda-hash-bound-İSTENECEK (2477b69-önceden-
   görülmüş-pattern).
+
+---
+
+## D178 — PAPER-BOOT ÜRETİM-BUGILARI: ms-timestamp + account-auth-race (2026-09-08; Copilot; Reis-emri: "hemen başla")
+
+**Bağlam:** Reis-emri ile EURUSD signal_only-paper-başlatma. Boot-1/2'de
+iki-üretim-bugı-canlı-diagnoz-edildi; her-ikisi-RED/GREEN-fix'lendi.
+
+### Bug#1 — ProtoOASpotEvent.timestamp MİLİSANİYE (ms→s-eksik)
+- **Belirti:** `ctrader_adapter_stale_quote: EURUSD age=-1787109159285s` —
+  gate-CLOSED; her-quote-stale-guard-tarafından-red.
+- **Kök-neden:** `_record_spot` ham-timestamp'ı-saniye-varsaydı; proto
+  ms-birimi (official: int64 "Timestamp of the event (in milliseconds)").
+  age = now - ts ≈ -1.78e12s → simetrik-stale-guard-(-max_age)-red.
+- **Fix:** `ts = ts_ms // 1000 if ts_ms > 0 else 0` (data_adapter).
+- **Test:** `TestSpotTimestampMilliseconds` (2-test: fresh-ms-kabul
+  `abs(tick["time"]-time.time())<60`; stale-300s-red). FakeConnection
+  `subscribe_spots` ms-birimine-çevrildi (gerçek-sunucu-birimi).
+
+### Bug#2 — ensure_connected TCP-döndürüyor, ACCOUNT_AUTH_RES-sonra-geliyor
+- **Belirti (boot-2):** `symbols_response_timeout: EURUSD` → warmup_failed
+  → SAFE_START. Canlı-kanıt: TCP ~2s; APP_AUTH_RES ~+0.7s;
+  ACCOUNT_AUTH_RES ~+1.9s (ensure_connected-döndükten-SONRA). Pre-auth
+  `request_symbols_list` → `ProtoOAErrorRes INVALID_REQUEST: Trading
+  account is not authorized` → symbols-yanıtı-HİÇ-gelmiyor.
+- **Fix#2:** `CTraderConnection.account_authorized` property
+  (_on_account_auth_res→True; _on_auth_error→False) +
+  `ensure_connected` artık-gate-bekliyor (bounded 6.0s).
+- **Fix#2b (ikinci-canlı-bulgu):** `_wait_account_authorized` ilk-sürümü
+  `auth_fn`'i-döngü-öncesi-BİR-KEZ-getattr'lıyordu → stale-False-döngüsü.
+  Canlı-kanıt: 6.0s-bekleme-False-döndü; hemen-sonra-property-True.
+  Fix: property-her-iterasyonda-yeniden-okunur.
+  `ensure_connected: True (3.3s)` — canlı-doğrulandı.
+- **Test:** `TestAuthorizedGate` (3-test: default-False / res→True /
+  error→False; offline — start()-gerçek-reactor-açar, unit-kapsamı-dışı).
+
+### Canlı-kanal-kanıtları (post-fix)
+- Artıklar-drenajlı-get_rates: 3499-bar; drenajsız-da-çalışır (3499).
+- run_production-wiring-birebir-kanal-testi: ensure_connected True (2.3s)
+  + bars 3499.
+- Boot-3/4/5: warmup-ARTIK-ÇALIŞIYOR (`warmup_bars=3069/3070` — önceki
+  boot'larda-0); SAFE_START-reason'ları-persisted-safe-mode-zincirinden
+  (§7.2: persisted-safe-mode-degraded-boot; temiz-start-lavaj-ETMEZ —
+  beklenen-davranış). Gate-CLOSED "reconciliation status: MISMATCH" =
+  ctrader-mode-beyanlı-NOT_RUN→MISMATCH-eşlemesi (D159-S5-tasarımı;
+  cTrader-positions-yönetimi-sonraki-iş-kalemi).
+
+### Validasyon
+- ctrader-aile: 58/58-GREEN (connection-unit + data_adapter +
+  orchestrator-boot).
+- Orchestrator-aile: 98P (startup/tas2/tas4/n2_17_lock_fixspec).
+- Full-suite: 223P/1F/1sk (crash-0xc0000374-sonrası-kısmi —
+  `_diagnose_path_write` Windows-heap-corruption, D178-dışı;
+  parity-gate-1F = ModuleNotFoundError experiment.main_research_c_v1_0
+  — stash-differansiyel-ile-HEAD-üzerinde-de-fail → pre-existing,
+  D174-baseline-14F-ile-aynı-aile).
+- ruff: check+format-temiz (12-dosya).
+- index.json: --full-regen (2095-fonksiyon; gitignore'lı — stage-EDİLMEZ).
+
+**Scope:** src/ctrader/{connection,data_adapter}.py (+53/-6) +
+tests/{test_ctrader_connection_unit,test_ctrader_data_adapter}.py (+59)
+= 106-ekleme-6-silme. MT5-Execution/strategi-gövdesi-DOKUNULMADI.
+
+**Açık:** (1) persisted-safe-mode-temizliği — operatör-kararı (§7.2:
+explicit-action); (2) cTrader-reconciliation-NOT_RUN→MISMATCH-gate
+(sonraki-iş); (3) paper-soak-izleme (ilk-60sn-startup-bloğu-Hakem'e;
+3-bar-15m-grid `% 900 == 0`); (4) Adım-C-per-symbol-runtime.

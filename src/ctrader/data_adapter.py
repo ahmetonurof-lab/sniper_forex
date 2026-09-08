@@ -204,15 +204,41 @@ class CTraderDataAdapter:
     def ensure_connected(self, max_attempts: int = 1) -> bool:
         """Orchestrator-side liveness check. Reconnection is owned by the
         connection layer's ClientService reconnect policy; here we only
-        report state and (best-effort) wait briefly for it."""
+        report state and (best-effort) wait briefly for it.
+
+        D178: waits for ACCOUNT authorization, not just TCP. Live evidence
+        (2026-09-08): ensure_connected returned True while ACCOUNT_AUTH_RES
+        was ~2s away; the first request_symbols_list hit the server
+        pre-auth -> ProtoOAErrorRes 'Trading account is not authorized' ->
+        symbols_response_timeout -> warmup_failed -> SAFE_START forever.
+        """
         if self.is_connected():
-            return True
+            return self._wait_account_authorized(6.0)
         deadline = time.monotonic() + min(max_attempts, 5) * 2.0
         while time.monotonic() < deadline:
             if self.is_connected():
-                return True
+                return self._wait_account_authorized(6.0)
             time.sleep(0.2)
         return self.is_connected()
+
+    def _wait_account_authorized(self, timeout_sec: float) -> bool:
+        """D178: bounded wait for the connection's account-authorized gate.
+        Duck-typed: fakes without the attribute pass through untouched
+        (test fakes are always authorized by construction).
+
+        D178 fix#2b: the attribute is a property (bool), so it must be
+        re-read every iteration. The first version captured it once via
+        getattr before the loop and then re-checked the stale captured
+        value — a connection that authorized *during* the wait was never
+        observed (live evidence 2026-09-08: 6.0s wait returned False,
+        account_authorized read True immediately afterwards)."""
+        deadline = time.monotonic() + timeout_sec
+        while time.monotonic() < deadline:
+            val = getattr(self._conn, "account_authorized", None)
+            if val is None or val:
+                return True
+            time.sleep(0.1)
+        return bool(getattr(self._conn, "account_authorized", False))
 
     def stop(self) -> None:
         """Teardown delegation (İŞ-4a D159): Orchestrator.shutdown() calls
@@ -579,7 +605,12 @@ class CTraderDataAdapter:
     def _record_spot(self, evt: Any) -> None:
         bid = getattr(evt, "bid", 0)
         ask = getattr(evt, "ask", 0)
-        ts = int(getattr(evt, "timestamp", 0) or 0)
+        # D178: ProtoOASpotEvent.timestamp is in MILLISECONDS (official proto:
+        # int64 "Timestamp of the event (in milliseconds)"). Stored as SECONDS
+        # — raw ms storage made age = now - ts ~ -1.78e12s and the symmetric
+        # stale guard rejected every quote (gate CLOSED; 2026-09-08 evidence).
+        ts_ms = int(getattr(evt, "timestamp", 0) or 0)
+        ts = ts_ms // 1000 if ts_ms > 0 else 0
         if not bid or not ask:
             return  # partial quote — wait for the next event
         # Resolve symbol name for the event (reverse map).
@@ -594,7 +625,7 @@ class CTraderDataAdapter:
         self._last_spot[name] = {
             "bid": float(bid) / CTRADER_PRICE_SCALE,
             "ask": float(ask) / CTRADER_PRICE_SCALE,
-            "time": ts,  # UTC epoch seconds (subscribeToSpotTimestamp=TRUE)
+            "time": ts,  # UTC epoch seconds (converted from ms — D178)
         }
 
     def get_tick_data(self, symbol: str) -> Optional[Dict[str, Any]]:

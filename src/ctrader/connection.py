@@ -142,9 +142,14 @@ class CTraderConnection:
         deferred.addCallbacks(self._on_account_auth_res, self._on_auth_error)
 
     def _on_account_auth_res(self, result):
+        # D178: account-authorized gate — TCP/app-auth alone is NOT enough;
+        # requests sent before this point get ProtoOAErrorRes
+        # 'INVALID_REQUEST: Trading account is not authorized'.
+        self._account_authorized = True
         self.event_queue.put(("ACCOUNT_AUTH_RES", result))
 
     def _on_auth_error(self, failure):
+        self._account_authorized = False
         self.event_queue.put(("AUTH_ERROR", str(failure)))
 
     # ------------------------------------------------------------------
@@ -297,6 +302,13 @@ class CTraderConnection:
     @property
     def is_connected(self):
         return self._connected
+
+    @property
+    def account_authorized(self):
+        """D178: True only after ProtoOAAccountAuthRes (production callback
+        path). TCP connect + app-auth do NOT authorize trading-account
+        requests — the adapter's ensure_connected waits on this gate."""
+        return getattr(self, "_account_authorized", False)
 
     def drain_events(self):
         """Ana thread'den event kuyruğunu boşalt — (tip, veri) listesi döner.
