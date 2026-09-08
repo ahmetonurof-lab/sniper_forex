@@ -2705,3 +2705,46 @@ OPEN. Yani-CLOSED=beklenen-geçici-koruma, silent-degradation-DEĞİL.
 - **Açık-kalemler:** SOAK-BAŞLATMA (Reis-kararı a/b); heap-crash-paralel
   (YÜKSELTİLDİ); cTrader-position-recon (gate-OPEN-şartı); WARN→INFO
   DEBT-candidate; push-set: 5d8e067+a696a03(+D180-commit) hash-bound-onay.
+
+## D181 — Sinyal-penceresi-teşhisi TAMAMLANDI (Hakem-kararı-b) — 2026-09-09 01:16–02:05
+
+**Kapsam:** Sinyal-graceful-path-incelemesi; kod-DEĞİŞİKLİĞİ-YOK (yalnız-test+kanıt).
+
+**Test-kronolojisi (4-test):**
+1. **Boot-A (3140):** CTRL_BREAK → anında-ölüm, SHUTDOWN-yok. Windows-console-app'e
+   SIGTERM-gelemez (taskkill-siz-imkansız); SIGBREAK-handler'sız (D11-kapsamı-dışı).
+2. **Boot-B (2396):** CTRL_C-denemesi-**GEÇERSİZ** (MSYS-PID-kullanıldı, sinyal-ulaşmadı).
+   Boot-B-ölümü-**bizim-lock-silmemizden** (01:34, tmp/temizlik) → 01:40:35
+   ownership_lost → **TAM-GRACEFUL** (SHUTDOWN-audit+lock-release+exit-1).
+   → D35-yolu-canlı-kanıtlandı (yan-ürün-bulgusu, kusursuz-çalıştı).
+3. **Minimal-replika (aynı-baslatma):** CTRL_C-GenerateConsoleCtrlEvent r=1
+   **yanlış-pozitif** — handler-ÇAĞRILMADI. os.kill(CTRL_C_EVENT)-de-çalışmadı.
+   → **KÖK-NEDEN: VS-Code-terminali = ConPTY; ConPTY-altında aynı-console-
+   CTRL_C-iletimi-ÇALIŞMIYOR (Windows-bilinen-kısıt).** Önceki-D180-bulgusu
+   (SIGTERM→graceful-yok) = **TEST-ARTIFACT**, orchestrator-hatası-DEĞİL.
+4. **CREATE_NEW_CONSOLE+AttachConsole-testi (KESİN-KANIT):**
+   - Minimal-replika: handler-ÇAĞRILDI (signum=2), graceful-exit rc=0.
+   - **Orchestrator-path (gerçek-run_production):** CTRL_C → **rc=2, 2.0-sn**,
+     SHUTDOWN-audit `kill_switch_during_sleep` (02:05:02), **lock-RELEASE**,
+     process-temiz-çıktı. **KUSURSUZ.**
+
+**Hükmün-doğrulanması:**
+- **H1-ÇÜRÜTÜLDÜ:** loop-kill-check-FIRST+D46-interruptible-sleep-doğru;
+  kill-flag-loop-a-ulaşıyor (rc=2-kanıtı).
+- **H2-ÇÜRÜTÜLDÜ:** shutdown()-blokajı-yok (2.0-sn-tam-graceful).
+- **H3-DOĞRULANDI (kod-yapısı):** handler-run()-başında-kurulur;
+  startup()-penceresinde-handler-yok AMA K5: startup-try-İÇİNDE →
+  startup-sırası-KI → except-KI-graceful-path (kod-satır-195-245-kanıtı).
+
+**Windows-sinyal-matriksi (final, kanıtlı):**
+| Sinyal | Ulaşım | Davranış |
+|---|---|---|
+| SIGTERM | Console-app'e-gelemez | N/A (timeout-kill=force) |
+| SIGBREAK | Ulaşır | Anında-ölüm (handler-yok, by-design) |
+| CTRL_C (ConPTY) | **İletilmez** (yanlış-pozitif-r=1) | Test-infra-sorunu |
+| CTRL_C (gerçek-console+AttachConsole) | Ulaşır | **Graceful rc=2, 2sn** |
+
+**Operasyonel-anlam:** Ctrl-C-drill'i (soak-72s-listesi) ConPTY'den-DEĞİL,
+ayrı-console-penceresinden-yapılmalı (runbook-notu-adayı).
+
+**Kod-değişikliği-YOK** — D180-bulgusu-kapanmış; soak-öncesi-sinyal-engeli-YOK.
