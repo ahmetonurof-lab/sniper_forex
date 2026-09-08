@@ -19,6 +19,7 @@ from __future__ import annotations
 import queue
 import sys
 import time
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
@@ -283,3 +284,111 @@ class TestCtraderFailLoud:
         result = orch.startup()
         assert result.verdict == StartupVerdict.FATAL
         assert result.reason == "ctrader_connect_failed"
+
+
+# ---------------------------------------------------------------------------
+# D167 — _build_data_connection() caller contract (Hakem-hükmü 2026-09-08)
+#
+# Bug provenance: D159 commit 78fa8a4 treated the validator's SUCCESS
+# return value (truthy config dict) as a problem list → SystemExit on
+# every ctrader boot. Hakem-approved min-fix (D167): try/except ValueError
+# around validate_ctrader_config; success flows through untouched.
+#
+# §4.2 evidence discipline: these tests call the REAL _build_data_connection
+# path boundary. The connection layer itself is monkeypatched (network is
+# out of unit scope — §3 controlled-integration layer), but the config
+# validation contract under test is the REAL src.config.ctrader_config code.
+# ---------------------------------------------------------------------------
+
+
+class TestBuildDataConnectionValidatorContract:
+    def test_valid_config_passes_without_systemexit(self, monkeypatch):
+        """Success path: valid cfg → validator returns dict (truthy!) →
+        caller must STILL proceed to construct the adapter (the D167 bug
+        failed exactly here)."""
+        import src.live.run_production as rp
+
+        valid_cfg = {
+            "client_id": "cid",
+            "client_secret": "secret",
+            "host": "demo.ctraderapi.com",
+            "account_id": "48407657",
+            "redirect_uri": "http://localhost",
+            "access_token": "tok",
+        }
+        monkeypatch.setattr("src.config.ctrader_config.get_ctrader_config", lambda: dict(valid_cfg))
+
+        captured: Dict[str, Any] = {}
+
+        class FakeAdapter:
+            def __init__(self, conn):
+                captured["conn"] = conn
+
+        class FakeConn:
+            def __init__(self, cfg, token_cache_path=None):
+                captured["cfg"] = cfg
+                captured["token_cache_path"] = token_cache_path
+
+            def start(self):
+                captured["started"] = True
+
+        # CTraderConnection / CTraderDataAdapter are LAZY-imported inside
+        # _build_data_connection() (D159 import-time discipline) → patch
+        # their SOURCE modules; the call-time import resolves the fake.
+        monkeypatch.setattr("src.ctrader.connection.CTraderConnection", FakeConn)
+        monkeypatch.setattr("src.ctrader.data_adapter.CTraderDataAdapter", FakeAdapter)
+
+        result = rp._build_data_connection()
+
+        assert isinstance(result, FakeAdapter)
+        assert captured["started"] is True
+        assert captured["cfg"] == valid_cfg
+        assert Path(captured["token_cache_path"]).is_absolute()
+
+    def test_invalid_config_raises_systemexit_with_valueerror_cause(self, monkeypatch):
+        """Failure path: validator ValueError → fail-loud SystemExit with
+        the validator message and __cause__ chain preserved."""
+        import src.live.run_production as rp
+
+        def _raise(cfg, require_credentials=True):
+            raise ValueError("CTRADER_CLIENT_ID environment variable not set")
+
+        monkeypatch.setattr(
+            "src.config.ctrader_config.get_ctrader_config",
+            lambda: {
+                "client_id": "",
+                "client_secret": "",
+                "host": "demo.ctraderapi.com",
+                "account_id": "48407657",
+                "redirect_uri": "http://localhost",
+                "access_token": "",
+            },
+        )
+        monkeypatch.setattr("src.config.ctrader_config.validate_ctrader_config", _raise)
+
+        with pytest.raises(SystemExit) as excinfo:
+            rp._build_data_connection()
+        assert "ctrader config invalid" in str(excinfo.value)
+        assert "CTRADER_CLIENT_ID" in str(excinfo.value)
+
+    def test_validator_contract_return_vs_raise_is_unchanged(self):
+        """§2.2 guard: the fix must NOT have changed the validator API.
+        Pin the real src.config.ctrader_config contract: success → returns
+        the SAME dict object; failure → raises ValueError (never a
+        truthy/None return)."""
+        from src.config.ctrader_config import validate_ctrader_config
+
+        valid = {
+            "client_id": "cid",
+            "client_secret": "secret",
+            "host": "demo.ctraderapi.com",
+            "account_id": "48407657",
+            "redirect_uri": "http://localhost",
+            "access_token": "tok",
+        }
+        out = validate_ctrader_config(valid, require_credentials=True)
+        assert out is valid  # returns the config, not a problem list
+
+        bad = dict(valid, client_id="")
+        with pytest.raises(ValueError, match="CLIENT_ID"):
+            validate_ctrader_config(bad, require_credentials=True)

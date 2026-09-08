@@ -79,13 +79,22 @@ def _build_data_connection():
     from src.ctrader.data_adapter import CTraderDataAdapter
 
     cfg = get_ctrader_config()
-    problems = validate_ctrader_config(cfg, require_credentials=True)
-    if problems:
+    # D167 fix (Hakem-hükmü 2026-09-08, RATİFİKASYON + yazılı-onay):
+    # validate_ctrader_config SUCCESS path returns the config dict (which
+    # is truthy) and FAILURE path raises ValueError. The previous
+    # truthy-check treated success as failure — booting the ctrader path
+    # from run_production was impossible (bug entered in D159, 78fa8a4).
+    # Fix per Hakem-approved min-diff: call validator, convert ValueError
+    # to fail-loud SystemExit; success flows through untouched (§2.2 —
+    # validator API unchanged, tests' return-style usage intact).
+    try:
+        validate_ctrader_config(cfg, require_credentials=True)
+    except ValueError as exc:
         raise SystemExit(
             "[run_production] FATAL: ctrader config invalid: "
-            + "; ".join(problems)
+            + str(exc)
             + " (fail-loud: no silent MT5 fallback)"
-        )
+        ) from exc
     # Token cache lives at an ABSOLUTE project-root path (D18 CWD-drift
     # discipline; the connection layer must not depend on process cwd).
     token_cache = Path(__file__).resolve().parents[2] / "token_cache.json"

@@ -2009,3 +2009,136 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
 - **Ruff:** check+format-temiz (2-dosya).
 - **Full-suite (§13-scope):** `tests/` − 9-collection-error-dosya → **593P / 14F / 2skipped**. 14F=aynı-PRE-EXISTING-küme (ModuleNotFoundError `experiment.main_research_c_v1_0`; 590→593 = +3-GBPJPY-testi-−0). GBPJPY-değişimi-regresyon-üretmedi.
 - **Commit:** ONAYSIZ (§9.5) — Reis-yazılı-onayı-bekliyor. Tek-commit-önerisi: config + test + 2-memory-bank (HAKEM_EYE-D162-A + progress).
+
+## PUSH-KAYDI-17 (§9.3) — SET: D164 GBPJPY labelled-entry (2026-09-08; Copilot-icrası; D165-§3-yazılı-onay)
+
+- **Onay:** D165 §3 — "COMMIT VE PUSH ONAY VERİLDİ" (§9.2/§9.5). Set-hash-bağlı: tek-commit, 4-dosya (cbdr_band_config + test_cbdr_multiplier + HAKEM_EYE-D162-A + progress). Ride-along-YASAK-uyuldu (staged-stat==4-dosya/+89/−1).
+- **Ön-doğrulama:** base=`3711021` (origin/main==HEAD, gap=0); pre-commit-hook'ları-HEPSİ-PASSED (ruff/ruff-format/vulture/mypy/whitespace/eof/conflict).
+- **Commit:** `7dadaab` — mesaj D165-önerisi-birebir: `config(cbdr): GBPJPY labelled entry (verified=False) — D164 (§8.1 uyumlu)`.
+- **İcra:** `git push origin main` → `3711021..7dadaab main -> main` exit-0.
+- **Son-doğrulama (§16):** origin/main..HEAD=0 (boş); ls-remote=local-HEAD=`7dadaabf5f72a8b59bfd038227d8a0b1bcb5a5eb`; tracked-working-tree-TEMİZ (0-modifiye).
+- **Durum:** 8/8-majör-config-TAMAM (7-verified=True + 1-GBPJPY-verified=False).
+- **Açık-kalemler:** DEBT-V2 (GBPJPY-cBot-ham-log→MATCH_C→flip); trade-gating-DEBT (Adım-C-ön-koşulu); token-rotate (Reis).
+
+## D166 HAZIRLIK — YENİ cTRADER DEMO HESABI .ENV GÜNCELLEME (2026-09-08; Hakem-direktifi)
+
+- **Durum:** Reis-yeni-demo-hesabı-açtı → .env-güncellemesi-gerekli (D166 §2). **BEKLİYOR: Reis'ten-yeni-credentials (güvenli-yolla).**
+- **Env-mimari-kanıt (kod-okuma):** `src/config/ctrader_config.py` 6-anahtar-okur: `CTRADER_CLIENT_ID/CLIENT_SECRET/HOST/ACCOUNT_ID/REDIRECT_URI/ACCESS_TOKEN` (project-root-.env, `setdefault` — explicit-env-öncelikli). `validate_ctrader_config` fail-loud.
+- **D142-dersi (tekrar-geçerli):** `CTRADER_ACCOUNT_ID` = **ctidTraderAccountId** (48407657-örneği), traderLogin (10103194) DEĞİL. Yeni-hesapta-ikisi-karıştırılmamalı — sunucu-doğrulaması: `ProtoOAGetAccountListByAccessTokenRes` (demo-host) → ctidTraderAccountId+isLive-okuma.
+- **token_cache.json etkisi:** mevcut-cache `{access_token, refresh_token:None, expires_at:None}` — yeni-hesap-yeni-token → **cache-dosyası-silinmeli/yenilenmeli** (eski-token-yeni-hesapta-CH_CTID_TRADER_ACCOUNT_NOT_FOUND-üretir, D141-dersi).
+- **Güvenlik:** .env + token_cache.json gitignore'da (satır-2/3) — repoya-girmez. Credentials-mesajda-paylaşılmayacak (D166-Not-3).
+- **A.3-yeniden-test-planı (credentials-gelince):** a3_final_test-akışı (D142): CONNECTED → APP_AUTH_RES → ACCOUNT_AUTH_RES (errors=0) → Symbols-list → BTCUSD-symbolId → A3_RESULT. Sonra G2 + unit 12/12-tekrar.
+- **Reis-yapacak:** eski-token-revoke (cTrader-Open-API-portalı) — D166-§3-madde-3.
+
+## D166 KEŞİF-1 — Token-hesap-kapsamı-server-doğrulaması (2026-09-08; GetAccountListByAccessTokenRes)
+
+**Yöntem:** /tmp/acct_list_discover2.py (repo-dışı; production connection.py payloadType-dispatch deseni, §2.2-reuse).
+APP_AUTH → GetAccountListByAccessTokenReq (demo-host) → hesap-listesi-okuma.
+
+**CANITILAN:**
+- CONNECTED ✓ → APP_AUTH_RES ✓ (client_id/secret GEÇERLİ)
+- ProtoOAGetAccountListByAccessTokenRes: **hesap-sayisi=1**
+  - `ctidTraderAccountId=48407657 | traderLogin=10103194 | isLive=False` → **ESKİ hesap (€3.02)**
+- **Yeni hesap 10111183 (traderLogin) token'ın hesap-listesinde YOK.**
+- Kanaat: mevcut access_token, mint-zamanındaki hesap-kapsamına bağlı — yeni hesabı kapsamıyor.
+  (Re-mint sonrası yeniden-doğrulanacak; iki-hesap-aynı-cTID'de — cTrader-ID-sayfasında-ikisi-de-görünüyor.)
+
+**SDK-derleri (teşhis-koşularından, repoya-girmedi):**
+1. Client callback imzaları: `setConnectedCallback(cb(client))`, `setMessageReceivedCallback(cb(client, message))` — 2-arg.
+2. RECV `ProtoMessage` = zarf; tip çözümü `Protobuf.extract(message)` (payloadType-dispatch) — production connection.py'deki desen.
+3. Mesaj-oluşturma `Protobuf.get("ProtoOA...Req")` factory (instance döndürür) — `protoClass()` çağrısı DEĞİL.
+4. Uzun-reaktör-koşularında stdout-block-buffering timeout-kill'de-çıktı-kaybettirir → `python -u` zorunlu.
+
+**Reis-düzeltmesi (yanlış-yönlendirme-temizliği):**
+- MT5-demo-$12,700-bakiyesi AYRI platform (ICMarketsSC-Demo MT5 53012914) — cTrader'la-ilgisiz.
+- cTrader-yeni-hesap-$10,000-bakiye; eski-hesap-€1000-krediden-€3.02'ye-düşmüş (yeni-hesap-açılış-nedeni).
+- İki-cTrader-hesabı-aynı-app-key (client_id/secret) ile-destekleniyor; 2-farklı-demo-id.
+- **Trading-account-password'ü Open-API'ye-gİRMEZ** (OAuth-token-akışı) → .env'de-password-satırı-olmaması-DOĞRU; yeni-işlem-gerektirmez.
+
+**Sonraki-adım:** Reis-yeni-access-token-mint (openapi.ctrader.com browser-OAuth) → kendisi-.env CTRADER_ACCESS_TOKEN-yazar → cache-sil → keşif-v2 (yeni-token-ile-hesap-listesi) → yeni-ctidTraderAccountId → A.3-final-test.
+
+## D166 KARAR-KAYDI — Reis-canlı-trade-talebi → PLANLI-YOL (2026-09-08)
+
+**Reis-talebi:** "API ile borsaya bağlan, trade almaya başla" (demo).
+**Kanıtla-cevap:** Trade-path-ÇOK-KATMANLI — tek-komutla-"trade-al"-yok; kanıt:
+
+1. **Zincir:** run_production (ctrader-default) → CTraderConnection → CTraderDataAdapter (get_rates) → Orchestrator (S1-S6) → StrategyRuntime → Signal → Execution (signal_only-default-True → **sipariş-gitmez**).
+2. **SNIPER_SIGNAL_ONLY=1-default** → dry-run; gerçek-emir-için-**bilinçli-0**-gerekli (execution.py:15-17 beyanı).
+3. **Safe-mode + SafetyMonitor** → giriş-izinleri-fail-safe; S1-SAFE_START-safe-mode-PERSIST (§7.2) — restart-laundering-yok.
+4. **Emir-yolu-gerçek-değil-henüz:** Execution=MT5-bağlı-sınıf; cTrader-side-order-execution-kodu-YOK (sadece-data+yön+yeniden-sim). ctrader-modu-reconciliation-not-run (orchestrator:1530-1540).
+5. **Soak-durumu:** src/-frozen-soak-kuralları (§17) — soak-AKTİF-değil (state/-sadece-btc_d104+crash_log).
+
+**Plan (Hakem-onayına-sunuldu):**
+- **P1 (şimdi):** run_production sinyal-only (SNIPER_SIGNAL_ONLY=1, SNIPER_SYMBOLS=EURUSD) → canlı-veri-akışı+sinyal-üretimi+audit — emir-göndermeden-gerçek-zincir-kanıtı.
+- **P2:** G2-parite-teyidi (cTrader-MT5-session-karşılaştırması).
+- **P3:** cTrader-order-execution-katmanı-tasarımı (ProtoOANewOrderReq — Execution-deseni-ile; Hakem-RED/ GREEN-döngüsü).
+- **P4:** Demo'da-sinyal-only=False-kontrollü-ilk-emir (tek-sembol, min-lot, audit-gözetiminde).
+
+## D166 BULGU-2 — run_production FATAL bug (validator-dict-truthy): D159-girişli (2026-09-08)
+
+**Belirti:** `python -m src.live.run_production` → "FATAL: ctrader config invalid: client_id; client_secret; host; account_id; redirect_uri; access_token" — ANCAK config-DOLU (6/6-anahtar-non-empty, kanıt: get_ctrader_config-çıktısı).
+
+**Kök-neden (kesin):** `src/live/run_production.py:82-87` (D159-commit `78fa8a4`):
+```python
+problems = validate_ctrader_config(cfg, require_credentials=True)
+if problems:   # ← BUG
+```
+`validate_ctrader_config` **başarıda cfg-dict'ini-RETURN-EDER** (ctrader_config.py:68 `return config` — tüm-testler-böyle-kullanıyor: unit-test:62 `cfg = validate_ctrader_config(...)`, hata-raise'de-ValueError). Yani:
+- başarılı-doğrulama → problems=cfg-dict → **truthy → SADECE-BU-YOL-HATA-ÜRETİR**
+- hatalı-config → ValueError-raise (run_production'da-yakalanmaz-→-crash)
+
+**Sonuç:** D159'dan-beri ctrader-path'ten-run_production-**hiç-çalışamazdı** — config-ne-olursa-olsun-FATAL (başarı-yolunda) veya-unhandled-ValueError (hata-yolunda). D159-S1-kanıtı-ctrader-modda-mock/yalnız-S1-testiyle-sınırlıydı — gerçek-run_production-ctrader-boot-yolu-buglı.
+
+**Giriş-provenance:** git-show 78fa8a4 diff — blok-D159'da-eklendi (İş-4a S1, D159).
+
+**Düzeltme-tasarısı (Hakem-onayı-bekler):**
+```python
+# ctrader_config.py: raise-instead-of-return? HAYIR (§2.2 — API-değişimi-3-caller'ı-kırar)
+# run_production.py (doğru-min-düzeltme):
+try:
+    validate_ctrader_config(cfg, require_credentials=True)
+except ValueError as exc:
+    raise SystemExit(f"[run_production] FATAL: ctrader config invalid: {exc} (fail-loud)") from exc
+```
+Not: `problems`-mesajındaki-"; "-join-listesi-bug'ın-yan-ürünü (dict-keys-join'lenmiş).
+
+## D166 P1+P2 — CANLI-ZİNCİR-KANITI (2026-09-08; emir-YOK, signal-only)
+
+**P1 (data-layer) — /tmp/p1_full.py: PASS**
+- CONNECTED ✓ (mevcut-token, eski-hesap-48407657)
+- EURUSD symbolId=1 (351-sembol-listesi)
+- get_rates M1 n=599, dt=1.0s — ts=1788838080..1788873960 (UTC-epoch), OHLC-dolu
+- subscribe_spots → 6sn'de-4-spot-event
+- İlk-koşuda-symbols-timeout-görüldü → ikinci-koşuda-0.4s (ilk-bağlantı-warmup'ı; kalıcı-değil)
+
+**P2 (data→strategy-E2E) — /tmp/p2_signal_e2e.py: PASS**
+- M1 n=2999 → resample_15m n=204 → StrategyRuntime.warmup ✓ (atr=0.00048, session 19:00-01:00)
+- on_bar-3-bar → 0-sinyal (beklenen: sinyal-seyrek; zincir-ÇALIŞTI)
+- **EMİR-GÖNDERİLMEDİ** (Execution/signal_only-dokunulmadı)
+
+**BULGU-3 (bug-#2, D159-girişli):** `data_adapter.is_connected`-property/method-toleransı-DOĞRU-çalışıyor; ANCAK diag-3'te `adapter.is_connected`-çıktısı-bound-method-yazdı (property-değil-method-olarak-tanımlı; tolerans-kodu-ikisini-de-karşılıyor — bug-değil, beyan-notu).
+
+**run_production-BUG (BULGU-2-hatırlatma):** ctrader-path'ten-`python -m src.live.run_production`-hâlâ-FATAL (validator-dict-truthy-bug, D159 `78fa8a4`). P1/P2-kanıtları-bypass-scriptiyle-alındı — production-giriş-noktası-ÇALIŞMIYOR. Düzeltme-Hakem-onayı-bekliyor.
+
+**Sıradaki:** P3 (cTrader-order-execution-tasarımı) — Hakem-RED/GREEN-döngüsü-ile; P4 (demo-ilk-emir) — P3-sonrası.
+
+## D167 — HAKEM HÜKMÜ RATİFİKASYON + BUG-FİX İCRASI (2026-09-08)
+
+**Hakem-hükmü ( Reis-iletilen):** §1 P1+P2-kanıt-RATİFİYE ✅ · §2 validator-bug-fix-YAZILI-ONAY ✅ (min-diff) · §3 sıra-onaylı (①fix→②order-tasarım→③demo-emir).
+
+**İCRA-1 · RED→fix→GREEN kanıt-zinciri:**
+- RED (/tmp-teşhis, gerçek-.env): `_build_data_connection()` → `FATAL: ctrader config invalid: client_id; client_secret; host; ...` — config 6/6-DOLU iken (buglı-caller-kanıtı, taze).
+- FIX (`src/live/run_production.py:82-95`, Hakem-onaylı-min-diff): `try: validate_ctrader_config(cfg, require_credentials=True) / except ValueError as exc: raise SystemExit(...) from exc` — §2.2: validator-API-DOKUNULMADI (return-style-test-kullanımı-korundu; ayrıca-pin-testi).
+- GREEN (aynı-teşhis, gerçek-.env): `CONN-TYPE: CTraderDataAdapter` — FATAL-kalktı, gerçek-entry-path-adapter-üretiyor.
+
+**İCRA-2 · Kalıcı-test (tests/test_orchestrator_ctrader_boot.py, +3-test):**
+- `test_valid_config_passes_without_systemexit` — truthy-dict-başarısında-adapter-inşası (bug'ın-tam-vurduğu-yer)
+- `test_invalid_config_raises_systemexit_with_valueerror_cause` — ValueError→SystemExit-fail-loud
+- `test_validator_contract_return_vs_raise_is_unchanged` — §2.2-pin: success→aynı-dict-objesi, failure→ValueError
+- Not: `CTraderConnection/CTraderDataAdapter`-lazy-import → source-modül-üzerinden-patch (run_production-modülü-attr-taşımıyor).
+
+**Regresyon:** ctrader_boot 12P (9-eski+3-yeni) · tas4+n2_17+conn_unit+data_adapter **75P** · ruff-check+format-temiz. **src-diff: tek-dosya, tek-blok** (82-95, onaylı-tasarıyla-birebir — ek-olarak-yalnız-açıklama-yorumu + `from exc`-zinciri + mesaj-`str(exc)`).
+
+**Kapsam-dışı-not:** RED-çıktısında-mesaj-biçimi-değişti (";"-birleşik-liste→validator-ilk-hata-mesajı) — beklenen-davranış (validator-ilk-ValueError'ı-raise'eder); çıktı-daha-kesin-hale-geldi.
+
+**Sıradaki (§3-onaylı):** ② cTrader-order-execution-katmanı-tasarımı (Hakem-RED/GREEN-döngüsü) → ③ demo-ilk-emir. Commit-öncesi-index-regen sorusu: run_production-82-95-satır-ofseti-değişti → index.json §10.2-regen-gerekli.
