@@ -19,12 +19,20 @@
   `GenerateConsoleCtrlEvent` r=1 döner (yanlış-pozitif) ama sinyal
   iletilmez (D181-T3). Soak `cmd.exe` veya `PowerShell` penceresinden
   DOĞRUDAN (native console) başlatılır.
-- [ ] **Soak komutu MSYS `timeout` ile SARILMAZ** (`timeout 150 python
-  ...` yasak). Git-Bash GNU `timeout` native-Windows-child'a sinyal
-  İLETEMEZ; süre dolunca force-kill yapar — handler çağrılmaz, SHUTDOWN
-  audit yazılmaz, lock kalır (D181.1 denklik-replikası: handler'lı
-  replika rc=124, graceful-iz yok). Bu, D180 bulgusunun kök-nedenidir.
-  Soak ön-süresiz çalışır; durdurma yalnız operatör Ctrl-C iledir.
+- [ ] **Soak native Windows console'dan DOĞRUDAN başlatılır (cmd.exe /
+  PowerShell) — Git-Bash/MSYS/WSL üzerinden HİÇBİR ara-katmanla
+  (wrapper script, `timeout`, `make`, bash fonksiyonu, CI runner
+  script'i, `bash -c` dahil) başlatılmaz.** Kök-neden tek komuta özgü
+  DEĞİL: MSYS/Git-Bash ortamı native-Windows-child'a sinyal İLETEMEZ —
+  aynı ortamdan koşan her wrapper aynı engeline çarpar. Somut kanıt
+  (D181.1 denklik-replikası): Git-Bash GNU `timeout 5` handler'lı
+  child'ı rc=124 force-kill etti — handler çağrılmadı, SHUTDOWN audit
+  yazılmadı, lock kaldı (bu, D180 bulgusunun kök-nedenidir; D180'deki
+  komut `timeout 150 python -m src.live.run_production` idi). Soak
+  ön-süresiz çalışır; durdurma yalnız operatör Ctrl-C iledir.
+  **Bu genişletme Hakem notuyla yapıldı (2026-09-09):** `timeout` yasağı
+  değil, MSYS tabanlı her şeyin yasağı — gerçek kök-neden ortam
+  sınıfıdır, tek binary değil.
 - [ ] **Foreground teyidi:** soak process'i başlatan native console'da
   ön-planda çalışıyor ve operatör aynı pencerede Ctrl-C basabilecek
   durumda olmalıdır (arka-plan/servis-start drill'i geçersiz kılar).
@@ -43,13 +51,17 @@
    `ACCOUNT_AUTH_RES` gelmezse D178 `account_authorized` gate'i
    SAFE_START/FATAL üretir (canlı ölçüm: TCP ~0.2-2s + auth ~+1.9-2.2s;
    `ensure_connected: True (3.3s)`).
-3. **Env set (Git Bash):**
-   ```bash
-   export SNIPER_STATE_DIR='C:\Users\Administrator\Desktop\sniper_forex\state'  # D18: MUTLAK yol
-   export SNIPER_SYMBOLS=EURUSD
-   export SNIPER_SIGNAL_ONLY=1             # paper soak (default zaten 1; açık yaz)
-   export SNIPER_DATA_SOURCE=ctrader       # default; açık yazmak belgeleyici
+3. **Env set (Adım-0'a uygun native console — PowerShell):**
+   ```powershell
+   $env:SNIPER_STATE_DIR = 'C:\Users\Administrator\Desktop\sniper_forex\state'  # D18: MUTLAK yol
+   $env:SNIPER_SYMBOLS      = 'EURUSD'
+   $env:SNIPER_SIGNAL_ONLY  = '1'   # paper soak (default zaten 1; açık yaz)
+   $env:SNIPER_DATA_SOURCE  = 'ctrader'  # default; açık yazmak belgeleyici
    ```
+   (D181.2 not: bu bölüm Git-Bash `export` sözdiziminden PowerShell'e
+   çevrildi — Adım-0 ara-katman yasağıyla kendi kendine çelişiyordu.
+   Git-Bash `export` karşılıkları yalnız posix-ortamda çalışacak
+   birim-testler içindir, soak-boot için DEĞİL.)
    **`MT5_EXPECTED_LOGIN` SETLENMEZ** — ctrader-modunda yok-sayılır ve
    her boot audit-WARN üretir
    (`expected_login_is_mt5_flag_ignored_in_ctrader_mode`). Kimlik
@@ -71,11 +83,15 @@
    başlamadan önce operatör Telegram'da botu açıp **START**'a basmalı;
    ardından smoke testi (`curl sendMessage` → `"ok":true`) ile kanal
    doğrulanmadan soak'a geçilmemeli.
-4. **Kosum (venv + repo kökü):**
-   ```bash
-   source .venv/Scripts/activate
+4. **Kosum (venv + repo kökü — native console'da):**
+   ```powershell
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+   .\.venv\Scripts\Activate.ps1
    python -m src.live.run_production
    ```
+   (Aynı pencerede: Adım-3 env'leri + bu aktivasyon + kosum — console
+   penceresi soak boyunca AÇIK kalır; kapatmak = force-kill sınıfı
+   olaydır.)
 5. **İlk 60 sn:** startup bloğunu yakala → hakeme gönder:
    `startup PROCEED|SAFE_START|FATAL: <reason> (warmup_bars=N)` +
    REPLAY event'i (`replay_bars`, `end_state`, bias kuruluş saati).
