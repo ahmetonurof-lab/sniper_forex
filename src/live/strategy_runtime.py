@@ -83,6 +83,12 @@ class Signal:
     zone_bottom: float
     zone_size: float
     timestamp: pd.Timestamp
+    # D176 (trade-gating wiring): CBDR band width % at signal time, computed
+    # by LiveRunner from session.cbdr body ((bh-bl)/bl*100) and attached
+    # here BEFORE RiskManager.evaluate. Additive + default 0.0 so existing
+    # keyword constructors (backtest parity paths, paper, signal_runner,
+    # tests) are untouched. 0.0 = "no width info" -> risk gate stays NEUTRAL.
+    cbdr_width_pct: float = 0.0
 
 
 def signal_audit_payload(sig: Signal) -> Dict[str, Any]:

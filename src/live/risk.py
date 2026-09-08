@@ -173,6 +173,26 @@ class RiskManager:
                 lot_multiplier=0.0,
             )
 
+        # 7. D176 CBDR trade-gating (D150 design -> D152 promise -> wiring).
+        # Chain: cbdr_width_pct -> classify_width_regime -> multiplier.
+        # - width <= 0 (no info / legacy callers) -> NEUTRAL, gate not applied.
+        # - "sikisma" -> 0.0 -> BLOCK, fail-closed (toxic squeeze zone, §19).
+        # - other regimes -> DD mult * CBDR mult (both approved paths).
+        # - unknown symbol with width > 0 -> KeyError propagates (fail-loud).
+        cbdr_width = float(getattr(signal, "cbdr_width_pct", 0.0) or 0.0)
+        if cbdr_width > 0.0:
+            cbdr_mult = get_cbdr_multiplier(signal.symbol, cbdr_width)
+            if cbdr_mult <= 0.0:
+                checks.append("cbdr_sikisma_no_trade")
+                return RiskDecision(
+                    approved=False,
+                    reason=(f"cbdr_sikisma: width {cbdr_width:.4f}% < p25 (NO TRADE, fail-closed)"),
+                    blocked=True,
+                    checks=checks,
+                    lot_multiplier=0.0,
+                )
+            mult = round(mult * cbdr_mult, 6)
+
         return RiskDecision(
             approved=True,
             reason="ok",

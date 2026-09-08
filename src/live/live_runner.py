@@ -417,6 +417,18 @@ class LiveRunner:
         res.signal = sig
         if sig is None:
             return res
+        # D176 trade-gating wiring: attach the CBDR band width from the
+        # session body so RiskManager can apply the per-pair regime gate.
+        # StrategyRuntime is UNTOUCHED (frozen-parity risk zero); the width
+        # is computed here at the single live consumption point. If the
+        # session body is not yet accumulated (bh==0 / bl==inf), width stays
+        # 0.0 -> gate neutral (no fabrication, fail-safe).
+        try:
+            _c = self.runtime.session.cbdr
+            if _c.body_high > 0.0 and _c.body_low not in (0.0, float("inf")):
+                sig.cbdr_width_pct = ((_c.body_high - _c.body_low) / _c.body_low) * 100.0
+        except Exception:
+            sig.cbdr_width_pct = 0.0  # gate neutral on any state anomaly
         # N2 #23 R-3: SIGNAL emit at the runtime-signal RETURN point — the
         # single live consumption point of strategy output (pre-reg v1.1
         # AM-R3; census §2 root-cause: the live path had NO SIGNAL emitter).
