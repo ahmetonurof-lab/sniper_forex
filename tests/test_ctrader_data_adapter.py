@@ -432,13 +432,157 @@ class TestS1FailLoudGuards:
             ad.get_rates("BTCUSD", "M1", 5)
 
     def test_count_above_single_request_limit_fails_loud(self):
-        """count > CTRADER_MAX_SINGLE_REQUEST_BARS → CTraderDataError
-        BEFORE the request (clear pre-request reason, no wasted round-trip)."""
+        """D162: count > CTRADER_MAX_SINGLE_REQUEST_BARS no longer raises —
+        it goes through chunked pagination (see TestGetRatesChunked). This
+        test pins the OLD S1 pre-request guard as REMOVED: the request
+        layer must be reached for oversized counts."""
         from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
 
         conn = FakeConnection()
         ad = CTraderDataAdapter(conn, server_offset_hours=2)
-        with pytest.raises(CTraderDataError, match="count_exceeds_single_request_limit"):
+        ad._chunk_pacing_sec = 0.0  # test pacing seam
+        count = CTRADER_MAX_SINGLE_REQUEST_BARS + 1  # smallest chunked count
+        rates = ad.get_rates("BTCUSD", "M1", count)
+        # Chunked path served bars (fake serves window-agnostic bars).
+        assert rates is not None
+        # TWO chunk round-trips happened (5007 min window → 2 chunks).
+        tb_calls = [c for c in conn.calls if c[0] == "trendbars"]
+        assert len(tb_calls) == 2
+        # Each chunk omits count (count=None → full window, server-decided).
+        assert all(p["count"] is None for _, p in tb_calls)
+
+
+class TestGetRatesChunked:
+    """D162 — chunked pagination for count > CTRADER_MAX_SINGLE_REQUEST_BARS.
+
+    The fake connection is WINDOW-AWARE: request_trendbars serves only the
+    bars whose utcTimestampInMinutes falls inside [from_ms, to_ms). This
+    exercises the real merge/dedupe/sort logic against disjoint windows —
+    NOT a fake that reimplements the chunking.
+    """
+
+    def _window_aware_conn(self, total_bars: int, end_utc_min: int):
+        conn = FakeConnection()
+        all_bars = make_bars(total_bars, start_utc_min=end_utc_min - total_bars + 1)
+
+        def windowed_trendbars(symbol_id, period, from_ms, to_ms, count=None):
+            conn.calls.append(
+                (
+                    "trendbars",
+                    dict(
+                        symbol_id=symbol_id,
+                        period=period,
+                        from_ms=from_ms,
+                        to_ms=to_ms,
+                        count=count,
+                    ),
+                )
+            )
+            lo_min = from_ms // 60000
+            hi_min = to_ms // 60000
+            # INCLUSIVE upper bound (realistic: the server returns the
+            # forming bar at toTimestamp; adjacent chunk windows may share
+            # a boundary minute) — the adapter's dedupe-by-time merge is
+            # exactly what must make this safe.
+            bars = [b for b in all_bars if lo_min <= b.utcTimestampInMinutes <= hi_min]
+            conn.event_queue.put(("MESSAGE", ProtoOAGetTrendbarsRes(bars)))
+
+        conn.request_trendbars = windowed_trendbars
+        return conn, all_bars
+
+    def test_chunked_serves_full_window_oldest_first(self):
+        """count > 5000 → multiple time-windowed chunks, merged, deduped,
+        sorted oldest-first; every bar inside the total window is served."""
+        from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
+
+        # Anchor to REAL now: the adapter's chunk windows are
+        # time.time()-derived, so the bars must end at now to overlap them.
+        end_min = int(time.time() // 60)
+        total = CTRADER_MAX_SINGLE_REQUEST_BARS + 4000  # forces 2 chunks
+        conn, all_bars = self._window_aware_conn(total, end_min)
+        ad = CTraderDataAdapter(conn, server_offset_hours=0)
+        ad._chunk_pacing_sec = 0.0
+
+        rates = ad.get_rates("BTCUSD", "M1", total)
+        assert rates is not None
+        # Every generated bar is served exactly once.
+        assert len(rates) == len(all_bars)
+        times = [r["time"] for r in rates]
+        assert times == sorted(times)
+        assert len(set(times)) == len(times)  # no dupes
+        # Oldest-first: first bar matches the oldest generated bar.
+        assert rates[0]["time"] == int(all_bars[0].utcTimestampInMinutes) * 60
+        # The two chunk windows are adjacent and non-overlapping.
+        tb_calls = [c for c in conn.calls if c[0] == "trendbars"]
+        assert len(tb_calls) == 2
+        first_to = tb_calls[0][1]["to_ms"]
+        second_from = tb_calls[1][1]["from_ms"]
+        assert first_to == second_from
+
+    def test_chunked_has_more_aborts_loud(self):
+        """Any chunk with hasMore=True → CTraderDataError for the WHOLE
+        fetch (per-chunk fail-loud guard, §19) — no partial merge."""
+        from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
+
+        conn = FakeConnection()
+        chunk_calls = [0]
+
+        def has_more_second_chunk(symbol_id, period, from_ms, to_ms, count=None):
+            chunk_calls[0] += 1
+            conn.calls.append(("trendbars", {}))
+            res = ProtoOAGetTrendbarsRes(make_bars(10))
+            if chunk_calls[0] > 1:
+                res.hasMore = True
+            conn.event_queue.put(("MESSAGE", res))
+
+        conn.request_trendbars = has_more_second_chunk
+        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad._chunk_pacing_sec = 0.0
+        with pytest.raises(CTraderDataError, match="trendbars_truncated_response"):
             ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1)
-        # No request was sent.
+        # First chunk succeeded; the error fired on the second chunk.
+        assert len([c for c in conn.calls if c[0] == "trendbars"]) == 2
+
+    def test_chunked_none_chunk_returns_none_whole(self):
+        """A chunk that times out (None) → WHOLE fetch returns None
+        (tri-state ERROR-ladder) — never a partial history."""
+        from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
+
+        conn = FakeConnection()
+
+        def first_ok_then_timeout(symbol_id, period, from_ms, to_ms, count=None):
+            conn.calls.append(("trendbars", {}))
+            if len([c for c in conn.calls if c[0] == "trendbars"]) > 1:
+                return  # second chunk: no response → drain timeout
+            conn.event_queue.put(("MESSAGE", ProtoOAGetTrendbarsRes(make_bars(10))))
+
+        conn.request_trendbars = first_ok_then_timeout
+        ad = CTraderDataAdapter(conn, response_timeout_sec=0.3, server_offset_hours=2)
+        ad._chunk_pacing_sec = 0.0
+        assert ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1) is None
+
+    def test_chunked_error_chunk_returns_none_whole(self):
+        """A chunk returning TRENDBARS_ERROR → WHOLE fetch returns None."""
+        from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
+
+        conn = FakeConnection()
+
+        def first_ok_then_error(symbol_id, period, from_ms, to_ms, count=None):
+            conn.calls.append(("trendbars", {}))
+            if len([c for c in conn.calls if c[0] == "trendbars"]) > 1:
+                conn.event_queue.put(("TRENDBARS_ERROR", "boom"))
+                return
+            conn.event_queue.put(("MESSAGE", ProtoOAGetTrendbarsRes(make_bars(10))))
+
+        conn.request_trendbars = first_ok_then_error
+        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad._chunk_pacing_sec = 0.0
+        assert ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1) is None
+
+    def test_chunked_disconnected_returns_none_before_request(self):
+        conn = FakeConnection(connected=False)
+        from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
+
+        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        assert ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1) is None
         assert not [c for c in conn.calls if c[0] == "trendbars"]

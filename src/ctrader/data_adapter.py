@@ -76,14 +76,19 @@ DEFAULT_RESPONSE_TIMEOUT_SEC = 10.0
 # "current" when the market has been closed for days.
 DEFAULT_TICK_MAX_AGE_SEC = 300.0
 
-# S1 (İş-4a): single-request trendbar ceiling. The official docs do not
-# publish a numeric chunkSize for ProtoOAGetTrendbarsRes; the response
-# carries `hasMore` which signals truncation. We conservatively cap the
-# single-request count so the fail-loud hasMore guard (below) is the
-# authoritative protection and callers get a clear pre-request error for
-# oversized counts. 65k warmup via cTrader requires chunked pagination —
-# a follow-up work item, explicitly NOT silently approximated.
+# S1 (İş-4a) / D162: per-request trendbar ceiling. The official docs do
+# not publish a numeric chunkSize for ProtoOAGetTrendbarsRes; the response
+# carries `hasMore` which signals truncation. Counts above this ceiling are
+# served by time-windowed chunked pagination (D162) — each chunk stays
+# within the ceiling and the per-chunk hasMore guard remains the
+# authoritative fail-loud protection against silent truncation.
 CTRADER_MAX_SINGLE_REQUEST_BARS = 5000
+
+# D162: inter-chunk pacing for the historical rate limit (5 req/s per
+# connection, official docs). 0.25 s keeps ≤4 req/s even with instant
+# round-trips; PEP 475 makes the sleep signal-interruptible (§7.4) and it
+# is orders of magnitude below any stale-ownership window.
+CTRADER_CHUNK_PACING_SEC = 0.25
 
 
 class CTraderDataError(RuntimeError):
@@ -154,6 +159,9 @@ class CTraderDataAdapter:
         # Serialize synchronous request/response cycles (single consumer
         # discipline on the shared event_queue).
         self._req_lock = threading.Lock()
+        # D162: inter-chunk pacing (instance seam so tests can set 0 —
+        # visible test seam, NOT a silent production fallback).
+        self._chunk_pacing_sec = float(CTRADER_CHUNK_PACING_SEC)
 
     # ------------------------------------------------------------------
     # Connection surface used by Orchestrator wiring
@@ -322,6 +330,9 @@ class CTraderDataAdapter:
                               close/tick_volume
         Only M1 is supported (canonical live ingest timeframe); anything else
         raises fail-loud (AGENTS.md §19).
+        D162: counts above CTRADER_MAX_SINGLE_REQUEST_BARS are served via
+        time-windowed chunked pagination (_get_rates_chunked) — the
+        per-chunk hasMore guard stays fail-loud.
         """
         if timeframe != "M1":
             raise CTraderDataError(f"unsupported_timeframe: {timeframe} (only M1)")
@@ -335,15 +346,12 @@ class CTraderDataAdapter:
             logger.warning("ctrader_adapter_get_rates_not_connected")
             return None
         if count > CTRADER_MAX_SINGLE_REQUEST_BARS:
-            # S1 (İş-4a): fail-loud BEFORE the request — a count above the
-            # documented chunkSize ceiling would come back hasMore=True and
-            # be rejected anyway; rejecting here gives the caller a clear
-            # reason instead of a wasted round-trip (AGENTS.md §19).
-            raise CTraderDataError(
-                f"count_exceeds_single_request_limit: {count} > "
-                f"{CTRADER_MAX_SINGLE_REQUEST_BARS} — chunked pagination "
-                "not implemented (S1 fail-loud guard)"
-            )
+            # D162: chunked pagination — time-windowed requests, each within
+            # the single-request ceiling, merged oldest-first. The per-chunk
+            # hasMore guard below remains the authoritative fail-loud
+            # protection (AGENTS.md §19): any chunk reporting hasMore=True
+            # aborts the WHOLE fetch loudly (no partial history served).
+            return self._get_rates_chunked(symbol, count)
 
         symbol_id = self._resolve_symbol_id(symbol)
 
@@ -412,6 +420,116 @@ class CTraderDataAdapter:
         # Server returns bars ascending by time; canonical consumer expects
         # oldest-first ordering (is_closed_m1 + resample_15m assumptions).
         bars.sort(key=lambda b: b["time"])
+        return bars
+
+    # ------------------------------------------------------------------
+    # D162 — chunked pagination (count > CTRADER_MAX_SINGLE_REQUEST_BARS)
+    # ------------------------------------------------------------------
+    def _get_rates_chunked(self, symbol: str, count: int) -> Optional[List[Dict[str, Any]]]:
+        """Fetch `count` M1 bars via time-windowed chunked requests.
+
+        Semantics (D162):
+          - The window is split into CTRADER_MAX_SINGLE_REQUEST_BARS-minute
+            chunks walking BACKWARD from now; each chunk is one
+            request_trendbars round-trip with count=None (full window) so
+            the server decides how many bars fit the window.
+          - Per-chunk hasMore=True → CTraderDataError (fail-loud, §19):
+            a truncated chunk means the window held more bars than the
+            server's chunkSize — serving it would silently drop history.
+          - Any chunk returning None (timeout/transport) → the WHOLE fetch
+            returns None (tri-state ERROR-ladder path). A partial merge
+            would silently corrupt warmup/replay state (§19).
+          - Chunks are merged, deduplicated by bar time, and sorted
+            oldest-first (canonical consumer contract).
+          - Inter-chunk pacing (CTRADER_CHUNK_PACING_SEC) respects the
+            5 req/s historical rate limit; the sleep is signal-interruptible
+            (PEP 475, §7.4).
+          - The whole loop runs under _req_lock (single-consumer discipline
+            on the shared event_queue).
+        """
+        symbol_id = self._resolve_symbol_id(symbol)
+        chunk_minutes = CTRADER_MAX_SINGLE_REQUEST_BARS
+        merged: Dict[int, Dict[str, Any]] = {}
+
+        with self._req_lock:
+            if not self.is_connected():
+                logger.warning("ctrader_adapter_get_rates_not_connected")
+                return None
+            now_ms = int(time.time() * 1000)
+            # Walk backward from now in chunk_minutes windows until the
+            # requested bar count is covered. The +2-minute headroom mirrors
+            # the single-request path (newest bucket completion).
+            total_minutes = count + 2
+            chunk_start_ms = now_ms - total_minutes * 60 * 1000
+            first_chunk_start_ms = chunk_start_ms
+            while chunk_start_ms < now_ms:
+                chunk_end_ms = min(chunk_start_ms + chunk_minutes * 60 * 1000, now_ms)
+                if chunk_start_ms != first_chunk_start_ms:
+                    # Inter-chunk pacing: historical rate limit is 5 req/s
+                    # per connection (official docs). PEP 475 makes the
+                    # sleep signal-interruptible (§7.4); 0.25 s is orders
+                    # of magnitude below any stale-ownership window.
+                    time.sleep(self._chunk_pacing_sec)
+                try:
+                    self._conn.request_trendbars(
+                        symbol_id=symbol_id,
+                        period=CTRADER_PERIOD_M1,
+                        from_ms=chunk_start_ms,
+                        to_ms=chunk_end_ms,
+                        count=None,
+                    )
+                except AttributeError:
+                    raise CTraderDataError(
+                        "connection_missing_request_trendbars: CTraderConnection "
+                        "must expose request_trendbars (İş-4a extension)"
+                    )
+                except Exception as exc:
+                    logger.warning("ctrader_adapter_trendbars_request_failed: %s", exc)
+                    return None
+
+                res, leftovers = self._drain_until(
+                    lambda kind, payload: (
+                        kind in ("MESSAGE", "TRENDBARS_ERROR", "PARSE_ERROR")
+                        and (
+                            (
+                                kind == "MESSAGE"
+                                and payload is not None
+                                and type(payload).__name__ == "ProtoOAGetTrendbarsRes"
+                            )
+                            or kind in ("TRENDBARS_ERROR", "PARSE_ERROR")
+                        )
+                    ),
+                    self._timeout,
+                )
+                self._requeue(leftovers)
+
+                if res is None:
+                    logger.warning(
+                        "ctrader_adapter_chunked_timeout: %s window=[%s,%s]",
+                        symbol,
+                        chunk_start_ms,
+                        chunk_end_ms,
+                    )
+                    return None
+                if type(res).__name__ != "ProtoOAGetTrendbarsRes":
+                    logger.warning("ctrader_adapter_trendbars_error: %s", res)
+                    return None
+                # Per-chunk fail-loud guard (§19) — same rationale as the
+                # single-request path: hasMore=True means the server chunked
+                # THIS window; merging it would silently drop history.
+                if bool(getattr(res, "hasMore", False)):
+                    raise CTraderDataError(
+                        f"trendbars_truncated_response: {symbol} chunk "
+                        f"[{chunk_start_ms},{chunk_end_ms}] hasMore=True — "
+                        "server chunked the chunk window; fetch aborted "
+                        "loudly (D162 per-chunk fail-loud guard)"
+                    )
+                for tb in res.trendbar:
+                    d = trendbar_to_dict(tb, self._server_offset)
+                    merged[int(d["time"])] = d  # dedupe by bar time
+                chunk_start_ms = chunk_end_ms
+
+        bars = sorted(merged.values(), key=lambda b: b["time"])
         return bars
 
     # ------------------------------------------------------------------

@@ -1974,3 +1974,11 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
 - **Kapsam:** İş-4a S1 cTrader-birincil-boot (kod+testler, 10-dosya) + D159-memory-bank. `.env`/`token_cache.json` dahil-DEĞİL.
 - **Validasyon-zinciri:** 33/33 ctrader-boot+adapter; full-suite 585P/14F (14F = pre-existing differential, d9ef591-stash-kanıtlı).
 - **Açık-kalemler:** (1) cTrader-65k-warmup chunked-pagination — Hakem-onaylı, sonraki-iş; (2) GBPJPY-kalibrasyon — Reis-kararı-bekliyor.
+
+## D162-KAYDI — cTrader 65k-warmup CHUNKED PAGINATION (İçra-3; 2026-09-08; Copilot)
+
+- **Kapsam:** `src/ctrader/data_adapter.py` + `tests/test_ctrader_data_adapter.py` (2-dosya; üretim-kritik-lock/recovery/entry-gating-DOKUNULMADI).
+- **Davranış:** `count > 5000` → zaman-pencereli-chunked-pagination (backward-walk, 5000-dk-chunk, count=None); per-chunk-hasMore-FAIL-LOUD-korundu; chunk-None → whole-None (tri-state); dedupe-by-time+sort; chunk-arası-0.25s-pacing (5-req/sn-limit, PEP-475-interruptible §7.4); `_req_lock`-tüm-döngü.
+- **Test:** adapter 29/29-P (5-yeni-chunked-test); ctrader-boot 9/9-P (65k-warmup-chunked-yoldan-akıyor); **full-suite 590P/14F/2skipped** (baseline 585P/14F → +5-yeni-test-hepsi-geçti; 14F-aynı-PRE-EXISTING-aile, d9ef591-differential-kanıtlı). ruff-TEMİZ.
+- **Kaldırılan:** `count_exceeds_single_request_limit`-raise (beyanlı; per-chunk-fail-loud-davranışı-korur).
+- **COMMIT: BEKLEMEDE** (§9.5 — push-ayrı-yazılı-onay). GBPJPY-kalibrasyon (İçra-2): BEKLİYOR.
