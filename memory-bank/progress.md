@@ -2540,3 +2540,55 @@ tests/{test_ctrader_connection_unit,test_ctrader_data_adapter}.py (+59)
 explicit-action); (2) cTrader-reconciliation-NOT_RUN→MISMATCH-gate
 (sonraki-iş); (3) paper-soak-izleme (ilk-60sn-startup-bloğu-Hakem'e;
 3-bar-15m-grid `% 900 == 0`); (4) Adım-C-per-symbol-runtime.
+
+---
+
+## D178-EK — HAKEM 4-NOKTA YANITI (2026-09-09; push-öncesi-netleştirme)
+
+**Madde-1 (fix#2b-regresyon-testi) — EKLENDİ:**
+`TestWaitAccountAuthorized` (3-test): (a) stale-property-RE-READ —
+`FlipAfterTwo` descriptor her-okumada-sayaç; property 3.-okumada-True'ya
+döner → wait-True-döndürür + `reads>=3` (capture-once-olsaydı-fail
+olurdu) + early-return-kanıtı; (b) hiç-authorized-olmazsa-False
+(0.3s-bounded); (c) attribute-yoksa-duck-type-pass-through (True).
+61/61-ctrader-aile-GREEN (58+3); ruff-check+format-temiz.
+
+**Madde-2 (ms-timestamp-belgesi) — ZATEN-ÇEVRİLMİŞ, kanıt-yenilenir:**
+Bug#1-belirtileri-boot-1-log'unda: `ctrader_adapter_stale_quote:
+EURUSD age=-1787109159285s`. Buluntu-yolu: _record_spot
+`age = now - ts` hesaplıyor; canlı-age-NEGATİF-ve-ms-büyüklüğünde →
+ts-saniye-DEĞİL-ms-saklanmış → proto-spec-teyidi (official int64
+"Timestamp of the event (in milliseconds)"). Konum: data_adapter
+`_record_spot` (~satır-605). Fix: `ts = ts_ms // 1000 if ts_ms > 0
+else 0`. Test: `TestSpotTimestampMilliseconds` (fresh-ms-kabul
+`abs(tick["time"]-time.time())<60`; stale-300s-ms-red).
+RED/GREEN-dönüşümü: fix-öncesi-test-1-fail (quote-red), fix-sonrası-
+pass. İki-bug-da-D178-commit-57b286a-gövdesinde (commit-msg +
+progress-D178-bloğu §Bug#1/§Bug#2-ayrı-başlıklı).
+
+**Madde-3 (index.json) — ÇELİŞKİ-YOK, tarih-verildi:**
+`746504b` "chore: remove index.json from repo (generated file, no
+longer needed)" — 2026-09-06 (D174-dönemi; Cline-checkpoint-sonrası
+temizlik-commit'i). O-tarihten-beri-.gitignore-satır-28'de. N2#15-
+kaydı (44d99a1) bu-kaldırma-öncesi — iki-kayıt-farklı-rejim.
+Aktüel-durum: git ls-files → index.json-YOK (untracked). Politika-
+değişikliği-DEĞİL; bilinçli-ve-kayıtlı-kaldırma. Push-kaydına-not-
+düşülecek.
+
+**Madde-4 (MISMATCH-gate) — akıl-yürütme-zinciri:**
+CTRADER-modunda-LiveRunner CONSTRUCTED ama startup_snapshot()
+ÇAĞRILMAZ (D159-S5-decision): snapshot-içindeki-MT5-modül-çağrıları
+mt5=None-ile-fail → safe_mode=True → §7.2-persist → HER-boot-SAFE-
+START-kalıcı-döngü. Bunun-yanında-beyanlı (audited, silent-DEĞİL)
+manuel-snapshot-veriliyor: reconciliation status=NOT_RUN,
+block_trading=True, details=["ctrader_mode_reconciliation_not_run"].
+Gate-kararı: ReconcileStatus("NOT_RUN") geçerli-severity →
+NOT_RUN ≠ OK + block_trading=True → safe_reason "recon_blocked" +
+gate-CLOSED. Runtime-gate-safety.check `_recon_decision_for_gate`
+NOT_RUN'ı-MISMATCH-severity-seviyesine-map'leyip-CLOSED-basıyor
+(severity-ladder: MISMATCH>UNKNOWN_OPEN>ORPHAN>OK). **Neden-
+zararsız:** signal_only-paper-modunda-emir-zaten-GİTMİYOR; gate-
+CLOSED-koruyucu-doğru-davranış (fail-closed). **Ne-zaman-kapanır:**
+cTrader-position-reconciliation-iş-kalemi (ProtoOATraderReq/
+position-list-snapshot) tamamlanınca-OK-status-üretilecek → gate-
+OPEN. Yani-CLOSED=beklenen-geçici-koruma, silent-degradation-DEĞİL.

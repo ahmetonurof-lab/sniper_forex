@@ -616,3 +616,60 @@ class TestSpotTimestampMilliseconds:
         ad._spot_subscribed.add("BTCUSD")
         ad._record_spot(ProtoOASpotEvent(10026, 6_000_010_000, 6_000_020_000, ms_old))
         assert ad.get_tick_data("BTCUSD") is None
+
+
+class TestWaitAccountAuthorized:
+    """D178 fix#2b regression: the wait loop must RE-READ the
+    account_authorized property every iteration. The first version
+    captured it once via getattr before the loop and re-checked the
+    stale captured value — a connection that authorized *during* the
+    wait was never observed (live evidence 2026-09-08: 6.0s wait
+    returned False, property read True immediately afterwards)."""
+
+    def test_stale_property_is_reread_each_iteration(self):
+        """Property flips False->True mid-wait; wait must observe it."""
+        conn = FakeConnection()
+        conn.account_authorized = False  # gate closed at wait start
+        ad = CTraderDataAdapter(conn)
+
+        def flip_after_two_reads():
+            # Simulate auth landing mid-wait: False twice, then True.
+            state = {"n": 0}
+
+            def getter():
+                state["n"] += 1
+                return state["n"] > 2
+
+            return getter
+
+        # Replace the bool with a live property-like descriptor: the
+        # adapter must getattr fresh each loop, so a mutating value is
+        # picked up.
+        class FlipAfterTwo:
+            def __init__(self):
+                self.reads = 0
+
+            @property
+            def account_authorized(self):
+                self.reads += 1
+                return self.reads > 2
+
+        flipper = FlipAfterTwo()
+        ad._conn = flipper
+        t0 = time.monotonic()
+        assert ad._wait_account_authorized(5.0) is True
+        assert flipper.reads >= 3  # re-read until True, not captured once
+        assert time.monotonic() - t0 < 5.0  # returned early on True
+
+    def test_wait_returns_false_when_never_authorized(self):
+        conn = FakeConnection()
+        conn.account_authorized = False
+        ad = CTraderDataAdapter(conn)
+        assert ad._wait_account_authorized(0.3) is False
+
+    def test_missing_attribute_passes_through(self):
+        """Duck-type contract: fakes without the attribute are always
+        authorized by construction (no gate, no wait)."""
+        conn = FakeConnection()  # no account_authorized attribute
+        ad = CTraderDataAdapter(conn)
+        assert ad._wait_account_authorized(0.1) is True
