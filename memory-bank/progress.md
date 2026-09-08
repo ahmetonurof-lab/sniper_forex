@@ -2386,3 +2386,16 @@ diagnoz-dosyaları-silindi.
 
 **Push:** YENİ-commit-seti (a3d572e + progress-blok) için hash-bound
 yazılı-onay-İSTENECEK (§9.5 — "ediyorum"-onayı yalnız-6f22728-içindi).
+
+---
+
+## PUSH-KAYDI-18 (§9.3) — SET: DEBT-W1 wiring + D174 (2026-09-08; Copilot-icrası; D175-Hakem-yazılı-push-onayı)
+
+- **Onay:** D175-Hüküm §2 — RATİFİKASYON + YAZILI PUSH ONAYI (§9.2/§9.5), hash-bound: `a3d572e` + `fc11310` (2-commit), hedef `origin/main`, ride-along-YASAK. Önceki-"ediyorum"-onayı (yalnız-6f22728-seti) D175-§2-ile-resmen-geçersiz-kılındı.
+- **Ön-doğrulama:** origin/main..HEAD == {a3d572e, fc11310} (birebir-onaylı-set, fazlalık-yok); HEAD=`fc1131086fdbb98a094bd8aa811e532aab20ffbd`; tracked-tree-TEMİZ.
+- **İcra:** `git push origin main` → `6f22728..fc11310 main -> main`, exit-0 (12-obje, 9.65 KiB).
+- **Son-doğrulama (§16):** origin/main..HEAD=0 (BOŞ); ls-remote=`fc1131086fdbb98a094bd8aa811e532aab20ffbd` == local-HEAD; origin-ref==HEAD; tracked-working-tree-TEMİZ (0-modifiye).
+- **Set-içeriği:** a3d572e = DEBT-W1 wiring (orchestrator +209: _wire_live_logging/gate-hook/exit-hook/shutdown-hook + live_runner +5 price/time enrichment + 8-test-dosyası; 400-ekleme); fc11310 = D174 memory-bank bloğu (61-ekleme).
+- **Validasyon-push-öncesi:** 8/8-wiring-GREEN (repo-kökünden-pytest; cd-tests→src-path-kopması-dersi); 72-aile-Passed; full 615P/14F-baseline; ruff/mypy/vulture-Passed.
+- **Açık-kalemler (D175-§4):** Adım-C çoklu-sembol sinyal-only (SIRADA); DEBT-V2 GBPJPY MATCH_C; ProtoOATraderReq-bakiye (ayrı-hüküm); trade-gating-DEBT (Adım-C-ön-koşulu); token-rotate (Reis).
+- **Kök-temizliği-notu:** 6-tek-seferlik-.tmp (5-fix-script + 1-placeholder) → archive/tmp_fixers_20260908/ (silme-yok, §7.3-uyumlu).
