@@ -26,6 +26,21 @@ Provenance chain (AGENTS.md §8.1):
     data-source note (§10.6, root-caused: single-1m-bar bucket drop).
     Flags flipped to verified=True per matching_bot_report.md §10.4
     ("eşleşme-temizliği 7/7 parite") + Reis approval D157.
+  * GBPJPY: labelled entry (verified=False), Hakem D164 (2026-09-08).
+    Percentiles measured 2026-09-08 by agent (Reis order "BACKTESİ
+    KOŞTUR") via E_CBOT engine (src/ctrader/cbot/core.py::CBDRTracker,
+    §2.2 import — production untouched), cBot params verbatim
+    (Eps15/ATR96/Tol0.5/Span1900-0100), 2026-YTD window n=199 closed
+    cycles, feather GBPJPY_15m (sha256 99fb5313…, dataset_manifest_v1.1).
+    Methodology parity: same-run 7-major values consistent with rev.4 §2.
+    Report: results/cbdr_calibration/GBPJPY_calibration_20260908.md.
+    Matching-parity same day: MATCH_A 0.9550 (bh/bl/width 0/0),
+    MATCH_ATTR 0.9730 (sweep 0/0 → residual = tol-source, pre-declared),
+    MATCH_B 0.9459 (results/matching_bot/20260908_113403_matching.json).
+    DEBT-V2: GBPJPY cBot raw-log run (cTrader 7-major protocol) →
+    MATCH_C (cBot-log ↔ feather) → then verified=True flip (same
+    protocol as USDCHF/NZDUSD D157). No MATCH_C ⇒ verified=True is
+    NOT permitted (AGENTS.md §8.1).
 
 Regime semantics (rev.4 §117-120, per pair, own percentiles):
   * width <  p25          → "sıkışma"   (compressed)
@@ -68,6 +83,11 @@ CBDR_BAND_PERCENTILES: Dict[str, BandWidthPercentiles] = {
     # percentiles, rev.4 §2).
     "USDCHF": BandWidthPercentiles(p25=0.152, p75=0.254, p90=0.374, median=0.203, verified=True),
     "NZDUSD": BandWidthPercentiles(p25=0.182, p75=0.365, p90=0.520, median=0.234, verified=True),
+    # Labelled entry — Hakem D164 (2026-09-08), verified=False.
+    # Measured 2026-09-08 (E_CBOT, 2026-YTD n=199; see module docstring
+    # provenance + DEBT-V2). MATCH_C cBot-log parity pending → flip to
+    # verified=True only after DEBT-V2 protocol completes.
+    "GBPJPY": BandWidthPercentiles(p25=0.108, p75=0.224, p90=0.336, median=0.144, verified=False),
 }
 
 # Regime classification thresholds, per pair (rev.4 §117-120).

@@ -56,6 +56,27 @@ def test_verified_pairs_sample_midpoints():
     assert get_cbdr_multiplier("USDCAD", 0.05) == 0.0
 
 
+def test_gbpjpy_labelled_entry_boundary():
+    """GBPJPY (Hakem D164, verified=False) bant-sınırları rejim-uyumlu.
+
+    Etiketli-giriş satırı da tablo-yolunu izler (tek-kaynak §2.2):
+    p25=0.108 / p75=0.224 / p90=0.336 (3 anlamlı basamak, rev.4 §123).
+    """
+    eps = 1e-9
+    assert get_cbdr_multiplier("GBPJPY", 0.108 - eps) == 0.0
+    assert get_cbdr_multiplier("GBPJPY", 0.108) == 1.0
+    assert get_cbdr_multiplier("GBPJPY", 0.224 - eps) == 1.0
+    assert get_cbdr_multiplier("GBPJPY", 0.224) == 1.2
+    assert get_cbdr_multiplier("GBPJPY", 0.336 - eps) == 1.2
+    assert get_cbdr_multiplier("GBPJPY", 0.336) == 1.5
+
+
+def test_gbpjpy_is_labelled_entry():
+    """DEBT-V2: MATCH_C paritesi gelmeden verified=True flip YASAK (§8.1)."""
+    assert CBDR_BAND_PERCENTILES["GBPJPY"].verified is False
+    assert len(CBDR_BAND_PERCENTILES) == 8  # 7 verified + 1 labelled (D164)
+
+
 def test_unknown_symbol_fails_loud():
     """Bilinmeyen sembol KeyError — sessiz-fallback YOK (§19)."""
     with pytest.raises(KeyError):
@@ -72,9 +93,13 @@ if __name__ == "__main__":
     test_reis_approved_table_matches_implementation()
     print("PASS: test_reis_approved_table_matches_implementation")
     test_band_boundaries_per_pair()
-    print("PASS: test_band_boundaries_per_pair (7 pairs × 6 boundaries)")
+    print("PASS: test_band_boundaries_per_pair (8 pairs × 6 boundaries)")
     test_verified_pairs_sample_midpoints()
     print("PASS: test_verified_pairs_sample_midpoints")
+    test_gbpjpy_labelled_entry_boundary()
+    print("PASS: test_gbpjpy_labelled_entry_boundary")
+    test_gbpjpy_is_labelled_entry()
+    print("PASS: test_gbpjpy_is_labelled_entry")
     test_unknown_symbol_fails_loud()
     print("PASS: test_unknown_symbol_fails_loud")
     test_zero_and_large_widths()

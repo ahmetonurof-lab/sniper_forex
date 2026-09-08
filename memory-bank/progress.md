@@ -1982,3 +1982,30 @@ penceresi-onayı → canlı-SINIF-2 → FAZ-C-sıradaki-karar (FULL-geçiş-üç
 - **Test:** adapter 29/29-P (5-yeni-chunked-test); ctrader-boot 9/9-P (65k-warmup-chunked-yoldan-akıyor); **full-suite 590P/14F/2skipped** (baseline 585P/14F → +5-yeni-test-hepsi-geçti; 14F-aynı-PRE-EXISTING-aile, d9ef591-differential-kanıtlı). ruff-TEMİZ.
 - **Kaldırılan:** `count_exceeds_single_request_limit`-raise (beyanlı; per-chunk-fail-loud-davranışı-korur).
 - **COMMIT: BEKLEMEDE** (§9.5 — push-ayrı-yazılı-onay). GBPJPY-kalibrasyon (İçra-2): BEKLİYOR.
+
+## PUSH-KAYDI-16 (§9.3) — SET: D162 chunked-pagination (2026-09-08; Copilot-icrası; D163-Hakem-yazılı-commit+push-onayı)
+
+- **Onay:** D163 §2 — "COMMIT VE PUSH ONAY VERİLDİ" (§9.2/§9.5). Set-hash-bağlı: `3711021` (tek-commit; 4-dosya: data_adapter + test + 2-memory-bank). Ride-along-YASAK-uyuldu (staged-diff=birebir-4-dosya).
+- **Ön-doğrulama:** base=`17f6ce0` (origin/main==HEAD, gap=0); pre-commit-hook'ları-HEPSİ-PASSED (ruff/ruff-format/vulture/mypy/whitespace/eof/conflict).
+- **İcra:** `git push origin main` → `17f6ce0..3711021 main -> main` exit-0.
+- **Son-doğrulama (§16):** origin/main..HEAD=0 (boş); ls-remote=local-HEAD=`371102152ff137b8b3ead4f001e546b7dad9723a`; tracked-working-tree-TEMİZ (0-modifiye).
+- **Kapsam:** D162-chunked-pagination (kod+test) + D162-memory-bank-kayıtları. `.env`/`token_cache.json`/untracked-dosyalar-dahil-DEĞİL.
+- **Teyit (D163 §3-3):** `17f6ce0`-ledger-push-ÖNCEKİ-TURDA-İCRA-EDİLMİŞTİ (push-öncesi-gap=0-kanıtı) — açık-kalem-KAPANDI.
+- **Açık-kalem:** İcra-2 GBPJPY-kalibrasyon — BEKLİYOR (aşağıdaki-D163-düzeltmesine-bakınız).
+
+## İCRA-2 — GBPJPY KALİBRASYON BACKTEST KOŞULDU (2026-09-08; Reis emri "BACKTESİ KOŞTUR")
+
+- **Koşum-1 (matching-parite):** `python src/backtest/matching_bot.py --symbols GBPJPY` → `results/matching_bot/20260908_113403_matching.json`. 3924 bar (2026-06-26→08-21), 37 closed gün, trades=17 gated=4. MATCH_A=0.9550 (bh/bl/width 0/0), MATCH_ATTR=0.9730 (**sweep 0/0 → fark tamamen tol-kaynağı**, önceden-beyanlı), MATCH_B=0.9459, MATCH_C=atlandı (GBPJPY cBot-log yok). `closed=False`-farkları=Cumartesi-key trade-gating ertelenmesi (bilinen-desen).
+- **Koşum-2 (percentile-ölçümü):** E_CBOT (`core.py::CBDRTracker`, §2.2 import, üretim-dokunulmadı), cBot-param-birebir (Eps15/ATR96/Tol0.5/Span1900-0100). **2026-YTD penceresi (n=199): GBPJPY p25=0.1083 median=0.1440 p75=0.2239 p90=0.3357** (3-anlamlı: 0.108/0.144/0.224/0.336). Pencere-duyarlılığı: full-2024→26 (n=825) p25=0.1276/med=0.1843/p75=0.2784/p90=0.4032; besleme-penceresi (n=49) daha-dar. Metodoloji-paritesi: aynı-koşumda-7-majör-değerleri-rev.4-§2-ile-tutarlı-çıktı (USDCAD 0.084/0.111/0.150/0.198 vs config 0.0841/0.107/0.143/0.210 — yakın).
+- **Ürün:** `results/cbdr_calibration/GBPJPY_calibration_20260908.md` (REPORT-ONLY).
+- **Config-YAZMA-YOK** (D135 §4): `cbdr_band_config.py`'e GBPJPY-satırı-EKLENMEDİ — Reis-onayı-şart. Ek-not: MATCH_C-paritesi-olmadan `verified=True`-etiketi-§8.1-gereği-konulamaz (öneri: `verified=False` ya da-önce-cBot-log-koşumu).
+- **Açık-karar (Reis):** (a) percentile-satırı-onayı; (b) verified-bayrağı; (c) istenirse-GBPJPY-cBot-ham-log-koşumu (cTrader'da-7-majör-protokolü).
+
+## D164 İCRA — GBPJPY CONFIG EKLENDİ (verified=False; 2026-09-08)
+
+- **Onay:** Hakem D164 §2 (KOŞULLU KABUL): GBPJPY-satırı-eklensin, `verified=False` (labelled entry); DEBT-V2 (cBot-ham-log → MATCH_C → flip) kayıtlı.
+- **Değişim:** `src/config/cbdr_band_config.py` — `GBPJPY: BandWidthPercentiles(p25=0.108, p75=0.224, p90=0.336, median=0.144, verified=False)` + docstring-provenance (E_CBOT/2026-YTD n=199/feather-sha/rapor/MATCH-sonuçları) + DEBT-V2-beyanı. Hakem-§3'teki-dict-şeması-NamedTuple-mimarisine-uyarlanmıştır (mevcut-7-satır-la-aynı-yapı — §2.2; `verification_status`/`verification_debt`-alanları-docstring+comment'te-taşınıyor).
+- **Test:** `tests/test_cbdr_multiplier.py` — YENİ-2-test (GBPJPY-bant-sınırları-6-boundary + verified=False-pin/len==8) + __main__-beyanı-8-parite. Sonuç: **14/14-P**.
+- **Ruff:** check+format-temiz (2-dosya).
+- **Full-suite (§13-scope):** `tests/` − 9-collection-error-dosya → **593P / 14F / 2skipped**. 14F=aynı-PRE-EXISTING-küme (ModuleNotFoundError `experiment.main_research_c_v1_0`; 590→593 = +3-GBPJPY-testi-−0). GBPJPY-değişimi-regresyon-üretmedi.
+- **Commit:** ONAYSIZ (§9.5) — Reis-yazılı-onayı-bekliyor. Tek-commit-önerisi: config + test + 2-memory-bank (HAKEM_EYE-D162-A + progress).
