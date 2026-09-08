@@ -2624,3 +2624,45 @@ OPEN. Yani-CLOSED=beklenen-geçici-koruma, silent-degradation-DEĞİL.
   izleme (ilk-60sn-startup-bloğu-Hakem'e; 3-bar-15m-grid `% 900==0`);
   Windows-heap-crash-0xc0000374 (_diagnose_path_write — ayrı-inceleme);
   Adım-C-per-symbol-runtime.
+
+---
+
+## D179 — RUNBOOK cTrader-first GÜNCELLEME + HAKEM MİMARİ DOĞRULAMASI (2026-09-09; Copilot; Hakem-onaylı-sıralama)
+
+- **Tetik:** Reis — "runbook MT5 diyor, cTrader-first'e göre eski."
+  Runbook 2026-08-31 Hakem-şablonundan kalma MT5-era içeriğiydi
+  (terminal64.exe + Algo-Trading ON + MT5_EXPECTED_LOGIN), D159 karar-8
+  (cTrader-first, MT5 ölü D120) ile çelişiyordu.
+- **Runbook-düzeltmesi (`RUNBOOK_SOAK_START.md`, docs-only):**
+  (1) Adım-1 cTrader ön-koşulları (terminal YOK; `.env` CTRADER_* anahtarları;
+  eksik → fail-loud FATAL, sessiz MT5-fallback yok — §19-uyumlu);
+  (2) Adım-2 `token_cache.json` + ACCOUNT_AUTH_RES auth-gate (D178 fix'li;
+  canlı-ölçüm TCP~0.2-2s + auth~+1.9-2.2s → `ensure_connected: True (3.3s)`);
+  (3) `MT5_EXPECTED_LOGIN` SETLENMEZ (ctrader-modunda yok-sayılır + her-boot
+  audit-WARN); kimlik = `CTRADER_ACCOUNT_ID` (validate fail-loud);
+  (4) `SNIPER_SIGNAL_ONLY=1` + `SNIPER_DATA_SOURCE=ctrader` açık-yaz;
+  (5) Beklenen-startup: SAFE_START — reason YALNIZ `recon_blocked: NOT_RUN`;
+  farklı reason → D178-öncesi bug ailesi → soak başlamaz;
+  (6) Freeze-HEAD b89895a → 5d8e067 (executable kod 9f0fe80 ile birebir).
+- **Hakem-mimari-doğrulaması (grep-yokluk → yapısal-kanıt isteği, kapanış):**
+  `_diagnose_path_write` TEST-ONLY DEĞİL — `orchestrator.py:890`
+  `Lock._write()` içinde one-shot tanı; **production-erişilebilir** ve
+  her boot çalışır. Pozitif-çalıştırma-kanıtı: crash_log.txt
+  writer_diagnostic kayıtları 7/7 production-boot'tan (23:07-23:53,
+  09-08), hepsi-temiz. Hakem-kararı: paralel-inceleme kalemi YÜKSELTİLDİ
+  ("grep-yokluk = şimdiye-kadar-tetiklenmedi; tetiklenmez-DEĞİL"),
+  soak-blocker DEĞİL. Kapanış-runbook'a not-edildi.
+- **DEBT-candidate (Hakem-notu, bloklayıcı-değil):** `MT5_EXPECTED_LOGIN`
+  ctrader-modu-WARN'i her-boot-sonsuza-dek-tekrarlanacak → alarm-
+  yorgunluğu riski (§18 izleme-gürültüsü). Soru: kalıcı-olarak-beklenen,
+  kod-tarafından-bilinen yapılandırma durumu neden WARN seviyesinde —
+  INFO'ya düşürülmeli mi? Soak-log-okuma-disiplini: bu WARN "bilinen
+  gürültü" olarak ayrı-tutulacak; cevap soak-öncesi-şart-DEĞİL.
+- **Hakem-kararları:** (a) docs-only commit REİS-OKUMASINI-BEKLEMEZ —
+  şimdi-commit (yanlış-bulunursa düzeltme-commit'i; §9.4-amend-yasak
+  review-edilmemiş-commit'i- bağlamaz); (b) cleanup→soak sıralaması
+  GEÇERLİ-değişmedi; (c) push bu-docs-commit'i sonraki-set'e-alır (§9.2).
+- **Açık-kalemler (+güncel):** safe-file-temizliği (Reis-onayı-bekliyor);
+  paper-soak (runbook-artık-cTrader-doğru); heap-crash-paralel (YÜKSELTİLDİ);
+  cTrader-position-recon (gate-OPEN-şartı); WARN→INFO DEBT-candidate;
+  5d8e067-hash-bound-sonraki-push-onayı.
