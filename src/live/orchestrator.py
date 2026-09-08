@@ -52,13 +52,28 @@ from src.live.atomic_write import (
 )
 from src.live.audit import AuditChain, EventType
 from src.live.candle_feed import _15M_MS, M1CandleFeed, resample_15m
+
+# DEBT-W1 (D129 B.1-B.4): human-readable logging modules — wired lazily
+# in run() via _wire_live_logging (§2.2: reuse the existing modules;
+# no parallel log implementation).
+from src.live.canli_trade_log import (
+    DailyUtcFileHandler,
+    canli_trade_logger,
+    setup_canli_trade_log,
+)
 from src.live.clock import _utcnow_naive, server_to_utc_historical
+from src.live.console_reporter import ConsoleReporter
 from src.live.reconciliation import ReconcileStatus, ReconciliationDecision
 from src.live.recovery import RuntimeRecovery, schedule_snapshot
 from src.live.risk import Account, RiskManager
 from src.live.safety import SafetyMonitor
 from src.live.sizing import ContractSpec, PositionSizer
 from src.live.strategy_runtime import StrategyRuntime
+from src.live.trade_history import (
+    TRADE_HISTORY_FILENAME,
+    TradeHistoryWriter,
+    make_trade_record,
+)
 from src.live.trade_lifecycle import TradeLifecycle
 from src.strategy.models import Bar
 
@@ -1147,6 +1162,179 @@ class Orchestrator:
         # D53: Telegram transport when TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are
         # configured; visible console fallback otherwise (single audit WARN).
         self.alert = _build_alert_transport(self.config.alert_env, self.audit)
+        # ── DEBT-W1: live logging wiring (lazy; initialized in run()) ──
+        # None until _wire_live_logging() succeeds; every consumer guards
+        # on _log_wired so a wiring failure can never touch the loop.
+        self._log_dir: Optional[str] = None
+        self._console: Optional[Any] = None
+        self._canli_log: Optional[Any] = None
+        self._trade_writer: Optional[Any] = None
+        self._log_wired: bool = False
+        self._exit_keys_logged: set = set()
+
+    # ── DEBT-W1: live logging wiring (D129 B.1-B.4) ───────────────────
+
+    def _wire_live_logging(self) -> None:
+        """DEBT-W1: connect the D129 log modules to this orchestrator.
+
+        Lazy + fail-safe: called once from run(). Log-dir convention is
+        the sibling ``logs/`` of state_dir (production: repo-root/state
+        → repo-root/logs; tests: tmp/state → tmp/logs). Any failure
+        degrades to an ERROR audit event — the trading loop must never
+        crash because a human-readable log could not be created.
+        """
+        if self._log_wired:
+            return
+        try:
+            log_dir = str(Path(self.state_dir).parent / "logs")
+            Path(log_dir).mkdir(parents=True, exist_ok=True)
+            self._log_dir = log_dir
+            self._console = ConsoleReporter()
+            lg = canli_trade_logger()
+            has_target = any(
+                isinstance(h, DailyUtcFileHandler)
+                and str(getattr(h, "log_dir", "")) == str(Path(log_dir))
+                for h in lg.handlers
+            )
+            if has_target:
+                self._canli_log = lg
+            else:
+                # Stale/foreign handlers (a handler for ANOTHER log_dir from
+                # an earlier session object, or test-harness capture handlers
+                # attached mid-run) would silently redirect the daily file —
+                # log lines succeed while the expected file never appears.
+                # Reconfigure fresh so THIS orchestrator's file convention is
+                # guaranteed. Production is unaffected (fresh process → empty
+                # handler list → setup runs exactly once, singleton intact).
+                for h in list(lg.handlers):
+                    lg.removeHandler(h)
+                self._canli_log = setup_canli_trade_log(log_dir=log_dir)
+            self._trade_writer = TradeHistoryWriter(
+                path=str(Path(log_dir) / TRADE_HISTORY_FILENAME)
+            )
+            self._log_wired = True
+            verdict_name = "-"
+            if self._startup_result is not None:
+                verdict_name = str(
+                    getattr(self._startup_result.verdict, "name", self._startup_result.verdict)
+                )
+            self._canli_info(f"STARTUP symbol={self._symbol or '-'} verdict={verdict_name}")
+            self.audit.append(
+                time.time(),
+                EventType.STARTUP,
+                self._symbol or None,
+                {"phase": "live_logging_init", "log_dir": log_dir, "status": "wired"},
+            )
+        except Exception as e:
+            self._log_wired = False
+            try:
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol or None,
+                    {"phase": "live_logging_init", "status": "degraded", "error": str(e)},
+                )
+            except Exception:
+                pass  # forensics must never mask the original failure
+
+    def _canli_info(self, msg: str) -> None:
+        """Write one line to the canli_trade daily log (guarded no-op)."""
+        if self._canli_log is not None:
+            try:
+                self._canli_log.info(msg)
+            except Exception:
+                pass
+
+    def _emit_gate(self, gate_allowed: bool, reason: str) -> None:
+        """DEBT-W1: gate transition → console + canli log.
+
+        Called from the run() transition block AFTER the SAFETY audit
+        append — the machine journal stays authoritative; this layer is
+        the human-readable mirror (D129 B.1/B.2).
+        """
+        if not self._log_wired:
+            return
+        try:
+            line = f"GATE {'OPEN' if gate_allowed else 'CLOSED'}: {reason}"
+            if self._console is not None:
+                self._console.emit(self._symbol, "gate", line)
+            self._canli_info(line)
+        except Exception:
+            pass
+
+    def _log_exit_deal(self, entry: Any) -> None:
+        """DEBT-W1: poll_deals exit payload → console/canli line + record.
+
+        Only status="recorded" produces a trade_history record: a
+        quarantined exit has no open-trade context here, and re-deriving
+        the mapping would duplicate TradeLifecycle as a second source of
+        truth (§2.2). The audit EXIT event remains authoritative.
+        """
+        if not self._log_wired or not isinstance(entry, dict) or "error" in entry:
+            return
+        deal_id = entry.get("deal_id") or 0
+        if not deal_id or deal_id in self._exit_keys_logged:
+            return
+        self._exit_keys_logged.add(deal_id)
+        try:
+            position_id = entry.get("position_id") or 0
+            status = str(entry.get("status", "unknown"))
+            cash = float(entry.get("cash", 0.0) or 0.0)
+            pnl_r = float(entry.get("pnl_r", 0.0) or 0.0)
+            line = (
+                f"EXIT deal={deal_id} pos={position_id} status={status} "
+                f"cash={cash:.2f} pnl_r={pnl_r:.2f}"
+            )
+            if self._console is not None:
+                self._console.emit(self._symbol, f"exit:{deal_id}", line)
+            self._canli_info(line)
+            if status == "recorded":
+                self._write_trade_record(entry, position_id)
+        except Exception:
+            pass
+
+    def _write_trade_record(self, entry: Dict[str, Any], position_id: int) -> None:
+        """Build the canonical D129-B.4 trade record for a recorded exit.
+
+        Real fields come from OpenTradeContext (entry side/price/SL) and
+        the poll payload (pnl_r, exit price/time when the broker deal
+        carries them). Unknowns stay explicit defaults; the audit EXIT
+        event remains the authoritative forensic record.
+        """
+        if self._trade_writer is None:
+            return
+        lc = self._lifecycle
+        if lc is None and self._runner is not None:
+            lc = getattr(self._runner, "lifecycle", None)
+        ctx = None
+        if lc is not None:
+            open_trades = getattr(lc, "open_trades", {}) or {}
+            try:
+                ctx = open_trades.get(int(position_id))
+            except (TypeError, ValueError):
+                ctx = None
+        if ctx is None:
+            return  # unmapped — no fabricated context
+        record = make_trade_record(
+            symbol=str(getattr(ctx, "symbol", "") or self._symbol),
+            direction=str(getattr(ctx, "side", "long")),
+            cbdr_context={},
+            entry_time=0.0,
+            entry_price=float(getattr(ctx, "entry_price", 0.0) or 0.0),
+            fvg=None,
+            trigger="",
+            initial_sl=float(getattr(ctx, "initial_sl", 0.0) or 0.0),
+            initial_tp=0.0,
+            trailing_hops=[],
+            exit_time=float(entry.get("time", 0.0) or 0.0),
+            exit_price=float(entry.get("price", 0.0) or 0.0),
+            exit_reason="unknown",
+            r_realized=float(entry.get("pnl_r", 0.0) or 0.0),
+            risk_multiplier_used=float(getattr(ctx, "lot_multiplier", 1.0) or 1.0),
+            duration_bars=0,
+        )
+        record["source"] = "DEBT-W1-wiring"
+        self._trade_writer.write(record)
 
     def startup(self) -> StartupResult:
         """Run S0→S11 startup sequence with lock ownership contract.
@@ -1757,6 +1945,17 @@ class Orchestrator:
         if getattr(self, "_shutdown_done", False):
             return
         self._shutdown_done = True
+
+        # DEBT-W1: final human-readable line. Guarded — shutdown() may run
+        # before run() ever wired the logging layer (log_wired False → no-op).
+        if self._log_wired:
+            try:
+                line = f"SHUTDOWN exit={exit_code} reason={reason}"
+                self._canli_info(line)
+                if self._console is not None:
+                    self._console.emit(self._symbol, "shutdown", line)
+            except Exception:
+                pass  # teardown must never fail on a log line
 
         # B-a: record a SHUTDOWN event if none was already written for this
         # exit (run() writes one on the kill paths; ownership-lost did not).
@@ -2738,6 +2937,8 @@ class Orchestrator:
         """
         if self._startup_result is None:
             raise RuntimeError("run() called before startup()")
+        # DEBT-W1: wire the D129 log modules (lazy, fail-safe, once).
+        self._wire_live_logging()
         kill_fn = kill_switch_fn or (lambda: self._kill_requested)
         sleep = sleep_fn or time.sleep
         self._install_signal_handlers()
@@ -2897,6 +3098,11 @@ class Orchestrator:
                     exits = self._runner.poll_deals()
                     if exits and any(isinstance(x, dict) and "error" in x for x in exits):
                         poll_error = True
+                    # DEBT-W1: each processed exit → console/canli line +
+                    # trade_history record (dedup by deal_id; error payloads
+                    # surface via the ERROR audit + D10 ladder instead).
+                    for _exit_evt in exits or []:
+                        self._log_exit_deal(_exit_evt)
                 except Exception as e:
                     poll_error = True
                     self.audit.append(
@@ -2989,6 +3195,9 @@ class Orchestrator:
                         ),
                     },
                 )
+                # DEBT-W1: same transition → human-readable mirror
+                # (console dedup line + canli_trade daily log).
+                self._emit_gate(gate_allowed, reason)
 
             # 9) feed (entry path — the ONLY caller of runner.on_bar)
             if gate_allowed and account is not None and self._pending_feed:

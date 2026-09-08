@@ -627,6 +627,11 @@ class LiveRunner:
                         "status": status,
                         "cash": cash,
                         "pnl_r": pnl_r,
+                        # DEBT-W1: broker exit-deal price/time enrichment so
+                        # the orchestrator's trade_history record carries the
+                        # REAL exit fill, not a placeholder (additive keys).
+                        "price": float(getattr(d, "price", 0.0) or 0.0),
+                        "time": float(getattr(d, "time", 0.0) or 0.0),
                     }
                 )
                 self._audit(
