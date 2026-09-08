@@ -2458,3 +2458,18 @@ tests/{test_cbdr_trade_gating,test_cbdr_gating_live_path}.py (yeni, 206) =
 p25/p75/p90-güven-kademeleri; Adım-C-öncesi-trade-gating-artık-TAMAM
 (D175-§4-ön-koşulu-kapandı). Asıl-Adım-C: per-symbol-runtime mimarisi
 (şu-an `self._symbol = configured_symbols[0]` — tek-sembol).
+
+---
+
+## PUSH-KAYDI-19 (§9.3) — SET: D176 trade-gating + PUSH-KAYDI-18 (2026-09-08; Copilot-icrası; D177-Hakem-yazılı-push-onayı)
+
+- **Onay:** D177-Hüküm §2 — RATİFİKASYON + YAZILI PUSH ONAYI (§9.2/§9.5), hash-bound: `2477b69` + `85ac15c` + `dc8db2f` (3-commit), parent `fc11310`, hedef `origin/main`, ride-along-YASAK.
+- **Ön-doğrulama:** origin/main..HEAD == {2477b69, 85ac15c, dc8db2f} (birebir-onaylı-set, fazlalık-YOK); HEAD=`dc8db2f9673e45d842f164ab120cf0142f2139a4`.
+- **İcra:** `git push origin main` → `fc11310..dc8db2f main -> main`, exit-0 (18-obje, 8.83 KiB).
+- **Son-doğrulama (§16):** origin/main..HEAD=0 (BOŞ); ls-remote=`dc8db2f9673e45d842f164ab120cf0142f2139a4` == local-HEAD; tracked-working-tree-TEMİZ (yalnız-bilinen-untracked).
+- **Set-içeriği:** 2477b69 = PUSH-KAYDI-18 (D175-authorized-provenance; bilinçli-set-dışı-kalmıştı); 85ac15c = D176-wiring (strategy_runtime+6 / risk+20 / live_runner+12 / 2-yeni-test-dosyası 206 = 244-ekleme-0-silme); dc8db2f = D176-memory-bank-bloğu.
+- **Validasyon-push-öncesi:** 10/10-GREEN (trade_gating-7+live_path-3); 98P+1sk-9-aile; full-625P/14F/2sk/9err (14F-birebir-D174-baseline); ruff-temiz; index-regen-2082.
+- **D176-özeti:** D152-fail-open-açığı-kapandı — sikisma-bölgesinde-emir-ARTIK-GİTMEZ (B1-kanıtı: fake.requests-BOŞ); zincir session.cbdr→width→regime→multiplier→gate-TAM.
+- **Açık-kalemler (D177-§3):** Adım-C-çoklu-sembol-sinyal-only (SIRADA — per-symbol-runtime-mimarisi); DEBT-V2-GBPJPY-MATCH_C; ProtoOATraderReq-bakiye (ayrı-hüküm); token-rotate (Reis).
+- **Not:** Bu-blok-yeni-commit-olacak ve-push-onaylı-sete-DAHİL-DEĞİL (set-icra-edildi) — sonraki-push-turunda-hash-bound-İSTENECEK (2477b69-önceden-
+  görülmüş-pattern).
