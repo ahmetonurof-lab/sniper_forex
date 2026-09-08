@@ -2399,3 +2399,62 @@ yazılı-onay-İSTENECEK (§9.5 — "ediyorum"-onayı yalnız-6f22728-içindi).
 - **Validasyon-push-öncesi:** 8/8-wiring-GREEN (repo-kökünden-pytest; cd-tests→src-path-kopması-dersi); 72-aile-Passed; full 615P/14F-baseline; ruff/mypy/vulture-Passed.
 - **Açık-kalemler (D175-§4):** Adım-C çoklu-sembol sinyal-only (SIRADA); DEBT-V2 GBPJPY MATCH_C; ProtoOATraderReq-bakiye (ayrı-hüküm); trade-gating-DEBT (Adım-C-ön-koşulu); token-rotate (Reis).
 - **Kök-temizliği-notu:** 6-tek-seferlik-.tmp (5-fix-script + 1-placeholder) → archive/tmp_fixers_20260908/ (silme-yok, §7.3-uyumlu).
+
+---
+
+## D176 — CBDR WIDTH TRADE-GATING WIRING (2026-09-08; Copilot)
+
+**Kök-bulgu (D152-DEBT):** `get_cbdr_multiplier` (risk.py:219, D152-rejim-tablosu
+sikisma=0.0/tipik=1.0/yukselmis=1.2/makro=1.5) production-çağıranı YOKTU. Grep-kanıdı:
+yalnız-test+docstring-referans. Zincir session.cbdr→width→regime→multiplier→gate
+BAĞLI-DEĞİLDİ → sikisma-bölgesinde emir gidebiliyordu (fail-open).
+
+**Tasarım-kararları:**
+- **StrategyRuntime DOKUNULMADI** (strategi-gövdesi frozen-parity; tek-eylem:
+  Signal dataclass'ına additive `cbdr_width_pct: float = 0.0`). Keyword-
+  constructor'lar (backtest-parity/paper/signal_runner/tests) kırılmaz.
+- **Width-LiveRunner'da-attach** (on_bar, N2-23-R3 SIGNAL-emit noktası = tek-
+  canlı-tüketim-noktası): kanonik-formül `((bh-bl)/bl)*100` (§2.2-matching_bot).
+  bh==0/bl==0/bl==inf → 0.0 (no-info). except → 0.0 (fail-safe, no fabrication).
+- **width<=0 → gate-NEUTRAL** (legacy-çağıranlar korunur; production-her-fill-
+  yeni-Signal zaten-0.0-default).
+- **sikisma → BLOCK** (§19-fail-closed): approved=False, reason
+  `cbdr_sikisma: width X.XXXX% < p25 (NO TRADE, fail-closed)`,
+  lot_multiplier=0.0, checks+=["cbdr_sikisma_no_trade"]. B1-kanıt: B squeeze-
+  gövdesinde fake.requests BOŞ kalır (emir-hiç-gitmez).
+- **Diğer-rejimler → DD×CBDR-çarpım** (her-ikisi-approved-path): T6-kanıtı
+  dd_r=2.5→0.5 × yukselmis 1.2 → 0.6.
+- **Bilinmeyen-sembol+width>0 → KeyError** (fail-loud; D152-tablo-sözleşmesi).
+- **SymbolClassifier-yok** — classify_width_regime doğrudan (D164-verified-
+  per-symbol-percentile'si mevcut; EURUSD p25=0.0866/p75=0.166/p90=0.267).
+
+**RED→GREEN:** RED-kanıdı 7×TypeError (unexpected-kwarg cbdr_width_pct) →
+impl → T1-T7 GREEN 7/7. B1-B3 gerçek-LiveRunner+E2EBroker (§2.2-reuse,
+test_e2e_live_chain import).
+
+**B3-izolasyon-dersi:** İlk-koşumda B3-solo-PASS/full-file-FAIL. Kök-neden:
+modül-seviyesi-PAYLAŞILAN-mutable-Signal-stub (SIG1) — B2 cbdr_width_pct=0.12
+attach-edip-bıraktı; B3 bh=0-koşulu-fail→stale-0.12→approx(0.0)-assert-fail.
+Ders: **mutable-stub'ı-fixture-başına-fresh-üret** (`_sig1()` factory). Prod-
+yolunda-hiçbir-reset-gerekmez: `_fill_pending` (strategy_runtime:735) her-fill
+YENİ-Signal üretir (satır~799).
+
+**Validasyon:**
+- Hedef-suitler: 10/10 GREEN (trade_gating 7 + live_path 3).
+- Regresyon-aileleri: 98P+1sk (e2e/risk_sizing/portfolio_dd/paper/p1/
+  signal_runner/btc_port/orchestrator_log/cbdr_multiplier).
+- Full-suite: **625P/14F/2sk/9-err** — 14F-birebir-D174-baseline
+  (parity/research-ailesi; ModuleNotFoundError experiment.main_research_c_v1_0
+  — §4.4 fail-provenance: pre-existing, scope-dışı).
+- ruff: check--fix (3-fix) + format (2-reformat) → temiz; sonrası-10/10-teyit.
+- index.json: `index_builder.py --full` (2082-fonksiyon; gitignore'lı —
+  D174-dersi, stage-EDİLMEZ).
+
+**Scope:** src/live/{strategy_runtime,risk,live_runner}.py (+38) +
+tests/{test_cbdr_trade_gating,test_cbdr_gating_live_path}.py (yeni, 206) =
+244-ekleme, 0-silme.
+
+**Açık:** GBPJPY classify_width_regime verified=False (D164) → GBPJPY-gate
+p25/p75/p90-güven-kademeleri; Adım-C-öncesi-trade-gating-artık-TAMAM
+(D175-§4-ön-koşulu-kapandı). Asıl-Adım-C: per-symbol-runtime mimarisi
+(şu-an `self._symbol = configured_symbols[0]` — tek-sembol).
