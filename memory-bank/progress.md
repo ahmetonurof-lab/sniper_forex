@@ -2229,3 +2229,99 @@ PRE-EXISTING) + 607 passed + 2 skipped. Yeni-fail YOK.
 ilk emir (ayrı onay; mock-only korundu); pipPosition EURUSD/JPY canlı
 doğrulama (adım-④ öncesi); ProtoOATraderReq bakiye (ayrı hüküm); commit
 + hash-bound push-onayı (§9.5) bekliyor.
+
+## D171 — PUSH: 0d238de -> origin/main (2026-09-08)
+
+**Hüküm:** D171 Hakem RATİFİKASYONU + YAZILI PUSH ONAYI (§9.2/§9.5):
+0d238de tek-commit; ride-along YASAK; §16 post-push doğrulama zorunlu.
+Adım-③ implementasyon ratifiye edildi (11/11 test tablosu + şeffaflık
+notu onaylandı).
+
+**Push öncesi (§9.5):** HEAD==0d238de; parent==a40eac4(origin/main);
+push-seti TEK commit (git log origin/main..HEAD = 0d238de); tracked-
+modifiye YOK; untracked ctrader-docs commit-dışı (set'e GİRMEDİ).
+
+**İcra:** git push origin main -> a40eac4..0d238de main -> main.
+
+**Post-push (§16):** origin/main..HEAD = BOŞ; ls-remote==HEAD==
+0d238ded42fa6ab262c9a63d6ab05c6d5de3b713; tracked working-tree temiz.
+KİM: Cline (agent) — Reis emri + Hakem D171 hükmü. NEZAMAN: 2026-09-08.
+
+**Açık (D171-§5):** Adım-④ kontrollü demo ilk emir (Reis kararı —
+ayrı onay; EURUSD, min-lot, audit gözetimi, signal_only=False geçici
+override); ProtoOATraderReq bakiye (gelecek tur); DEBT-V2 GBPJPY
+MATCH_C; trade-gating DEBT (Adım-C ön-koşulu).
+
+## D172 — Yeni-10k-demo-hesaba-geçiş + token/ctid keşfi (2026-09-08)
+
+**Hüküm:** Reis emri ("10.000 olan hesaba geç"). Salt-okur sorgular + config-güncelleme;
+emir-GÖNDERME-YOK (mock-only korundu).
+
+**Kök-neden-zinciri (diferansiyel-kanıt):**
+1. `.env CTRADER_ACCOUNT_ID` eski ctid'de kaldı (48407657) — Reis'in
+   "değiştirdim" beyanı ACCESS_TOKEN satırına uygulanmıştı (hash b9854778f7),
+   ACCOUNT_ID satırına değil.
+2. `10111183` = traderLogin (D142-dersi tekrar doğrulandı), ctid DEĞİL.
+   ctid ile deneme -> ProtoOAErrorRes INVALID_REQUEST "Trading account is
+   not authorized".
+3. İlk teşhis hatası (§12.1): `CH_ACCESS_TOKEN_INVALID` "token geçersiz"
+   diye yorumlandı — YANLIŞ. Gerçek neden: YENİ-token + ESKİ-ctid
+   kombinasyonu. Kesin kanıt: iki-fazlı GetAccountListByAccessTokenReq
+   (hesap-bağımsız): yeni-token -> ctid=48619519 traderLogin=10111183;
+   eski-token -> ctid=48407657 traderLogin=10103194. Token GEÇERLİymiş.
+4. Teknik-tuzak (kayıt): ctrader_open_api client.py:43-46 — clientMsgId
+   eşleşen HER mesaj (hata dahil) deferred success-callback'e düşer ->
+   "ACCOUNT_AUTH_RES ok" sahte-olumlu olabilir. Gerçek-başarı kontrolü
+   yanıt-tipi doğrulaması gerektirir (connection iyileştirme-adayı).
+
+**İcra:** (1) yedekler: .env.bak_20260908 + token_cache.json.bak_20260908
+(overwrite-öncesi-yedek dersi — bkz. olay-2); (2) .env
+CTRADER_ACCOUNT_ID=48619519; (3) token_cache.json access_token <- .env
+yeni-token (auth cache'den okur, connection.py:140); (4) canlı-doğrulama:
+ProtoOATraderReq -> balance=10000.0, isLimitedRisk=False,
+leverageInCents=100000 (1:1000).
+
+**OLAY-2 (§12.1 — kendi-hatam):** token_cache.json overwrite-öncesi yedek
+alınmadı; eski token kayboldu. Kurtarma: transkript-hash-taraması
+(değer-chat'e-yansımadan, md5-ön-ek 2478877c9c eşleşmesi) -> eski token
+geri-yazıldı + canlı-sorguyla doğrulandı. DERS: her secret-yazımından
+önce .bak zorunlu.
+
+**Sizing-etkisi:** 3.02-bakiye-engeli kalktı. %0.003 x 10000 = 30 birim
+risk; min-lot 0.01 EURUSD (1:1000 marj ~1 birim) sığar.
+
+**Açık:** Adım-④ kontrollü demo ilk emir (ayrı Reis-onayı);
+ProtoOATraderReq bakiye-kalıcı-entegrasyonu (ayrı hüküm).
+
+## D173 — Log-mimarisi DEBT-W1 tespiti + §21-ihlal kaydı (2026-09-08)
+
+**Tetik:** Reis sorusu "canlı log nereden takip edilir?" -> benim
+hafızadan yanıtım ("logs/canli_trade_*.log tail -f") YANLIŞTI — Reis
+itiraz etti ("sen de gidip baktın doğruladın"). Git-kayıtları yeniden
+okundu (§21: hafıza-değil-kayıt).
+
+**Kanıt-zinciri:**
+- Reis-Direktifi §3 (docs/REIS_DIREKTIF_ONCELIK_VE_LOG_MIMARISI.md):
+  4-artefakt log-mimarisi kararı (console + canli_trade.log + JSON-event
+  + trade_history.json).
+- Commit 521c7f0 (D129 Task B, Hakem-ratifiye D130): 4 modül + 35 test
+  KODLANDI (console_reporter.py, canli_trade_log.py, audit_rotation.py,
+  trade_history.py, risk.py placeholder).
+- Commit bd74d10 (n2_26 REIS-revizyonu): logs/<SYM>/live.log formatı.
+- **DEBT-W1 (commit-mesajında açık):** "connect modules to
+  Orchestrator/LiveRunner — mandatory before Step-C". Doğrulama: 4 modülü
+  hiçbir canlı dosya import etmiyor (grep-kanıtı). WIRING YOK.
+
+**Sonuç:** Karar ✅ + Kod ✅ + Wiring ❌ -> canlı-log dosyaları oluşmuyor.
+"Canlı log nerede" sorusunun doğru-cevabı: ŞU-AN-YOK; DEBT-W1 wiring
+tamamlanmadan logs/ boş kalır (state/<run>/audit.jsonl hariç — orchestrator
+audit-path'i state_dir'den türetiliyor, N2#21).
+
+**§21-İHLAL (kayıt):** kayıt-duruyorken hafızadan konuşuldu; klasör-durumu
+doğrulandı ama karar->kod->wiring zincirindeki borç kontrol edilmedi.
+DERS: "X nerede" sorularında kanıt-zinciri (karar->kod->bağlantı) tam
+izlenmeden cevap-verilmez.
+
+**Sıra (Reis-onayı-bekliyor):** DEBT-W1 wiring (Step-C ön-koşulu) ->
+Adım-C çoklu-sembol sinyal-only -> progress.md birikmiş-blok commit'i
+(hash-bound push-onayı §9.5).
