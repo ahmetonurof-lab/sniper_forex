@@ -2748,3 +2748,50 @@ OPEN. Yani-CLOSED=beklenen-geçici-koruma, silent-degradation-DEĞİL.
 ayrı-console-penceresinden-yapılmalı (runbook-notu-adayı).
 
 **Kod-değişikliği-YOK** — D180-bulgusu-kapanmış; soak-öncesi-sinyal-engeli-YOK.
+
+## D181.1 — DENKLİK-DÜZELTMESİ (Hakem-sorusu: D180-SIGTERM vs D181-CTRL_C) — 2026-09-09
+
+**Hakem-itirazı (§8.3 differential):** "H1/H2'yi çürüten test (T4-CTRL_C),
+D180'de başarısız olan test ile AYNI sinyal-iletim yolunu mu kullanıyor?
+D180'in mekanizması teyit edilmeden H1/H2 kapanmaz."
+
+**Kanıt-1 — D180-orijinal-mekanizma (transcript-kanıtı):** D180 testi
+`timeout 150 .venv/Scripts/python.exe -m src.live.run_production` idi —
+MSYS/Git-Bash GNU-coreutils `timeout`. CTRL_C-tabanlı DEĞİLDİ;
+`process.terminate()` da değildi.
+
+**Kanıt-2 — Denklik-replikası (timeout_equiv_test):** SIGTERM+SIGINT
+handler'lı minimal-child'a `timeout 5` (aynı
+`C:\Program Files\Git\usr\bin\timeout.exe`) → **rc=124,
+handler-ÇAĞRILMADI, graceful-iz-YOK** = force-kill (TerminateProcess-
+eşdeğeri; sinyal-iletilmedi). (Not: ilk-denemede Windows'un kendi
+`timeout.exe`'si yakalandı — rc=1 "Invalid syntax"; tam-yol-ile-
+tekrarlandı. İddia-kanıtla-oranlı: "force-kill" gözlemden;
+kesin-Win32-API-adı-iddia-edilmez.)
+
+**REVİZE-HÜKÜM (§12.1 — eski-sonuç-neden-yanlış, görünür-kalır):**
+1. D180-bulgusu ("SIGTERM→graceful-yok") **GERÇEKTİ** — D181'deki
+   "TEST-ARTIFACT" etiketi **YANLIŞTI ve geri çekilir**. Kök-neden:
+   MSYS `timeout` native-Windows-child'a sinyal İLETEMEZ;
+   süre-dolumu = force-kill. ConPTY-bulgusu (T3) bununla karışmış;
+   o, ayrı ve geçerli bir İKİNCİ iletim-engelidir (CTRL_C-yolu).
+2. **H1/H2-çürütmesi GEÇERLİ KALIR — gerekçesi düzeltildi:** çürütme
+   D180-açıklamasına DEĞİL, T4'ün doğrudan-kanıtına dayanır: sinyal
+   GERÇEKTEN ulaştığında (gerçek-console CTRL_C) graceful-path
+   ÇALIŞIYOR (rc=2, 2.0-sn, SHUTDOWN-audit, lock-release). D180'in
+   gözlemi sinyalin hiç ulaşmamasındandı; kod-hatası değil.
+3. **SIGTERM-handler (orchestrator.py:2743) Windows'ta fiilen ölü
+   koldur:** console-app'e SIGTERM hiçbir normal mekanizmayla ulaşamaz
+   (MSYS-timeout=force-kill; taskkill-siz=imkansız). Windows'ta tek
+   çalışır-graceful kanal = CTRL_C (SIGINT). Bug değil, platform-
+   gerçeği; D11'in SIGTERM kolu POSIX-deployment içindir.
+4. **"Sinyal-engeli-YOK" ifadesi düzeltilir:** "Kod-tarafında engel
+   YOK; deployment-ortamı doğru seçilirse (native console +
+   timeout'suz) graceful-stop ÇALIŞIR." Engel koddan kalktı;
+   ortamdan kalkmadı — ortam-şartı runbook'a ZORUNLU ön-koşul
+   olarak eklendi (RUNBOOK_SOAK_START.md Adım-0).
+
+**Sonuç:** Hakem-maddeleri tamam — (1) denklik-netleşti, (2) H1/H2
+kabul-edildi (T4-gerekçesiyle), (3) ifade-düzeltildi + ConPTY/timeout-
+yasağı runbook'ta zorunlu-madde. Soak-başlatma (a) hazır; push-set
+(a696a03+ce95911+b8e16f6+bu-commit) Reis-yazılı-onayında.

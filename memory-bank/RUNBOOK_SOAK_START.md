@@ -7,6 +7,28 @@
 > içinden `getenv` taramasıyla doğrulandı (2026-09-09, D178-sonrası).
 > Bu liste dışı env OKUNMAZ — uydurma anahtar setlemek sessiz-no-op'tur.
 
+## Adım 0 — Terminal ön-koşulu (ZORUNLU — boot öncesi işaretlenir)
+
+> D181/D181.1 kanıtı (2026-09-09): graceful-stop YALNIZ doğru ortamda
+> çalışır. Engel koddan kalktı; ortamdan kalkmadı. Bu madde hatırlatma
+> değil, boot'u ENGELLEYEN ön-koşuldur.
+
+- [ ] **Soak ConPTY tabanlı terminalden BAŞLATILMAZ.** VS Code entegre
+  terminali (ve ConPTY kullanan herhangi bir SSH/multiplexer kurulumu)
+  yasaktır: ConPTY altında CTRL_C iletimi ÇALIŞMAZ —
+  `GenerateConsoleCtrlEvent` r=1 döner (yanlış-pozitif) ama sinyal
+  iletilmez (D181-T3). Soak `cmd.exe` veya `PowerShell` penceresinden
+  DOĞRUDAN (native console) başlatılır.
+- [ ] **Soak komutu MSYS `timeout` ile SARILMAZ** (`timeout 150 python
+  ...` yasak). Git-Bash GNU `timeout` native-Windows-child'a sinyal
+  İLETEMEZ; süre dolunca force-kill yapar — handler çağrılmaz, SHUTDOWN
+  audit yazılmaz, lock kalır (D181.1 denklik-replikası: handler'lı
+  replika rc=124, graceful-iz yok). Bu, D180 bulgusunun kök-nedenidir.
+  Soak ön-süresiz çalışır; durdurma yalnız operatör Ctrl-C iledir.
+- [ ] **Foreground teyidi:** soak process'i başlatan native console'da
+  ön-planda çalışıyor ve operatör aynı pencerede Ctrl-C basabilecek
+  durumda olmalıdır (arka-plan/servis-start drill'i geçersiz kılar).
+
 ## Adımlar
 
 1. **cTrader ön-koşulları (terminal YOK — Open API):** repo kökü `.env`
@@ -83,8 +105,16 @@ masa saatinden değil. Soak = bu komutun döndürdüğü process; başka hiçbir
 
 ## Kill / restart drill (72-saat listesi maddesi)
 
+- **Drill YALNIZ Adım-0'a uygun ortamda yapılır:** soak'ın çalıştığı
+  native console'da, foreground process'e doğrudan Ctrl-C. `taskkill`,
+  MSYS `timeout`, ConPTY-terminalden sinyal denemeleri GEÇERSİZ
+  drill'dir — sinyal ulaşmaz; force-kill veya yanlış-pozitif üretir
+  (D181.1). Bu yollarla alınan "graceful-yok" gözlemi kod-hatası
+  SAYILMAZ, ortam-hatasıdır.
 - SIGINT (Ctrl-C) → graceful: exit-code durum-bağımlı (K2: 0/2),
-  SHUTDOWN audit + snapshot + lock release beklenir.
+  SHUTDOWN audit + snapshot + lock release beklenir. Kanıt
+  (D181-T4, gerçek-console CTRL_C): rc=2, 2.0 sn, SHUTDOWN-audit
+  `kill_switch_during_sleep`, lock release — kusursuz.
 - Restart → backoff ladder sıfırdan, heartbeat yeniden, REPLAY event'i
   tekrar üretilmeli; state tutarlılığı `state/` + audit karşılaştırmasıyla doğrulanır.
 - Lock dosyası (`SNIPER_STATE_DIR` altında) kill sonrası kalmışsa: PID-ölü
