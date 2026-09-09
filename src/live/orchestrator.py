@@ -1262,6 +1262,45 @@ class Orchestrator:
         except Exception:
             pass
 
+    def _emit_bar_pulse(self, new_bars: List[Any], gate_allowed: bool, reason: str) -> None:
+        """Adım-6 "Why No Signal" pulse (SOAK-D3/D4; Hakem-onaylı).
+
+        BAR-BAZLI (poll-bazlı DEĞİL): called ONLY when produce_new_bars()
+        returned >=1 new 15m bar — ~96 lines/day, not ~4300. Gate-
+        durumundan bağımsız nabız: SAFE_START sessizliğini (SOAK-D2:
+        3s18dk audit-sessizliği) her 15m'de kendini-kanıtlayan tek
+        satırla kırar. Kanal-deseni: audit-STATE (moment=bar_pulse) +
+        canli-log; console-emit ATLANIR (dedup-key gürültüsü; canli-log
+        yeterli). Fail-safe: pulse hatası asla döngüyü düşürmez
+        (sessiz-guard, _emit_gate deseni).
+        """
+        if not self._log_wired or not new_bars:
+            return
+        try:
+            last = new_bars[-1]
+            bar_ts = getattr(last, "timestamp", None)
+            bar_ts_iso = bar_ts.isoformat() if bar_ts is not None else "-"
+            line = (
+                f"[BAR] {self._symbol or '-'} {bar_ts_iso} "
+                f"gate={'OPEN' if gate_allowed else 'CLOSED'} "
+                f"reason={reason or 'ok'} skip"
+            )
+            self._canli_info(line)
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self._symbol,
+                {
+                    "moment": "bar_pulse",
+                    "bar_ts": bar_ts_iso,
+                    "bar_index": int(getattr(last, "index", -1)),
+                    "gate": "open" if gate_allowed else "closed",
+                    "reason": reason or "ok",
+                },
+            )
+        except Exception:
+            pass
+
     def _log_exit_deal(self, entry: Any) -> None:
         """DEBT-W1: poll_deals exit payload → console/canli line + record.
 
@@ -3198,6 +3237,24 @@ class Orchestrator:
                 # DEBT-W1: same transition → human-readable mirror
                 # (console dedup line + canli_trade daily log).
                 self._emit_gate(gate_allowed, reason)
+
+            # 8a) Adım-6 "Why No Signal" pulse — BAR-BAZLI (SOAK-D4):
+            #     produce_new_bars yalnız yeni 15m slot kapanınca dolu
+            #     döner (_seen_bar_slots dedup + trailing-edge), bu yüzden
+            #     `new_bars` dolu değilse sessiz no-op. Gate-transition-
+            #     blokundan BAĞIMSIZ: her barda nabız — SAFE_START
+            #     sessizliğini kırar (SOAK-D2 dersi). reason-hesabı
+            #     transition-bloğunun üç-dallı mantığını BİREBİR yansıtır
+            #     (orada `reason` yalnız geçişte hesaplanır — burada her
+            #     bar'da lazily yeniden-hesaplanır; ikincil-kaynak değil,
+            #     aynı-formül).
+            if gate_allowed:
+                pulse_reason = decision.reason or "ok"
+            elif not entries_enabled:
+                pulse_reason = decision.reason or "startup_SAFE_START"
+            else:
+                pulse_reason = decision.reason or self._runtime_safe_reason or "unknown"
+            self._emit_bar_pulse(new_bars, gate_allowed, pulse_reason)
 
             # 9) feed (entry path — the ONLY caller of runner.on_bar)
             if gate_allowed and account is not None and self._pending_feed:
