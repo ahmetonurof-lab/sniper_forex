@@ -163,3 +163,10 @@ kayıtları = 7/7 production boot pozitif çalıştırma-kanıtı, hepsi temiz).
 Crash yalnız pytest-context'inde görüldü. Paralel inceleme kalemi
 YÜKSELTİLDİ (Hakem matrisi: production-erişilebilir → gündemde yukarı),
 soak-blocker DEĞİL.
+
+**Kapsam-dipnotu (Hakem-notu, 2026-09-09):** Bu checklist **local test
+ortamı** bağlamında yazıldı (Reis-teyidi: "şu an test aşaması ve local
+makinayız"; kanıt: SESSIONNAME=Console, RDP-kapalı). Sistem ileride bir
+sunucuya (Ubuntu/Windows VPS) taşınırsa **Adım-0'ın RDP/console-erişim
+maddesi YENİDEN değerlendirilecek** — "local makinayız, atlanabilir"
+durumu o zaman geçerli olmayacak (PUSH-KAYDI-21 açık-kalem).
