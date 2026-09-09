@@ -36,6 +36,17 @@
 - [ ] **Foreground teyidi:** soak process'i başlatan native console'da
   ön-planda çalışıyor ve operatör aynı pencerede Ctrl-C basabilecek
   durumda olmalıdır (arka-plan/servis-start drill'i geçersiz kılar).
+- [ ] **Console-oturum teyidi (RDP/uzak-oturum yasak):** soak, fiziksel
+  veya KVM-bağlı console oturumunda başlatılır; RDP/VPS uzak oturumdan
+  BAŞLATILMAZ — RDP disconnect, oturuma bağlı console pencerelerini bazı
+  yapılandırmalarda öldürür (= pencere-kapatma force-kill sınıfı olay;
+  operatör hatası değil, sıradan bağlantı kopması). **Bu makinede kanıt
+  (2026-09-09):** `SESSIONNAME=Console`; `qwinsta` → yalnız
+  `>console Administrator 1 Active` (RDP-oturumu-yok);
+  `TermService=Stopped`; 3389-dinleyici-yok → **RDP kapalı ve
+  kullanılmıyor; erişim fiziksel/console.** Boot-öncesi teyit:
+  `echo $SESSIONNAME` = `Console` (PowerShell: `$env:SESSIONNAME`).
+  RDP ileride açılırsa: SOAK-STOP → Adım-0 bu madde dahil tekrar.
 
 ## Adımlar
 

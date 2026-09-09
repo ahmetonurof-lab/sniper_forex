@@ -2795,3 +2795,23 @@ kesin-Win32-API-adı-iddia-edilmez.)
 kabul-edildi (T4-gerekçesiyle), (3) ifade-düzeltildi + ConPTY/timeout-
 yasağı runbook'ta zorunlu-madde. Soak-başlatma (a) hazır; push-set
 (a696a03+ce95911+b8e16f6+bu-commit) Reis-yazılı-onayında.
+
+## D181.3 — RDP/konsol-erişim-teyidi (Hakem-operasyonel-sorusu) — 2026-09-09
+
+**Soru:** "Console penceresi açık kalmalı" şartı RDP/VPS-uzak-oturum
+senaryosunda ne olur? RDP-disconnect bağlı console pencerelerini bazı
+yapılandırmalarda öldürür → sıradan kopmada beklenmedik force-kill,
+"yeni bulgu" sanılabilir.
+
+**Kanıt (makine-erişim-şekli, 2026-09-09, üçlü):**
+- `SESSIONNAME=Console`; `qwinsta` → yalnız `>console Administrator 1
+  Active` (RDP-oturumu-YOK)
+- `TermService=Stopped`; 3389-dinleyici-YOK (Get-NetTCPConnection=0)
+- → **Erişim = fiziksel/console; RDP kapalı ve kullanılmıyor.**
+  (fDenyTSConnections registry değeri okunamadı — üçlü-kanıt yeterli.)
+
+**Aksiyon:** RUNBOOK Adım-0'a 4. checkbox: console-oturum teyidi
+(`echo $SESSIONNAME`=Console) + RDP-yasağı + "RDP ileride açılırsa
+SOAK-STOP → Adım-0 tekrar" kuralı. Hakem-önerisi iki seçenekliydi;
+varsayım-yazma yerine kanıtlı-teyit-yolu seçildi (varsayım-değil-
+kanıt ilkesi).
