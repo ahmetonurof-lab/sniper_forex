@@ -128,6 +128,15 @@
    STATE'lerinden okunur (SOAK-D2 kanıtı: 1905/1905 bar_ts %900
    hizalı, 0 ihlal; audit sessizliği = fail-closed tasarım sonucu,
    heartbeat birincil canlılık kanıtıdır).
+   **GÜNCELLEME (SOAK-D5, 7afc249 sonrası): SAFE_START-soak'ta artık
+   her 15m kapalı bar'da bar-pulse üretilir** — `audit.jsonl`'da
+   `moment=bar_pulse` STATE event'i + canli-log'da `[BAR] <sembol>
+   <ts> gate=CLOSED reason=<neden> skip` satırı (bar-bazlı, ~96/gün;
+   poll-bazlı DEĞİL). Yani "neden sinyal yok" sorusunun cevabı her
+   barda kendiliğinden yazılır; 3-bar-bekleme-yanılgısı (§12.1
+   düzeltmesi) burada da geçerlidir: pulse olmadan önce canlı STATE
+   üretilemezdi, şimdi üretilir. İlk barda pulse GÖRÜNMEZSE → wiring
+   hatasıdır → soak durdur, rapor et.
 
 ## Soak sayacı
 

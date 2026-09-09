@@ -3180,3 +3180,48 @@ pre-reg-turu.
 run()-adım-8-çevresi; reason-hesabı-tek-noktaya-taşınıyor (davranış-nötr);
 pulse-`if new_bars:`-dalında-STATE/moment=bar_pulse. Regresyon-sonrası-
 ayrı-kod-commit; push-onayı-Reis'ten-hash-bağlı-talep-edilecek.
+
+---
+
+## SOAK-D5 (2026-09-09): Adım-6 bar-pulse IMPLEMENT — commit 7afc249
+
+**Yapılan (Reis-öncelik-sırası-1, Hakem-şartı-bar-bazlı):**
+- `orchestrator._emit_bar_pulse` (yeni-helper, `_emit_gate`-deseni):
+  audit-STATE `moment=bar_pulse` (bar_ts/bar_index/gate/reason) +
+  canli-log `[BAR] <sembol> <ts> gate=… reason=… skip`; console-emit
+  BİLEREK-yok (dedup-key gürültüsü; canli-log-yeterli); fail-safe
+  try/except-pass (pulse-hatası-döngüyü-düşürmez).
+- run()-adım-8a çağrı-sitesi: transition-blok-sonrası, `new_bars`-doluysa
+  → BAR-BAZLI tetik (~96/gün, poll-değil). reason-hesabı transition-
+  bloğunun üç-dallı mantığını BİREBİR yansıtır (if gate_allowed→"ok";
+  elif not entries_enabled→"startup_SAFE_START"; else→runtime_safe/
+  "unknown") — kendi-kontrolümde-ilk-tek-satırlık-formülün-OPEN-dalını-
+  kaydırdığını-fark-edip-düzelttim (§14).
+- `tests/test_orchestrator_bar_pulse.py`: 4-test (boş-tick→sessiz /
+  STATE+reason-taşıma / gate=open+reason-ok / audit-patlaması→raise-yok).
+
+**Regresyon (§13 dürüst-sayaç):**
+- Orchestrator-dar-seti (tas2+tas4+startup+n2_13+log_wiring+ctrader_boot):
+  **108 passed**.
+- Pulse+dar-orchestrator (bar_pulse+tas2+tas4): **60 passed**.
+- Full `tests/`: **637 passed, 14 failed, 2 skipped, 9 collection-errors**.
+- **§8.3-differential-kanıtı (stash):** 14-failure (parity_6majors×7,
+  m1_ingestion_parity×4, live_strategy_runtime×2, live_parity_gate×1) +
+  9-collection-error (experiment.* modülleri `archive/experiment_20260906/`
+  altında — commit-öncesi-HEAD'de-de AYNI) → tamamı **pre-existing**,
+  bu-değişiklikle ilgisiz. Failures görünür-kalıyor (§4.4/§19 hidden-red
+  yok): gate-OPEN-ratifikasyonu öncesi ayrıca-triage edilmeliler (açık-kalem).
+- ruff + ruff-format + pre-commit-hook'ları (vulture, mypy dahil) hepsi
+  Passed.
+
+**index.json:** repo'dan-çıkarılmış (746504b) — satır-çapa-endişesi yok.
+
+**Commit seti (push-adayı, §9.5 hash-bağlı):**
+- `7afc249` SOAK-D4-impl: Adim-6 Why-No-Signal bar-pulse (KOD)
+- (+ bu SOAK-D5 docs-commit'i — runbook Adım-6 güncellemesi + progress kaydı)
+- Önceki 10 docs-commit (d99de85…1c03b0a) hâlâ unpushed — toplam set
+  push-onayında tam listelenecek.
+
+**SIRADAKİ:** Reis yazılı push-onayı → push + doğrulama + PUSH-KAYDI →
+soak-restart (runbook Adım-0 QuickEdit + yeni Adım-6 pulse-izlemesi:
+ilk-bar'da `moment=bar_pulse` GÖRÜNMEZSE wiring-hatası → durdur+rapor).
