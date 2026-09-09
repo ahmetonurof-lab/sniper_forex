@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import time
+import traceback
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -62,6 +63,41 @@ class EventType(str, Enum):
     STATE = "STATE"  # N2 #23 R-1: CBDR özet/transition (window/lock/sweep/bias)
     WRITE_BLOCK = "WRITE_BLOCK"  # N2 #15-b: tmp→target rename blocked (AV/sync handle)
     LOCK_CORRUPT = "LOCK_CORRUPT"  # N2 #17/A9: lock unreadable (torn JSON) — read-path triage
+
+
+# ── A1 (OBS-P0 karar-kilidi EK-2): kalici hata-forensiği payload'ı ──────
+# 16 EventType.ERROR emit noktasının tamamı yalnız ``str(e)`` taşıyordu
+# (DECISION_OBSERVABILITY_P0 2026-09-09 §4) — diskte traceback YOKTU.
+# Bu tek-merkez helper, her ERROR payload'ına en az ``error_type`` +
+# ``sınırlı traceback`` ekler ki "bir sonraki sinyal yokluğu" tek
+# audit.jsonl zinciriyle forensic açıklanabilsin. Pure (I/O yok);
+# AuditChain'e bağımlılık yok → emit-sayfaları import-around ile çağırır.
+# tb_limit ile traceback kareleri sınırlanır (nabız-gürültüsü değil,
+# kök-neden; §EK-1/K1-A1 "sınırlı"). setdefault: çağıranın açık
+# ``error``/``error_type`` değeri kazanır (ör. ownership_lost string-only).
+def error_payload(
+    exc: BaseException,
+    *,
+    tb_limit: int = 15,
+    **extra: Any,
+) -> Dict[str, Any]:
+    """Build an ERROR audit payload carrying exception type + bounded traceback.
+
+    Returns a dict with at least:
+      - ``error``      : ``str(exc)`` (settable by caller via ``error=``)
+      - ``error_type`` : ``type(exc).__name__``
+      - ``traceback``  : ``traceback.format_exception`` joined, last
+        ``tb_limit`` frames (bounded — forensic root-cause, not full dump)
+    plus any ``extra`` keyword fields (phase, counters, …).
+    """
+    tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__, limit=tb_limit)
+    payload: Dict[str, Any] = {
+        "error": str(exc),
+        "error_type": type(exc).__name__,
+        "traceback": "".join(tb_lines),
+    }
+    payload.update(extra)
+    return payload
 
 
 @dataclass

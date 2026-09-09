@@ -33,7 +33,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from src.live.audit import AuditChain, EventType
+from src.live.audit import AuditChain, EventType, error_payload
 from src.live.candle_feed import M1CandleFeed, resample_15m
 from src.live.clock import _utcnow_naive, server_to_utc_historical
 from src.live.risk import Account, RiskManager
@@ -123,7 +123,8 @@ class SignalRunner:
                     timestamp=time.time(),
                     event_type=EventType.ERROR,
                     symbol=symbol,
-                    payload={"phase": "symbol_run", "error": str(e)},
+                    # A1 (OBS-P0): exception type + sinirli traceback kalici
+                    payload=error_payload(e, phase="symbol_run"),
                 )
                 continue
             result.per_symbol[symbol] = len(signals)

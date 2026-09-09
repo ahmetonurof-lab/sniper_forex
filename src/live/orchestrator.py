@@ -50,7 +50,7 @@ from src.live.atomic_write import (  # noqa: F401 — re-export for tests/compat
 from src.live.atomic_write import (
     atomic_write_text as _atomic_write_text,
 )
-from src.live.audit import AuditChain, EventType
+from src.live.audit import AuditChain, EventType, error_payload
 from src.live.candle_feed import _15M_MS, M1CandleFeed, resample_15m
 
 # DEBT-W1 (D129 B.1-B.4): human-readable logging modules — wired lazily
@@ -1232,7 +1232,8 @@ class Orchestrator:
                     time.time(),
                     EventType.ERROR,
                     self._symbol or None,
-                    {"phase": "live_logging_init", "status": "degraded", "error": str(e)},
+                    # A1 (OBS-P0): exception type + sinirli traceback kalici
+                    error_payload(e, phase="live_logging_init", status="degraded"),
                 )
             except Exception:
                 pass  # forensics must never mask the original failure
@@ -2070,7 +2071,8 @@ class Orchestrator:
                         time.time(),
                         EventType.ERROR,
                         self._symbol,
-                        {"phase": "shutdown_snapshot", "error": str(e)},
+                        # A1 (OBS-P0): exception type + sinirli traceback kalici
+                        error_payload(e, phase="shutdown_snapshot"),
                     )
                 except Exception:
                     pass
@@ -2196,7 +2198,8 @@ class Orchestrator:
                 time.time(),
                 EventType.ERROR,
                 symbol,
-                {"phase": "S3", "error": str(e)},
+                # A1 (OBS-P0): exception type + sinirli traceback kalici
+                error_payload(e, phase="S3"),
             )
             return None
 
@@ -2959,7 +2962,8 @@ class Orchestrator:
                     time.time(),
                     EventType.ERROR,
                     self._symbol,
-                    {"phase": "on_bar", "error": str(e)},
+                    # A1 (OBS-P0): exception type + sinirli traceback kalici
+                    error_payload(e, phase="on_bar"),
                 )
                 self.alert.send(
                     "CRITICAL",
@@ -3006,7 +3010,8 @@ class Orchestrator:
                     time.time(),
                     EventType.ERROR,
                     self._symbol,
-                    {"phase": "state_advance", "error": str(e)},
+                    # A1 (OBS-P0): exception type + sinirli traceback kalici
+                    error_payload(e, phase="state_advance"),
                 )
                 self.alert.send(
                     "CRITICAL",
@@ -3064,7 +3069,8 @@ class Orchestrator:
                     time.time(),
                     EventType.ERROR,
                     self._symbol,
-                    {"phase": "poll_deals_seed", "error": str(e)},
+                    # A1 (OBS-P0): exception type + sinirli traceback kalici
+                    error_payload(e, phase="poll_deals_seed"),
                 )
 
         # D41: backlog replay — bars restored/warmed but not yet fed through
@@ -3154,7 +3160,8 @@ class Orchestrator:
                     time.time(),
                     EventType.ERROR,
                     self._symbol,
-                    {"phase": "audit_flush", "error": str(e)},
+                    # A1 (OBS-P0): exception type + sinirli traceback kalici
+                    error_payload(e, phase="audit_flush"),
                 )
 
             # 3) bar pipeline (D19/D20; fetch fail → internal ERROR counter)
@@ -3166,7 +3173,8 @@ class Orchestrator:
                     time.time(),
                     EventType.ERROR,
                     self._symbol,
-                    {"phase": "bar_pipeline", "error": str(e)},
+                    # A1 (OBS-P0): exception type + sinirli traceback kalici
+                    error_payload(e, phase="bar_pipeline"),
                 )
             if new_bars:
                 self._last_bar_ts = new_bars[-1].timestamp
@@ -3217,7 +3225,8 @@ class Orchestrator:
                         time.time(),
                         EventType.ERROR,
                         self._symbol,
-                        {"phase": "poll_deals", "error": str(e)},
+                        # A1 (OBS-P0): exception type + sinirli traceback kalici
+                        error_payload(e, phase="poll_deals"),
                     )
                 try:
                     self._runner.sync_trailing()
@@ -3226,7 +3235,8 @@ class Orchestrator:
                         time.time(),
                         EventType.ERROR,
                         self._symbol,
-                        {"phase": "sync_trailing", "error": str(e)},
+                        # A1 (OBS-P0): exception type + sinirli traceback kalici
+                        error_payload(e, phase="sync_trailing"),
                     )
 
             # 7) D10 fail ladder (data path: rates + account + positions)
