@@ -3133,3 +3133,50 @@ orchestrator-canlı-döngüsü-produce_new_bars-yolu).
 
 **Runbook-güncellemesi:** QuickEdit-hatırlatması-Adım-0'a-EKLENDİ
 (bu-commit) — restart-drill'lerinde-aynı-tuzak-tekrarlanmasın.
+
+---
+
+## SOAK-D4 (2026-09-09 ~14:05) — Reis-birleşik-kararı: öncelik-sırası + backlog + pulse-eylem
+
+**Hakem-pulse-onayı (tek-şart):** bar-vs-poll-frekansı-kod-yazılmadan-
+netleşecek. **NETLEŞTİ (kod-kanıtı):** `produce_new_bars()`-her-poll-tick'inde
+(20s)-çağrılıyor AMA `new_bars`-yalnız-yeni-15m-slot-kapanınca-dolu-dönüyor
+(`_seen_bar_slots`-dedup + trailing-edge `now >= slot+15m`); boş-tick-`[]`.
+Pulse-`if new_bars:`-dalına-bağlanır → **BAR-BAZLI (~96-satır/gün)**,
+poll-bazlı-DEĞİL (~4300/gün-gürültü-olurdu). Hakem-şartı-(a)-karşılandı.
+
+**REİS-ÖNCELİK-SIRASI (2026-09-09, bağlayıcı):**
+1. **ŞİMDİ:** bar-bazlı-pulse-ekle → regresyon → commit → Reis-push-onayı →
+   push → doğrula → soak-restart (QuickEdit-güncel-Adım-0-ile).
+2. **Soak-devam:** restart-sonrası-sayaç-yeniden (gün-1-kalanı).
+3. **Soak-sonrası-kuyruk:** 7b → 7a → 7c (Hakem-kabul-SOAK-D1.2).
+4. **Gate-OPEN-ÖNCESİ (şimdi-değil):** aşağıdaki-backlog-maddesi.
+5. **Soak-sonrası:** açık-kalem-8 (geniş-log-mimarisi: ConsoleReporter/
+   trade_history/canli_trade).
+6. Diğer-açık-kalemler (1-6) mevcut-sıralarında.
+
+**BACKLOG-MADDESİ (Hakem+expert-birleşik; gate-OPEN-öncesi-Reis-kararı):**
+Başlık: **Periyodik-Pozisyon-Sağlığı-+-Repair-Modu (kripto-paritesi).**
+Tespit (2.konuşma-kanıtı): kripto'daki-periyodik-sağlık-kontrolü-+repair-
+deseninin-forex-karşılığı-YOK — `Reconciler`-pasif-karşılaştırma-fonksiyonu
+(çağrılınca-çalışır; tek-çağrı-yeri-D159-İş-4a-startup-snapshot; cTrader-
+modunda-fiilen-NOT_RUN); missing-SL/TP-ayrı-kontrolü-yok; repair-yok
+(sadece-tespit+trade-blok). Repo'nun-kendi-Task-1.1-1.4/2.1-2.3
+(FOREX_RUNTIME_HARDENING_TASKS.md)-tamamı-PENDING.
+Kapsam: (1) ~60s-periyodik-broker-durum-kontrolü (aralık-runtime-mimarisine-
+göre-teyit; spam-yok-durum-değişikliği-logu); (2) missing-SL/TP-açık-tespiti;
+(3) repair-modu; (4) §2.2-yeni-sınıf-icat-YASAK — mevcut-Reconciler/
+PositionManager/SafetyMonitor-üzerine.
+**İki-alt-adım-zorunlu:** (a) tespit+log+safe-mode; (b) otomatik-onarım —
+ayrı-açık-ratifikasyon-kapısı (Task-1.4: "Automatic repair requires a
+separate explicit validation gate"; §1.3-DETECT→LOG→SAFE-MODE-önceliği).
+Soak-ŞİMDİ-bloklamaz (gate-kapalı); gate-OPEN'dan-ÖNCE-çözülmeli.
+
+**Sıralama-gerekçesi (3.konuşma-Reis-teyidi):** tek-seferde-tek-değişken —
+önce-nabız (bağlantı+log-akışı-gerçek-veriyle), sonra-periyodik+repair-ayrı-
+pre-reg-turu.
+
+**EYLEM (bu-kayıttan-sonra):** pulse-kod-eklemesi-başlıyor — orchestrator
+run()-adım-8-çevresi; reason-hesabı-tek-noktaya-taşınıyor (davranış-nötr);
+pulse-`if new_bars:`-dalında-STATE/moment=bar_pulse. Regresyon-sonrası-
+ayrı-kod-commit; push-onayı-Reis'ten-hash-bağlı-talep-edilecek.
