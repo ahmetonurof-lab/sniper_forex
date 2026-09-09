@@ -2987,3 +2987,23 @@ audit'te-etiket-ayrımı-ŞU-AN-IMKANSIZ — operatör-bilgisi: GATE-CLOSED-
 "reconciliation status: MISMATCH"-görünümü-bu-soak'ta-BEKLENEN-etiket-
 hatasıdır (positions-uyuşmazlığı-değil); ayrım-kanıtı-yalnız-bu-progress.md-
 kaydında.
+
+**Açık-kalem-7-ÖNCELİK-GÜNCELLEME (Hakem-itirazı-2026-09-09-12:58-kabul):**
+Hakem-itirazı: "7b, diğer ikisinden ayrı ve biraz daha yüksek önceliği hak
+ediyor" — gerekçe: 7a/7c-bilinen-sınırlı-sorunlar (davranış-öngörülebilir);
+7b-kategori-farklı — **gelecekte-bilinmeyen-string-aynı-except-ValueError-
+bloğuna-düşerse-sessizce-MISMATCH'e-gömülür**; bugünkü-kazı-turu-tekrar-
+gerekecek-ve-o-zaman-"bilinen-bug"-değil-GERÇEK-yeni-durum-olabilir. Kabul:
+**7b-soak-sonrası-kuyrukta-7a/7c'den-ÖNCE** (öneri-değil-kabul-edildi-
+kalem; gerekçe-kanıtla-uyumlu: fallback-sessiz-düşüş-şimdilik-yalnız-NOT_RUN-
+için-teyitli-ama-mekanizma-genel). Kalan-kuyruk-sırası: **7b → 7a → 7c**
+(hepsi-ORTA-başvuru; 7b-aralarında-ilk).
+
+**Hakem-teyidi-bloğu (2026-09-09 ~12:55):**
+- (1) Runbook-MISMATCH-hatırlatma-satırı: EKLENDİ — RUNBOOK_SOAK_START.md,
+  Kill/restart-drill-bölümü, Hakem-cümlesi-birebir + kök-neden-dipnotu.
+- (2) 7b-öncelik-itirazı: KABUL — kuyruk-7b→7a→7c (yukarıdaki-blok).
+- (3) §12.1-çürütme-kaydı-Hakem-onayı: "Kontrol-2-sonucu-tam-istenen-tür"
+  ("muhtemelen-öyledir" ile "kod-okudum-öyle-değilmiş" farkının-somut-örneği).
+- (4) Sinyal-penceresi-bilgisi-kırılgan-yerde-notu: Hakem-uyarı-uyarınca-
+  runbook'a-taşındı (artık-yalnız-progress.md'ye-bağlı-değil).

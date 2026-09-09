@@ -142,6 +142,12 @@ masa saatinden değil. Soak = bu komutun döndürdüğü process; başka hiçbir
   SHUTDOWN audit + snapshot + lock release beklenir. Kanıt
   (D181-T4, gerçek-console CTRL_C): rc=2, 2.0 sn, SHUTDOWN-audit
   `kill_switch_during_sleep`, lock release — kusursuz.
+- **MISMATCH-hatırlatması (Hakem-talebi, SOAK-D1.1):** Soak boyunca
+  GATE CLOSED reason'ında `reconciliation status: MISMATCH` görürseniz,
+  bu **bilinen bir etiket hatasıdır** (SOAK-D1.1) — gerçek pozisyon
+  kontrolü gerektirmez. (Kök: manuel-snapshot `NOT_RUN` değeri
+  enum-üyeliği-yok → fail-closed-MISMATCH-düşüşü; davranış-güvenli,
+  etiket-yanlış. Ayrıntı: progress.md açık-kalem-7a/7b/7c.)
 - Restart → backoff ladder sıfırdan, heartbeat yeniden, REPLAY event'i
   tekrar üretilmeli; state tutarlılığı `state/` + audit karşılaştırmasıyla doğrulanır.
 - Lock dosyası (`SNIPER_STATE_DIR` altında) kill sonrası kalmışsa: PID-ölü
