@@ -203,3 +203,33 @@ AuditChain, gate/recon — tek satır dokunulmaz.
   zaten tutarlı.
 - Bu note'un kendisi commit-değildir; commit ancak uygulama turunda ve
   onaylı-kapsamda (§9.1) yapılır.
+
+## 10. KARAR EKİ — Hakem onayı ve uygulanan kapsam (2026-09-09)
+
+Hakem hükmü (verbatim): *"RATIFIED — PROCEED. Ama minimum diff. Amaç sadece
+cTrader UTC timestamp'ini doğru canonical UTC olarak geçirmek ve mevcut MT5
+yolunu bozmamak. CBDR, bias, sweep, strategy mantığına dokunma. Yeni
+soyutlama, gereksiz refactor, ekstra framework üretme. Önce mevcut testlerle
+bug'ı göster, sonra en küçük değişikliği yap."*
+
+Bu karar uyarınca §5.4/§6'dan **şunlar bu turdan ELENDİ** (kapsam-dışı):
+
+- `clock.py` ölü-kod temizliği + docstring commit'i (§6 satırı geçersiz),
+- `paper.py` routing değişikliği (§6 satırı geçersiz — paper MT5-shape
+  ürettiğinden default-"server" yolu zaten davranış-nötr korundu),
+- test-fixture sadeleştirmeleri.
+
+**Uygulanan (commit `108a4b1`):** §5.1–§5.3 birebir — `data_adapter.py`
+raw-UTC + `ts_semantics="utc"`, ctor/import/offset kaldırıldı;
+`signal_runner.py`/`orchestrator.py` `_rates_to_bars` routing
+(default `"server"` → MT5 yolu byte-for-byte değişmedi).
+
+**Kırmızı kanıt (bug provası, §8-adım 3):**
+`test_roundtrip_dst_straddle_recovers_utc` eski kodda FAIL:
+bar 2026-10-24 19:00 UTC → 18:00 (−1h, winter-boot 2026-10-26).
+Düzeltilince 3-sınır-tarihli identity guard olarak PASS.
+
+**Regresyon:** adapter+boot 51/51; tam `tests/` = 14 failed / 9 errors /
+647 passed — failure profilinin tamamı `experiment.main_research_c_v1_0`
+arşiv-module hatası ailesi; stash-diferansiyeli ile bu değişiklikten
+bağımsızlığı kanıtlandı (§13 raporlama disiplini).
