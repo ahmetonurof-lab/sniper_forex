@@ -2920,3 +2920,70 @@ gate-decision-yolu). Öncelik-soak-sonrası-orta.
 uyuşmazlığı"-DEĞİL, "recon-henüz-koşmadı"-etiket-hatası. Gerçek-
 MISMATCH-ayrımı-detay-alanıyla-yapılır (details:
 ctrader_mode_reconciliation_not_run).
+
+## SOAK-D1.1 — HAKEM-2-DOĞRULAMA: ladder-diferansiyeli + details-alanı (2026-09-09; Copilot; read-only §17-uyumlu)
+
+**Kapsam:** Hakem'in-SOAK-D1-sonrası-2-doğrulama-talebi — (1) severity-ladder
+MISMATCH-vs-NOT_RUN-diferansiyel-davranışı; (2) details-alanı
+(ctrader_mode_reconciliation_not_run)-bu-boot'un-GATE-CLOSED-audit-event'inde-
+fiilen-var-mı. İkisi-de-kod-okuma-+-audit-okuma-ile-(src/tests/DOKUNULMADI).
+
+**Kontrol-1 — severity-ladder-diferansiyeli: TEMİZ (fark-YOK).**
+Kod-kanıtı:
+- `reconciliation.py:69-78` — `_SEVERITY`-sözlüğü-+`_worse()`-YALNIZCA
+  `Reconciler.compare()`-içinde-çoklu-position-agregasyonu-için-kullanılıyor
+  (MISMATCH=3 > UNKNOWN_OPEN=2 > ORPHAN=1 > OK=0). **NOT_RUN-bu-ladder'da-
+  hiç-yok** — ladder-yalnız-gerçek-recon-koştuğunda-devrede.
+- `_worse`/`_SEVERITY`/`severity`-tüm-src-taraması: **başka-hiçbir-dosya-
+  kullanmıyor** (grep-kanıtı: yalnız-reconciliation.py-içi).
+- `ReconcileStatus.`-dış-kullanım-taraması: yalnız-2-nokta —
+  `orchestrator.py:2816` (fallback-MISMATCH) + `safety.py:155`
+  (`recon_ok = status == OK`).
+- `safety.py:155-156` — **her-iki-durum-da-aynı-boolean-yola-düşüyor:**
+  `recon_ok=False`-+`recon_reason=f"reconciliation status: {status.value}"`.
+  MISMATCH-de-NOT_RUN-da-aynı-`allowed=False`-sonucu-üretir; retry-aralığı/
+  alert-eşiği/Telegram-severity-farkı-YOK (gate-transition-alert'i-tek-
+  mekanizma: `alert.send("WARN", ...)`-satır-3188-civarı — seviye-durum-
+  değerinden-bağımsız-sabit-WARN).
+- `_CHECK_ORDER` (safety.py:44-50) — failing-check-sıralaması-sabit;
+  RECONCILIATION-her-iki-durumda-da-aynı-sıra-konumunda.
+**Sonuç:** Ladder-MISMATCH'i-daha-agresif-eskale-etmiyor — NOT_RUN-girseydi-
+aynı-gate-kapalı-+-aynı-WARN-olurdu. **Davranışsal-fark-YOK → Hakem-
+kriteri-"temiz" → açık-kalem-7-önceliği-ORTA-kalır** (YÜKSEK'e-çıkmaz).
+
+**Kontrol-2 — details-alanı: DÜŞÜYOR (audit'te-YOK).**
+- Bu-boot'un-GATE-CLOSED-audit-satırı (state/audit.jsonl, ts=1788939057.04):
+  payload-tam-3-alan — `{"failing_check": "RECONCILIATION", "gate": "closed",
+  "reason": "reconciliation status: MISMATCH"}`. **details-YOK.**
+- Kod-yolu-izleme: `_recon_decision_for_gate()`-fallback'ı-details-üretiyor
+  (`snapshot_recon_not_parseable:NOT_RUN`) AMA bu-details-`ReconciliationDecision`-
+  nesnesinde-kalıyor; `safety.check()`-`SafetyDecision`'a-sadece-
+  `reason`/`failing_check`/`checks`-taşıyor (SafetyDecision-dataclass'ında-
+  details-alanı-BİLE-YOK — safety.py:52-62); gate-audit-append'ı-sadece-3-
+  alan-yazıyor (orchestrator.py:3190-3196). **Details-düşme-noktası:**
+  ReconciliationDecision→SafetyDecision-geçişinde-details-atılıyor.
+- **Sonuç:** SOAK-D1-raporundaki-"Gerçek-MISMATCH-ayrımı-detay-alanıyla-
+  yapılır (details: ctrader_mode_reconciliation_not_run)"-cümlesi-**audit-
+  kanıtıyla-ÇÜRÜTÜLDÜ** — details-audit'e-hiç-ulaşmıyor; operatör-audit'ten-
+  gerçek-MISMATCH-ile-etiket-hatasını-AYRIŞTIRAMAZ. §12.1-düzeltme-görünür.
+**Sonuç:** Hakem-kriteri-(2)-"temiz-ÇIKMADI" — ama-soak-davranışını-
+değiştirmez (gate-yine-kapalı; fail-closed-sağlam). Açık-kalem-7-kapsamına-
+audit-details-taşıma-maddesi-EKLENDİ (aşağıda).
+
+**Açık-kalem-7-GÜNCELLENDİ (öncelik: ORTA — ladder-farksız; kapsam-büyüdü):**
+- (7a) NOT_RUN→enum-üyeliği (ReconcileStatus.NOT_RUN-ekle-veya-manuel-
+  snapshot-enum-uyumlu-yap) + entegrasyon-testi (cTrader-mode-gate-yolu).
+- (7b) **YENİ:** exception-fallback-hangi-ham-string'in-parse-edilemediğini-
+  kaybetmeli — `unparseable_status: <ham-değer>`-bilgisi-en-azından-crash-log/
+  audit-ERROR'a-yazılmalı (şu-an-sessizce-MISMATCH'e-düşüyor; gelecekteki-
+  bilinmeyen-string-de-sessiz-düşer).
+- (7c) **YENİ:** details-taşıma-zinciri — ReconciliationDecision.details →
+  SafetyDecision (yeni-alan) → gate-audit-payload; yoksa-operatör-"gerçek-
+  MISMATCH-mi-etiket-hatası-mı"-ayrımını-audit'ten-yapamaz (bu-boot-kanıtı:
+  details-düştü).
+**Soak-kararı:** DEVAM (her-iki-kontrol-sonucundan-bağımsız — fail-closed-
+davranış-güvenli; Hakem-kriteriyle-uyumlu). Sinyal-penceresi-notu-GÜNCEL:
+audit'te-etiket-ayrımı-ŞU-AN-IMKANSIZ — operatör-bilgisi: GATE-CLOSED-
+"reconciliation status: MISMATCH"-görünümü-bu-soak'ta-BEKLENEN-etiket-
+hatasıdır (positions-uyuşmazlığı-değil); ayrım-kanıtı-yalnız-bu-progress.md-
+kaydında.
