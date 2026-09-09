@@ -2873,3 +2873,50 @@ kanıt ilkesi).
   Soak'ı-GECİKTİRMEZ (Hakem-teyidi) — soak-sonrası-değerlendirme:
   zincir-limiti/dedup/rotasyon-tasarımı. §12-kalem-kaybolması-yasağına-
   karşı-buraya-resmi-kayıt; kapanış-soak-raporu-türünde-takip-edilecek.
+
+---
+
+## SOAK-D1 — İLK BOOT KANITI + YENİ BULGU: gate-reason MISMATCH yanlış-etiket (2026-09-09 10:30; Reis-native-console-boot; Copilot-izleme)
+
+**Boot:** 10:30:36 S1_connect (ctrader, demo.ctraderapi.com, login-doğrulandı
+— değer-yok) → 10:30:53-54 REPLAY/COLD_REBUILD_OK (replay_bars=3012,
+end_state=flat, signals_discarded=17, next_idx=3113) → S11 SAFE_START
+(warmup_bars=3113) → 10:30:57 GATE CLOSED. Lock 10:39-heartbeat-canlı;
+python.exe PID-Console-session-1 (native-console teyidi ✅). **Telegram
+transition mesajı ulaştı (kanal-canlı).**
+
+**Hakem-üç-sınav-noktası:**
+1. SAFE_START-saflığı: **KISMEN** — SAFE_START-sebebi-saf
+   (safe_mode_persisted-zinciri-beklenen, (a)-kararı+dokunulmadı;
+   + recon_blocked: NOT_RUN-beklenen). **AMA** canlı-gate-reason
+   "reconciliation status: **MISMATCH**" — beklenen-değil
+   (runbook-adım-5- Beklenti: yalnız-recon_blocked:-NOT_RUN).
+2. Staleness-watchdog: **SESSİZ** ✅ (boot-sonrası-0-STALE/WATCHDOG/
+   ERROR/FATAL/LADDER-audit-kaydı).
+3. Audit-cevaplanabilirliği: **EVET** ✅ — "neden-sinyal-yok" →
+   GATE-CLOSED-reason-zinciri-audit'te-okunabilir (etiket-bug-aşagıda).
+
+**YENİ-BULGU (etiket-bug; davranış-doğru, etiket-yanlış):**
+`_recon_decision_for_gate()` (orchestrator.py:2813) snapshot'taki
+"NOT_RUN" string'ini `ReconcileStatus("NOT_RUN")` ile parse etmeye
+çalışıyor; **NOT_RUN enum üyesi DEĞİL** (üyeler: OK/ORPHAN/
+UNKNOWN_OPEN/MISMATCH — kanıt: runtime-enum-dökümü) → ValueError →
+fail-closed-fallback `status=MISMATCH` (line-2815-16). Kök: D159-İş-4a
+manuel-cTrader-snapshot'ı (line-1741: "status": "NOT_RUN") ile D34
+gate-decision-fonksiyonunun-enum-sözleşmesi-uyumsuz — entegrasyon-
+testi-bu-yolu-kapmamış.
+
+**Değerlendirme:** Fail-closed-DAVRANIŞI-doğru (gate-kapalı,-trade-yok,-
+signal_only-zaten-emirsiz) — güvenlik-sayılmaz-yanlış-etiketlenmiş-
+durum-değil; sebep-zinciri-doğru-yerde. Soak'ı-GECİKTİRMEZ (Hakem-
+kriteri-gate-davranışıydı-etiket-değil). **§17-freeze:** soak-koşarken-
+kod-donuk — düzeltme-soak-STOP-ile-veya-soak-sonrası-kuyruğuna.
+**Açık-kalem-(7):** NOT_RUN→enum-üyeliği (ReconcileStatus.NOT_RUN-ekle
+veya-manuel-snapshot-enum-uyumlu-yap) + entegrasyon-testi (cTrader-mode
+gate-decision-yolu). Öncelik-soak-sonrası-orta.
+
+**Sinyal-penceresi-notu:** GATE-CLOSED-reason'ı-soak-süresince-sabit
+"MISMATCH"-etiketiyle-görünecek — operatör-bilgisi: bu-"positions-
+uyuşmazlığı"-DEĞİL, "recon-henüz-koşmadı"-etiket-hatası. Gerçek-
+MISMATCH-ayrımı-detay-alanıyla-yapılır (details:
+ctrader_mode_reconciliation_not_run).
