@@ -2815,3 +2815,54 @@ yapılandırmalarda öldürür → sıradan kopmada beklenmedik force-kill,
 SOAK-STOP → Adım-0 tekrar" kuralı. Hakem-önerisi iki seçenekliydi;
 varsayım-yazma yerine kanıtlı-teyit-yolu seçildi (varsayım-değil-
 kanıt ilkesi).
+
+---
+
+## PUSH-KAYDI-21 (§9.3) — SET: PUSH-KAYDI-20 + D179 + D180 + D181 + D181.1 + D181.2 + D181.3 (2026-09-09; Copilot-icrası; Reis-yazılı-push-onayı "7-commit-seti (5d8e067→c42c9c5) push onayı" + Hakem-teknik-onayı)
+
+- **Onay:** Reis-yazılı-onayı (hash-aralığına-atıf-formatı, §9.5-uyumlu);
+  Hakem-teknik-onayı ("push edilebilir", itiraz-yok). Hash-bound set
+  (7-commit, sıralı): `5d8e067` + `a696a03` + `ce95911` + `b8e16f6` +
+  `cae968b` + `5026f2f` + `c42c9c5`; hedef `origin/main`;
+  ride-along-YASAK — Hakem-dipnotu ve bu kayıt bilinçli-SET-DIŞI
+  tutuldu (set-growth=void kuralı; ayrı-commit-olacak, set-bozmadı).
+- **Ön-doğrulama:** origin/main..HEAD == 7-commit-birebir-onaylı-set
+  (`git rev-list --left-right --count` → 0 behind / 7 ahead);
+  tracked-working-tree-TEMİZ; remote-HEAD-önce = `9f0fe80`.
+- **Sayı-düzeltmesi-kaydı (§13/§12.1):** Önceki-tur-raporunda "6-önde"
+  denildi — yanlış; `5d8e067` (PUSH-KAYDI-20, önceki-turda-bilinçli-
+  set-dışı-pushlanmamıştı) sayılmamıştı. Push-ÖNCESİ fark-edildi,
+  `git rev-list`-ile-düzeltildi → gerçek-set 7-commit. Hakem:
+  "erken-yakalandı, doğru-refleks."
+- **İcra:** `git push origin main` → `9f0fe80..c42c9c5 main -> main`.
+- **Son-doğrulama (§16):** origin/main..HEAD=0 (BOŞ);
+  ls-remote=`c42c9c56b02c4de98fa40e789ecb92d591a88914` == local-HEAD;
+  tracked-working-tree-TEMİZ (yalnız-bilinen-untracked).
+- **Set-içeriği (hepsi-docs/memory-bank; executable-kod-set-boyunca-
+  `9f0fe80`-ile-birebir — freeze-baseline-korundu):** 5d8e067=PUSH-KAYDI-20;
+  a696a03=D179 (runbook-cTrader-first); ce95911=D180 (safe-mode-cleanup-
+  Reis-approved + smoke-boot + SIGTERM-gap-bulgusu); b8e16f6=D181
+  (sinyal-penceresi-teşhisi; 4-test-zinciri); cae968b=D181.1 (denklik-
+  düzeltmesi: D180=MSYS-timeout-force-kill, "TEST-ARTIFACT"-etiketi-
+  geri-çekildi §12.1; H1/H2-T4-gerekçesiyle-korundu; Adım-0-doğdu);
+  5026f2f=D181.2 (timeout-yasağı→tüm-MSYS-ara-katman-yasağı; Adım-3/4-
+  PowerShell-native-çevirisi — kendi-kendine-çelişki-giderildi);
+  c42c9c5=D181.3 (console-oturum-teyidi + RDP-yasağı; kanıt: SESSIONNAME=
+  Console + qwinsta-RDP-yok + TermService=Stopped + 3389-dinleyici-yok).
+- **Reis-operatör-teyidi (kayıt):** "şu-an-test-aşaması-ve-local-
+  makinayız" — D181.3-üçlü-kanıtıyla-uyumlu; local/test-bağlamında
+  Adım-0-4-checkbox-geçerli.
+- **Hakem-ileri-dönük-dipnot (bunmazaman-notu, ileride-yeniden-
+  değerlendirme):** Sistem sunucuya (Ubuntu/VPS) taşınırsa Adım-0'ın
+  RDP/console-erişim-maddesi-YENİDEN-değerlendirilecek — "local-
+  makinayız" durumu-o-zaman-geçerli-olmayacak. (Runbook'a-dipnot-
+  eklenmesi-set-growth-kuralı-nedeniyle-bu-push-a-ALINMADI; bir-sonraki-
+  docs-commit'inde-eyleyecek.)
+- **Açık-kalemler (push-sonrası):** (1) runbook'a-Hakem-dipnotu
+  ("checklist-local-test-ortamı-için; sunucu-deploy'unda-RDP/console-
+  maddesi-tekrar-gözden-geçirilecek") → sıradaki-docs-commit;
+  (2) Adım-0-checklist-işaretleme + soak-başlatma (fiziksel-console,
+  4-checkbox) → Reis-green-light;
+  (3) ilk-60sn-startup-bloğu → Hakem; (4) ilk-3-bar-%900-grid;
+  (5) kalıcı-açık-kalemler-PUSH-KAYDI-20'den-devir (position-recon,
+  heap-crash-incelemesi, Adım-C-per-symbol-runtime).
