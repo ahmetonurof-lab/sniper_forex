@@ -3007,3 +3007,50 @@ için-teyitli-ama-mekanizma-genel). Kalan-kuyruk-sırası: **7b → 7a → 7c**
   ("muhtemelen-öyledir" ile "kod-okudum-öyle-değilmiş" farkının-somut-örneği).
 - (4) Sinyal-penceresi-bilgisi-kırılgan-yerde-notu: Hakem-uyarı-uyarınca-
   runbook'a-taşındı (artık-yalnız-progress.md'ye-bağlı-değil).
+
+---
+
+## SOAK-D2 (2026-09-09 ~13:10) — ilk-grid-raporu + audit-sessizliği-analizi
+
+**Grid-raporu (runbook-adım-6, %900==0-kontrolü — audit.jsonl-TÜM-dosya):**
+- bar_ts-taşıyan-audit-event: **1905** (STATE-momentleri: window_out-342,
+  locked-342, window_in-341, sweep-297, cycle_reset-297, fvg_armed-187,
+  v6_fallback_lock-55, v6_rollback-44).
+- **Grid-ihlali (bar_ts % 900 != 0): 0** → %100-hizalı. Boot-replay-eşsiz-
+  bar_ts: 110 (2026-07-28T01:00 → 2026-09-09T01:00).
+
+**Metodolojik-çürütme (§12.1): "ilk-3-bar-bekleme"-planı-yanlış-varsayımdı.**
+Önceki-rapordaki "~13:15-13:30'da-canlı-3-bar-grid-kanıtı"-beklemesi
+yanlıştı: SAFE_START-soak'ta-gate-CLOSED → `on_bar`-ASLA-çağrılmaz
+(orchestrator.run-adım-9: feed-yalnız-gate_allowed-iken) → canlı-STATE-
+emit-ÜRETİLEMEZ. Kod-yolu-kanıtı: `_emit_state`-çağrıları-yalnız-`on_bar`-
+içi-momentlerde (strategy_runtime.py:609-621,739); run-adım-9-feed-gate'i
+(orchestrator.py:civarı-3180). Kanıt-böylece-yalnız-REPLAY-STATE'lerinden-
+alındı (yukarıdaki-1905-event) — canlı-bekleme-BEKLENDİ ama-fiziksel-
+imkansızdı. "İlk-3-bar-canlı-gözlemi"-kalemi-yalnız-gate-OPEN-olduğunda
+(entries-enabled-PROCEED) anlamlıdır.
+
+**Audit-sessizliği-analizi (boot-10:30:57'den-bu-yana-151-dk):**
+- audit.jsonl-boot-sonrası-TEK-yeni-event-almedi (EVENTS_AFTER_BOOT=1 =
+  boot-anındaki-SAFETY-gate-closed-MISMATCH-etiket-hatası).
+- Kök-neden-çift: (1) SAFETY-transition-only — gate-sabit-closed, hiç
+  transition-yok; (2) STATE-emitter-`on_bar`-içinde — gate-closed →
+  feed-yok → emit-yok. **Sessizlik = fail-closed-tasarım-sonucu,
+  process-ölü-değil.**
+- Canlılık-kanıtları: PID-16692-heartbeat-canlı (lock.created_at-sürekli-
+  yenileniyor; 14-sn-yaş-ölçüldü); lock-mtime-13:08:04-güncel; iki-python-
+  process-beklenen-yapıda.
+- Fetch-pipeline-sağlık-işareti: boot-sonrası-ERROR-event-YOK →
+  `produce_new_bars`-fetch-tri-state-OK-dönüyor (fetch-fail-bir-ERROR-
+  audit-yazar-olurdu); 15m-slotlar-`_seen_bar_slots`-işleniyor-yalnız-
+  sessiz-yoldan (audit'ten-DOKUNULAMAZ — 7c-gözlemlenebilirlik-borcunun-
+  yeni-örneği: pipeline-çalışıyor-ama-kendini-audit'e-yazmıyor).
+- **Risk-deduction:** sessizlik-şüphe-yaratıyor-AMA-ERROR-ladder-hiç-
+  aktive-olmadı (sağlık); yine-de-"audit-büyümüyor"-tek-başına-canlılık-
+  kanıtı-DEĞİL (runbook-canlılık-taraması-dilinde: heartbeat + lock-age
+  birincil-kanıt).
+
+**Runbook-adım-6-dipnot-önerisi (Hakem-onayına):** adım-6-"ilk-3-bar-canlı-
+gözlem" SAFE_START-soak'ta-üretilemez (gate-closed → feed-yok); grid-
+kanıt-bu-modda-REPLAY-STATE'lerinden-okunmalı. Dipnot-Hakem-onaylırsa-
+runbook'a-eklenecek.
