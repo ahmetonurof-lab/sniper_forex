@@ -2960,6 +2960,51 @@ class Orchestrator:
                 return 2
         return None
 
+    def _advance_state_only(self, bars: List[Any]) -> Optional[int]:
+        """§7.2 (SOAK-EYE-1, Hakem-kararı 2026-09-09): gate-CLOSED state feed.
+
+        Entry-permission ve state-advancement AYRI kavramlardır: gate
+        kapalıyken motor ilerlemeye devam eder — CBDR window/lock/sweep/
+        cycle_reset/V6/FVG emit'leri, boot-replay'in (S9) kullandığı aynı
+        runtime.on_bar consumption-point'inden akar. §2.2: kanonik
+        on_new_bar seam'i yeniden-kullanılır (bu görev için YAZILMIŞTI,
+        hiç bağlanmamıştı) — yeni paralel mekanizma YOK.
+
+        Korunan invariantlar:
+          - LiveRunner YOK: risk/sizer/execution yapısal olarak yok;
+            üretilen signal ATILIR ve görünür sayılır (SIGNAL audit) —
+            asla sessiz değil (R-3 census dersi).
+          - Strategy exception → _feed_bars ile birebir D6 semantiği
+            (safe-mode persist + CRITICAL alert + loop stop, exit 2).
+        """
+        discarded = 0
+        for bar in bars:
+            try:
+                sig = self.on_new_bar(bar)
+            except Exception as e:
+                self._write_safe_mode(f"strategy_exception:{type(e).__name__}")
+                self.audit.append(
+                    time.time(),
+                    EventType.ERROR,
+                    self._symbol,
+                    {"phase": "state_advance", "error": str(e)},
+                )
+                self.alert.send(
+                    "CRITICAL",
+                    f"strategy exception (state-only): {e} — safe mode persisted, loop stops",
+                )
+                return 2
+            if sig is not None:
+                discarded += 1
+        if discarded:
+            self.audit.append(
+                time.time(),
+                EventType.SIGNAL,
+                self._symbol,
+                {"phase": "state_only", "signals_discarded": discarded},
+            )
+        return None
+
     def run(
         self,
         kill_switch_fn: Optional[Callable[[], bool]] = None,
@@ -3005,11 +3050,13 @@ class Orchestrator:
 
         # D41: backlog replay — bars restored/warmed but not yet fed through
         # on_bar (state continuity; parity with SignalRunner replay).
-        # Guarded by entries_enabled: SAFE-START (entries closed) must NOT
-        # accumulate a pending backlog — gate stays closed, feed never runs,
-        # so an unguarded replay would pile up until feed_cap.
+        # §7.2 (SOAK-EYE-1): guard artık yalnız monitor_only — SAFE-START
+        # backlog'u adım-9'un gate-closed state-advancement yolu tüketir,
+        # feed_cap'e yığılma gerekçesi kalmadı. (Eski gerekçe — "feed never
+        # runs" — bu change'in giderdiği §7.2 ihlalinin kendisiydi; §12.1
+        # gereği görünür bırakılıyor.)
         self._pending_feed = []
-        if not monitor_only and entries_enabled and self._runtime is not None:
+        if not monitor_only and self._runtime is not None:
             nxt = int(getattr(self._runtime, "_next_idx", 0) or 0)
             if 0 <= nxt < len(rt_bars):
                 self._pending_feed = list(rt_bars[nxt:])
@@ -3104,7 +3151,10 @@ class Orchestrator:
                 )
             if new_bars:
                 self._last_bar_ts = new_bars[-1].timestamp
-                if not monitor_only and entries_enabled:
+                # §7.2 (SOAK-EYE-1): backlog girişi entries_enabled'dan
+                # BAĞIMSIZ — gate kapalıyken de barlar birikir ve adım-9
+                # state-advancement ile tüketilir (motor soğumaz).
+                if not monitor_only:
                     self._pending_feed.extend(new_bars)
                     if len(self._pending_feed) > self.config.feed_cap:  # D43
                         self._pending_feed = self._pending_feed[-self.config.feed_cap :]
@@ -3256,9 +3306,21 @@ class Orchestrator:
                 pulse_reason = decision.reason or self._runtime_safe_reason or "unknown"
             self._emit_bar_pulse(new_bars, gate_allowed, pulse_reason)
 
-            # 9) feed (entry path — the ONLY caller of runner.on_bar)
-            if gate_allowed and account is not None and self._pending_feed:
+            # 9) feed — §7.2 SPLIT (SOAK-EYE-1, Hakem-kararı): state
+            #    advancement HER bar'da işler; entry-execution yalnız
+            #    gate-OPEN + fresh-account. Exactly-once-advancement:
+            #    if/elif — aynı bar iki yoldan da geçmez. Gate-OPEN ama
+            #    account-yok → D43 accumulate (eski davranış korundu;
+            #    sizing fresh-account ister, state değil).
+            if self._pending_feed and gate_allowed and account is not None:
+                # entry path — the ONLY caller of runner.on_bar
                 code = self._feed_bars(self._pending_feed, account)
+                if code is not None:
+                    self.shutdown(exit_code=code, reason="feed_emergency")
+                    return code
+                self._pending_feed = []
+            elif self._pending_feed and not gate_allowed:
+                code = self._advance_state_only(self._pending_feed)
                 if code is not None:
                     self.shutdown(exit_code=code, reason="feed_emergency")
                     return code
