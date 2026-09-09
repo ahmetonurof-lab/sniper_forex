@@ -2865,4 +2865,11 @@ kanıt ilkesi).
   4-checkbox) → Reis-green-light;
   (3) ilk-60sn-startup-bloğu → Hakem; (4) ilk-3-bar-%900-grid;
   (5) kalıcı-açık-kalemler-PUSH-KAYDI-20'den-devir (position-recon,
-  heap-crash-incelemesi, Adım-C-per-symbol-runtime).
+  heap-crash-incelemesi, Adım-C-per-symbol-runtime);
+  (6) **safe-mode-prepend-zinciri-sınırsız-büyüme** (Hakem-resmi-kalem-
+  talebi, soak-öncesi 2026-09-09): `orchestrator_safe.json` reason
+  alanındaki prepend-zinciri her SAFE_START-boot'ta büyüyor (soak-
+  öncesi ~6x; haftalarca-soak + ara-restart'larla katlanarak-büyüyecek).
+  Soak'ı-GECİKTİRMEZ (Hakem-teyidi) — soak-sonrası-değerlendirme:
+  zincir-limiti/dedup/rotasyon-tasarımı. §12-kalem-kaybolması-yasağına-
+  karşı-buraya-resmi-kayıt; kapanış-soak-raporu-türünde-takip-edilecek.
