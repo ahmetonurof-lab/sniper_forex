@@ -115,6 +115,12 @@
    başlamaz, rapor et.
 6. **İlk 3 bar (~45 dk):** emit saatleri 15m grid'e oturuyor mu —
    `audit.jsonl`'daki bar timestamp'leri `% 900 == 0` kontrolü.
+   **Dipnot (Hakem-onaylı, SOAK-D2, 2026-09-09):** SAFE_START-soak'ta
+   gate CLOSED → feed yok → `on_bar` çağrılmaz → canlı STATE
+   ÜRETİLEMEZ (canlı-gözlem beklenmez). Grid kanıtı bu modda REPLAY
+   STATE'lerinden okunur (SOAK-D2 kanıtı: 1905/1905 bar_ts %900
+   hizalı, 0 ihlal; audit sessizliği = fail-closed tasarım sonucu,
+   heartbeat birincil canlılık kanıtıdır).
 
 ## Soak sayacı
 

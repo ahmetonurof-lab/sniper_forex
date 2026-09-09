@@ -3054,3 +3054,44 @@ imkansızdı. "İlk-3-bar-canlı-gözlemi"-kalemi-yalnız-gate-OPEN-olduğunda
 gözlem" SAFE_START-soak'ta-üretilemez (gate-closed → feed-yok); grid-
 kanıt-bu-modda-REPLAY-STATE'lerinden-okunmalı. Dipnot-Hakem-onaylırsa-
 runbook'a-eklenecek.
+
+---
+
+## SOAK-D3 (2026-09-09 ~13:30) — Hakem-birleşik-direktifi + STOP-SOAK-öncesi-kayıt
+
+**§10.1-not:** İki-agent-turu-arasında-progress.md'ye-dış-bir-`git add`
+gözlendi (terminal-geçmişinde). §9.1-gereği-içerik-incelemesi-yapıldı:
+`git diff --cached` + `git diff` **BOŞ** — içeriği-değişen-yok
+(soak-D2-son-hâli-HEAD-ile-birebir; muhtemelen-dış-aracın-otomatik-staging'i).
+Olay-kayıtlı, müdahale-gerektirmedi.
+
+**Hakem-birleşik-direktifi (2026-09-09 ~13:25) — KABUL + İŞLEM-PLANI:**
+- (1) SOAK-D2-KABUL: grid-raporu + metodolojik-§12.1-düzeltmesi-onaylandı;
+  runbook-adım-6-dipnotu EKLENDİ (bu-commit).
+- (2) **Hakem-gözlemi-§12.1-kabul: "30-dk-kazı-maliyeti-kendisi-bir-bulgu"**
+  — sağlıklı-fail-closed-ile-sessizce-bozulmuş-sistemi-ayrıştırmak-için-
+  process-list/lock/mtime/kod-okuma-gerekti = gözlemlenebilirlik-katmanının-
+  yokluk-bedeli. Kabul-edildi; aşağıdaki-kod-değişikliği-bu-bedeli-hedefliyor.
+- (3) **Adım-6-"Why No Signal"-pulse — dar-kapsamlı-şimdi:** tek-log-satırı/
+  bar (gate-closed-olsa-da); ConsoleReporter/trade_history/canli_trade
+  GENİŞ-kapsam-soak-sonrasına (açık-kalem-8-olarak-kalır).
+- (4) **Prosedür-§17: STOP SOAK → ekle → regresyon → commit → Reis-push-
+  onayı → push → doğrula → soak-restart.** Reis-onayı-bekleniyor — kod-
+  dokunuşu-onaysız-BAŞLAMAZ.
+
+**DESIGN-KARARI (kod-okuma-kanıtıyla — Hakem-direktifinin-iyileştirilmesi):**
+Plan-spec'i-Adım-6'yı-`live_runner.py`-on_bar()-sonucuna-eklemeyi-hedefliyor
+(5.6: "Files: src/live/live_runner.py"). **Bu-hedef-SAFE_START-soak'ta-
+yanlış-konum:** SAFE_START'ta-gate-CLOSED → orchestrator.run-adım-9-feed-
+yok → `on_bar`-ÇAĞRILMAZ (SOAK-D2-kanıt-zinciri) → pulse-orada-konursa-
+yine-SESSİZ-kalır = amaçlananın-tam-tersine. Pulse-uygun-konum: **orchestrator
+canlı-döngüsü (produce_new_bars-yolunda)** — her-15m-yeni-bar-üretildiğinde-
+gate-durumundan-bağımsız-tek-pulse-satırı; `[BAR] EURUSD HH:MM gate=CLOSED
+reason=... skip`-formatı-Plan-5.6-örneğiyle-uyumlu. Uygulama-detayı-Reis-
+onayı-sonrası-yazılacak-kod-değişikliğinde-kesinleşir; bu-kayıt-design-
+gerekçesidir. Bu-ayrım-kendisi-SOAK-D2-dersiyle-birebir: "log-nereye-eklenir"
+sorusu-canlı-bar-akışının-gerçek-çağrı-yolunu-okumadan-yanıtlanamazdı.
+
+**Stop-beklenen-kayıt:** Reis-push-onayı-verince-soak-STOP-edilecek
+(operatör-Ctrl-C-native-console; runbook-drill-kuralları). STOP-anı:
+progress.md-güncel-HEAD'de-güvenli. Reis-penceresi-açık-kalmalı.
