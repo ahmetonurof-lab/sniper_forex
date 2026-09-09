@@ -3225,3 +3225,46 @@ ayrı-kod-commit; push-onayı-Reis'ten-hash-bağlı-talep-edilecek.
 **SIRADAKİ:** Reis yazılı push-onayı → push + doğrulama + PUSH-KAYDI →
 soak-restart (runbook Adım-0 QuickEdit + yeni Adım-6 pulse-izlemesi:
 ilk-bar'da `moment=bar_pulse` GÖRÜNMEZSE wiring-hatası → durdur+rapor).
+
+---
+
+## SOAK-EYE-1 (2026-09-09): HAKEM RESMİ AÇIK-KALEMİ — CBDR-motoru-gate'e-bağımlı (§7.2 ihlali)
+
+**Kaynak:** Hakem (bu-tur direktifi). Reis-onayı ile kayda geçildi.
+**Öncelik:** 7a/7b/7c ve diğer tüm açık-kalemlerden ÖNCELİKLİ — gerekçe:
+gate kapalı geçen HER GÜN kaybedilen gerçek-veri demek (ilerleyen zaman =
+biriken eksik state).
+
+**Kod-doğrulanmış teşhis (§3 — prose değil, satır-kanıtı):**
+1. `orchestrator.py:3107-3108` — adım-3: `pending_feed.extend(new_bars)`
+   YALNIZ `not monitor_only and entries_enabled` dalında → SAFE_START'ta
+   (entries_enabled=False) bar'lar feed'e HİÇ girmiyor.
+2. `orchestrator.py:3260` — adım-9: `if gate_allowed and ...` →
+   `_feed_bars` → `runner.on_bar` (canlı-döngünün TEK on_bar-çağırıcısı).
+   Gate kapalı → on_bar hiç çağrılmaz (SOAK-D2'de "beklenen" diye
+   kaydedilmişti — Hakem: bu etiket YANLIŞTI, §12.1 düzeltmesi burada).
+3. `strategy_runtime.py:605-621,739` — CBDR window_in/out, `locked`,
+   `sweep`, `cycle_reset`, FVG-arm — TAMAMI on_bar-çiğinde.
+→ Sonuç: gate kapalıyken emir açılmıyor DEĞİL, STRATEJİ MOTORU HİÇ
+   İLERLEMİYOR: range yok, sweep kaçık, bias kilitlenmemiş.
+
+**§7.2 çelişkisi (anayasa metni):** "Disabling entries must not
+automatically imply that all deterministic runtime state construction
+should stop." Mevcut davranış tam bu ayrımı ihlal ediyor — entry-permission
+ve state-advancement tek-bayrağa (gate) bağlanmış.
+
+**Somut bedel:** recon-wiring tamamlanıp gate açılana dek kör dönem;
+açıldığı gün soğuk-motor-replay ihtiyacı doğacak — oysa gerçek-zamanlı
+takip state'i taze tutabilirdi.
+
+**HAKEM-ÖNERİSİ (tasarım kararı — tek-başına-onaylanamaz, resmi soru):**
+"`on_bar`'ın entry-execution kısmı ile state-advancement (CBDR/sweep/FVG/
+bias) kısmı ayrıştırılmalı mı? State-advancement gate'ten bağımsız HER
+ZAMAN çalışsın; gate yalnız son adımda (emir gönderimi) kontrol edilsin —
+§7.2 gereği."
+
+**Durum:** AÇIK — Hakem'in tasarım-sorusu resmiyet kazandı; karar bekleniyor.
+Bar-pulse (SOAK-D4/D5) bundan bağımsız: pulse nabız-atmaya devam eder,
+motor donmuş olsa bile (pulse-adım-3-kaynaklı, feed'den-bağımsız — bu
+yüzden pulse-görseli "motor çalışıyor" kanıtı DEĞİLDİR; Hakem'in kulak
+çekmesinin teknik karşılığı budur).
