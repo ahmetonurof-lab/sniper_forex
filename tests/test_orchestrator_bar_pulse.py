@@ -83,3 +83,35 @@ def test_pulse_exception_never_raises(orch, caplog):
         # bozulmamış-akış: exception-yutulur
         orch._emit_bar_pulse([_bar(1)], gate_allowed=False, reason="x")
     assert True  # raise-yok = test-geçti
+
+
+# ── B1 (OBS-P0, 2026-09-09 karar-kilidi): audit-append `_log_wired`-BAĞIMSIZ ──
+
+
+def test_pulse_audit_survives_unwired_human_logging(orch):
+    """KIRMIZI-TEST B1: insan-logu wiring'i BAŞARISIZ olsa bile (`_log_wired
+    =False` — `_wire_live_logging` hatası, orchestrator.py:1233-1241), bar_pulse
+    STATE-event'i makine-journal'ına (audit) YAZILMALIDIR. SOAK-D2 sessizliği
+    wiring-hatasıyla geri gelmemeli; guard-yarılması §EK-1/K2-B1.
+    Konsol/canli-insan-satırı guard'lı kalabilir; audit guard'lı KALAMAZ."""
+    orch._log_wired = False  # wiring-failure durumu (canlı-log/console yok)
+    orch._console = None
+    orch._canli_log = None
+    b = _bar(4242)
+    orch._emit_bar_pulse([b], gate_allowed=False, reason="startup_SAFE_START")
+    ev = orch.audit.events
+    assert len(ev) == 1, "audit bar_pulse append'i _log_wired=False iken de olmalı"
+    p = ev[0].payload
+    assert ev[0].event_type == EventType.STATE
+    assert p["moment"] == "bar_pulse"
+    assert p["bar_index"] == 4242
+    assert p["reason"] == "startup_SAFE_START"
+
+
+def test_pulse_still_silent_when_unwired_and_no_bars(orch):
+    """B1 davranış-nötrlük bekçisi: kural yalnız guard-kaynağını değiştirir —
+    bar-YOKSA (boş-tick) `_log_wired` değeri ne olursa olsun pulse-YOK
+    (bar-bazlılık, poll-bazlı gürültüye dönüşmez)."""
+    orch._log_wired = False
+    orch._emit_bar_pulse([], gate_allowed=False, reason="x")
+    assert orch.audit.events == []

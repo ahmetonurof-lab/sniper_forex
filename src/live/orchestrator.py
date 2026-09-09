@@ -1273,19 +1273,30 @@ class Orchestrator:
         canli-log; console-emit ATLANIR (dedup-key gürültüsü; canli-log
         yeterli). Fail-safe: pulse hatası asla döngüyü düşürmez
         (sessiz-guard, _emit_gate deseni).
+
+        B1 (OBS-P0 karar-kilidi 2026-09-09): guard artık İKİ-KATMANLIDIR —
+        ``_log_wired`` YALNIZ insan-okunur canli-log satırını korur;
+        makine-journal (audit STATE append) wiring-başarısızlığından
+        BAĞIMSIZDIR. Gerekçe: ``_wire_live_logging`` hatası (ERROR
+        "degraded", :1233-1241) ``_log_wired=False`` bırakır; eski tek-
+        guard altında bu, SOAK-D2 makine-sessizliğini journal'a geri
+        getiriyordu — tam da gözlem-kör-noktasını kapatan nabzın kendisi
+        körleşiyordu. Audit-append'in tek bağı new_bars (bar-bazlılık)
+        kalır; davranış-nötr (karar-değiştirmez), emit-only.
         """
-        if not self._log_wired or not new_bars:
+        if not new_bars:
             return
         try:
             last = new_bars[-1]
             bar_ts = getattr(last, "timestamp", None)
             bar_ts_iso = bar_ts.isoformat() if bar_ts is not None else "-"
-            line = (
-                f"[BAR] {self._symbol or '-'} {bar_ts_iso} "
-                f"gate={'OPEN' if gate_allowed else 'CLOSED'} "
-                f"reason={reason or 'ok'} skip"
-            )
-            self._canli_info(line)
+            if self._log_wired:
+                line = (
+                    f"[BAR] {self._symbol or '-'} {bar_ts_iso} "
+                    f"gate={'OPEN' if gate_allowed else 'CLOSED'} "
+                    f"reason={reason or 'ok'} skip"
+                )
+                self._canli_info(line)
             self.audit.append(
                 time.time(),
                 EventType.STATE,
