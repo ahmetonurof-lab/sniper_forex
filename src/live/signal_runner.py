@@ -247,7 +247,17 @@ class SignalRunner:
             import pandas as pd
 
             ts_server = pd.Timestamp(ts, unit="s")
-            ts_utc = pd.Timestamp(server_to_utc_historical(ts_server.to_pydatetime()))
+            # Provider timestamp semantics (design-note UTC normalization):
+            # rows that declare ts_semantics="utc" (cTrader adapter) are
+            # already canonical UTC — the MT5 server→UTC conversion applies
+            # ONLY to legacy server-time rows (MT5 rates, numpy arrays, and
+            # paper.py shapes), which lack the key and keep the exact
+            # historical path byte-for-byte.
+            sem = r.get("ts_semantics", "server") if isinstance(r, dict) else "server"
+            if sem == "utc":
+                ts_utc = ts_server
+            else:
+                ts_utc = pd.Timestamp(server_to_utc_historical(ts_server.to_pydatetime()))
             bars.append(
                 Bar(
                     index=i,

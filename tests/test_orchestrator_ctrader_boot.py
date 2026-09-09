@@ -156,7 +156,10 @@ def ctrader_orch(tmp_path):
     and these tests would fail loudly (§4.2).
     """
     conn = FakeCtraderConnection()
-    adapter = CTraderDataAdapter(conn, response_timeout_sec=2.0, server_offset_hours=0)
+    adapter = CTraderDataAdapter(
+        conn,
+        response_timeout_sec=2.0,
+    )
     orch = Orchestrator(
         state_dir=str(tmp_path / "state"),
         magic=9007001,
@@ -275,7 +278,10 @@ class TestCtraderFailLoud:
         released (fail-loud, no silent degradation)."""
         conn = FakeCtraderConnection()
         conn._connected = False
-        adapter = CTraderDataAdapter(conn, response_timeout_sec=0.3, server_offset_hours=0)
+        adapter = CTraderDataAdapter(
+            conn,
+            response_timeout_sec=0.3,
+        )
         orch = Orchestrator(
             state_dir=str(tmp_path / "state"),
             configured_symbols=["EURUSD"],

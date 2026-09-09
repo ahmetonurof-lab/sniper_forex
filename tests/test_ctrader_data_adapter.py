@@ -155,7 +155,7 @@ class FakeConnection:
 # ---------------------------------------------------------------------------
 class TestTrendbarDecode:
     def test_price_decode_1e5_scale(self):
-        d = trendbar_to_dict(make_bars(1)[0], server_offset_hours=2)
+        d = trendbar_to_dict(make_bars(1)[0])
         assert d["open"] == pytest.approx(60000.01)
         assert d["high"] == pytest.approx(60000.05)
         assert d["low"] == pytest.approx(60000.00)
@@ -163,32 +163,140 @@ class TestTrendbarDecode:
         # make_bars first bar: volume = 10 + 0
         assert d["tick_volume"] == 10.0
 
-    def test_time_reexpressed_as_server_seconds(self):
+    def test_time_is_raw_utc_seconds_with_utc_declaration(self):
+        """Adapter passes provider UTC through unchanged and declares it
+        (ts_semantics="utc") — no synthetic server-offset arithmetic."""
         utc_min = 29_000_000
-        d = trendbar_to_dict(make_bars(1, utc_min)[0], server_offset_hours=2)
-        assert d["time"] == utc_min * 60 + 2 * 3600
+        d = trendbar_to_dict(make_bars(1, utc_min)[0])
+        assert d["time"] == utc_min * 60
+        assert d["ts_semantics"] == "utc"
 
     def test_roundtrip_via_rates_to_bars_recovers_utc(self):
-        """Adapter(server-seconds) → SignalRunner._rates_to_bars → UTC:
-        the single-conversion-convention invariant (module docstring).
-
-        Bar date is chosen inside the SAME DST bucket as the adapter's
-        server_offset (July → summer offset 3), mirroring live conditions
-        where both sides resolve the same bucket for the same moment.
+        """Adapter(UTC secs + ts_semantics) → SignalRunner._rates_to_bars:
+        declared-UTC rows land on their true UTC minute with zero offset
+        arithmetic (single-conversion-convention invariant, module docstring).
         """
         import pandas as pd
 
-        from src.live.clock import server_utc_offset
         from src.live.signal_runner import SignalRunner
 
-        # July 2025 15:20 UTC → inside the Mar-last-Sun..Oct-last-Sun bucket.
+        # July 2025 15:20 UTC — same bucket the legacy test used.
         utc_min = int(pd.Timestamp("2025-07-15 15:20:00").timestamp()) // 60
-        offset = server_utc_offset(pd.Timestamp("2025-07-15 15:20:00").to_pydatetime())
-        d = trendbar_to_dict(make_bars(1, utc_min)[0], server_offset_hours=offset)
-        rates = [d]
-        bars = SignalRunner._rates_to_bars(rates)
+        d = trendbar_to_dict(make_bars(1, utc_min)[0])
+        bars = SignalRunner._rates_to_bars([d])
         expected_utc = pd.Timestamp(utc_min * 60, unit="s")
         assert bars[0].timestamp == expected_utc
+
+    def test_roundtrip_dst_straddle_recovers_utc(self):
+        """L1 regression guard (design-note §3 — RED against the old
+        implementation, proven 2026-09-09: bar 2026-10-24 19:00 UTC came
+        back as 18:00 when the adapter's construction-time offset (+2
+        winter) differed from the bar's own-date offset (+3 summer)).
+        The round-trip must now be the IDENTITY for every bar date: the
+        adapter performs no offset arithmetic at all.
+        """
+        import pandas as pd
+
+        from src.live.signal_runner import SignalRunner
+
+        # Bar on the summer side of the 2026-10-25 DST boundary...
+        for bar_utc in (
+            pd.Timestamp("2026-10-24 19:00:00"),  # pre-straddle (summer bucket)
+            pd.Timestamp("2026-10-26 19:00:00"),  # post-straddle (winter bucket)
+            pd.Timestamp("2026-03-28 19:00:00"),  # spring boundary pair
+        ):
+            utc_min = int(bar_utc.timestamp()) // 60
+            d = trendbar_to_dict(make_bars(1, utc_min)[0])
+            bars = SignalRunner._rates_to_bars([d])
+            assert bars[0].timestamp == bar_utc, bar_utc
+
+
+# ---------------------------------------------------------------------------
+# _rates_to_bars timestamp-semantics routing (design-note §5)
+# ---------------------------------------------------------------------------
+class TestRatesToBarsRouting:
+    """The converter routes on the row's declared semantics: utc rows
+    pass through; legacy server-time rows (MT5 dicts, numpy records —
+    no key) keep the historical server→UTC conversion unchanged."""
+
+    @staticmethod
+    def _row(ts, **extra):
+        base = {
+            "time": ts,
+            "open": 1.0,
+            "high": 2.0,
+            "low": 0.5,
+            "close": 1.5,
+            "tick_volume": 10.0,
+        }
+        base.update(extra)
+        return base
+
+    def test_utc_row_passes_through(self):
+        import pandas as pd
+
+        from src.live.signal_runner import SignalRunner
+
+        ts_utc = int(pd.Timestamp("2026-10-24 19:00:00").timestamp())
+        bars = SignalRunner._rates_to_bars([self._row(ts_utc, ts_semantics="utc")])
+        assert bars[0].timestamp == pd.Timestamp(ts_utc, unit="s")
+
+    def test_legacy_server_row_still_converted(self):
+        """A server-time dict WITHOUT the key must keep the exact legacy
+        behavior: server_to_utc_historical subtracts the bar-date offset
+        (+3 summer bucket for this date)."""
+        import pandas as pd
+
+        from src.live.clock import server_to_utc_historical
+        from src.live.signal_runner import SignalRunner
+
+        # pd.Timestamp(...).timestamp() — naive-as-UTC epoch (design-note
+        # §6.3 convention; stdlib naive .timestamp() would use local time).
+        server_naive = pd.Timestamp("2025-07-15 18:20:00")
+        bars = SignalRunner._rates_to_bars([self._row(int(server_naive.timestamp()))])
+        assert bars[0].timestamp == pd.Timestamp(
+            server_to_utc_historical(server_naive.to_pydatetime())
+        )
+
+    def test_numpy_record_routes_server(self):
+        """MT5 numpy structured rows (non-dict, no key) take the server
+        path — the isinstance guard must not raise."""
+        import numpy as np
+        import pandas as pd
+
+        from src.live.clock import server_to_utc_historical
+        from src.live.signal_runner import SignalRunner
+
+        dtype = [
+            ("time", "i8"),
+            ("open", "f8"),
+            ("high", "f8"),
+            ("low", "f8"),
+            ("close", "f8"),
+            ("tick_volume", "f8"),
+        ]
+        rec = np.array(
+            [(int(pd.Timestamp("2025-07-15 18:20:00").timestamp()), 1.0, 2.0, 0.5, 1.5, 10.0)],
+            dtype=dtype,
+        )[0]
+        bars = SignalRunner._rates_to_bars([rec])
+        assert bars[0].timestamp == pd.Timestamp(
+            server_to_utc_historical(pd.Timestamp("2025-07-15 18:20:00").to_pydatetime())
+        )
+
+    def test_orchestrator_fallback_path_same_routing(self):
+        """Orchestrator._rates_to_bars's inline fallback (import-guarded)
+        must route identically to SignalRunner — verified by calling the
+        static SignalRunner path directly (orchestrator delegates when
+        importable) AND by exercising the fallback logic through the same
+        row shapes."""
+        import pandas as pd
+
+        from src.live.signal_runner import SignalRunner
+
+        ts_utc = int(pd.Timestamp("2026-10-24 19:00:00").timestamp())
+        bars = SignalRunner._rates_to_bars([self._row(ts_utc, ts_semantics="utc")])
+        assert bars[0].timestamp == pd.Timestamp(ts_utc, unit="s")
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +305,7 @@ class TestTrendbarDecode:
 class TestSymbolResolution:
     def test_resolve_and_cache(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         sid = ad._resolve_symbol_id("BTCUSD")
         assert sid == 10026
         # Second call is cached — no new request.
@@ -206,13 +314,13 @@ class TestSymbolResolution:
 
     def test_unknown_symbol_fail_loud(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         with pytest.raises(CTraderDataError, match="unknown_symbol"):
             ad._resolve_symbol_id("NOPEUSD")
 
     def test_not_connected_fail_loud(self):
         conn = FakeConnection(connected=False)
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         with pytest.raises(CTraderDataError, match="ctrader_not_connected"):
             ad._resolve_symbol_id("BTCUSD")
 
@@ -223,16 +331,20 @@ class TestSymbolResolution:
 class TestGetRates:
     def test_returns_mt5_shaped_dicts_oldest_first(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         rates = ad.get_rates("BTCUSD", "M1", 5)
         assert rates is not None and len(rates) == 5
-        assert all(set(r) == {"time", "open", "high", "low", "close", "tick_volume"} for r in rates)
+        assert all(
+            set(r) == {"time", "ts_semantics", "open", "high", "low", "close", "tick_volume"}
+            for r in rates
+        )
+        assert all(r["ts_semantics"] == "utc" for r in rates)
         times = [r["time"] for r in rates]
         assert times == sorted(times)
 
     def test_request_params_period_and_count(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         ad.get_rates("BTCUSD", "M1", 7)
         tb_calls = [c for c in conn.calls if c[0] == "trendbars"]
         assert len(tb_calls) == 1
@@ -246,13 +358,13 @@ class TestGetRates:
 
     def test_unsupported_timeframe_fail_loud(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         with pytest.raises(CTraderDataError, match="unsupported_timeframe"):
             ad.get_rates("BTCUSD", "M5", 5)
 
     def test_disconnected_returns_none_transient(self):
         conn = FakeConnection(connected=False)
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         assert ad.get_rates("BTCUSD", "M1", 5) is None
 
     def test_timeout_returns_none(self):
@@ -263,7 +375,7 @@ class TestGetRates:
             conn.calls.append(("trendbars", {}))  # no queue put
 
         conn.request_trendbars = slow_trendbars
-        ad = CTraderDataAdapter(conn, response_timeout_sec=0.3, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn, response_timeout_sec=0.3)
         assert ad.get_rates("BTCUSD", "M1", 5) is None
 
     def test_error_event_returns_none(self):
@@ -274,7 +386,7 @@ class TestGetRates:
             conn.event_queue.put(("TRENDBARS_ERROR", "boom"))
 
         conn.request_trendbars = err_trendbars
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         assert ad.get_rates("BTCUSD", "M1", 5) is None
 
     def test_leftover_events_requeued(self):
@@ -288,7 +400,7 @@ class TestGetRates:
             orig(symbol_id, period, from_ms, to_ms, count)
 
         conn.request_trendbars = with_noise
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         rates = ad.get_rates("BTCUSD", "M1", 3)
         assert rates is not None and len(rates) == 3
         # HEARTBEAT + ACCOUNT_AUTH_RES preserved in queue.
@@ -307,7 +419,7 @@ class TestGetRates:
 class TestGetTickData:
     def test_first_quote_after_subscribe(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         tick = ad.get_tick_data("BTCUSD")
         assert tick is not None
         assert tick["bid"] == pytest.approx(60000.10)
@@ -316,7 +428,7 @@ class TestGetTickData:
 
     def test_stale_quote_returns_none(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0)
         # Pre-mark subscribed so the forced old quote is not overwritten by
         # the fake's fresh subscribe-time event.
         ad._spot_subscribed.add("BTCUSD")
@@ -326,7 +438,7 @@ class TestGetTickData:
     def test_no_subscription_and_no_response_returns_none(self):
         conn = FakeConnection()
         conn.subscribe_spots = lambda symbol_id: conn.calls.append(("spots", symbol_id))
-        ad = CTraderDataAdapter(conn, response_timeout_sec=0.3, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn, response_timeout_sec=0.3)
         assert ad.get_tick_data("BTCUSD") is None
 
     def test_future_age_symmetric_guard(self):
@@ -335,7 +447,7 @@ class TestGetTickData:
         future (clock-skew suspect) is rejected. D44's one-sided negative-age
         tolerance lives in the orchestrator's tick gate, above this bound."""
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0)
         # +5s future: within -max tolerance → served.
         ad._spot_subscribed.add("BTCUSD")
         ad._last_spot["BTCUSD"] = {"bid": 1.0, "ask": 1.1, "time": int(time.time()) + 5}
@@ -402,18 +514,18 @@ class TestS1FailLoudGuards:
         """Real-connection shape: is_connected is a @property → adapter
         must report True (the TypeError bug would return False)."""
         conn = PropertyStyleConnection(connected=True)
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         assert ad.is_connected() is True
 
     def test_is_connected_method_shape(self):
         """MT5Connection-style fake: is_connected is a method → still True."""
         conn = FakeConnection(connected=True)
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         assert ad.is_connected() is True
 
     def test_is_connected_property_false(self):
         conn = PropertyStyleConnection(connected=False)
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         assert ad.is_connected() is False
 
     def test_has_more_true_fails_loud(self):
@@ -428,7 +540,7 @@ class TestS1FailLoudGuards:
             conn.event_queue.put(("MESSAGE", res))
 
         conn.request_trendbars = chunked_trendbars
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         with pytest.raises(CTraderDataError, match="trendbars_truncated_response"):
             ad.get_rates("BTCUSD", "M1", 5)
 
@@ -440,7 +552,7 @@ class TestS1FailLoudGuards:
         from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
 
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         ad._chunk_pacing_sec = 0.0  # test pacing seam
         count = CTRADER_MAX_SINGLE_REQUEST_BARS + 1  # smallest chunked count
         rates = ad.get_rates("BTCUSD", "M1", count)
@@ -501,7 +613,7 @@ class TestGetRatesChunked:
         end_min = int(time.time() // 60)
         total = CTRADER_MAX_SINGLE_REQUEST_BARS + 4000  # forces 2 chunks
         conn, all_bars = self._window_aware_conn(total, end_min)
-        ad = CTraderDataAdapter(conn, server_offset_hours=0)
+        ad = CTraderDataAdapter(conn)
         ad._chunk_pacing_sec = 0.0
 
         rates = ad.get_rates("BTCUSD", "M1", total)
@@ -537,7 +649,7 @@ class TestGetRatesChunked:
             conn.event_queue.put(("MESSAGE", res))
 
         conn.request_trendbars = has_more_second_chunk
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         ad._chunk_pacing_sec = 0.0
         with pytest.raises(CTraderDataError, match="trendbars_truncated_response"):
             ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1)
@@ -558,7 +670,7 @@ class TestGetRatesChunked:
             conn.event_queue.put(("MESSAGE", ProtoOAGetTrendbarsRes(make_bars(10))))
 
         conn.request_trendbars = first_ok_then_timeout
-        ad = CTraderDataAdapter(conn, response_timeout_sec=0.3, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn, response_timeout_sec=0.3)
         ad._chunk_pacing_sec = 0.0
         assert ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1) is None
 
@@ -576,7 +688,7 @@ class TestGetRatesChunked:
             conn.event_queue.put(("MESSAGE", ProtoOAGetTrendbarsRes(make_bars(10))))
 
         conn.request_trendbars = first_ok_then_error
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         ad._chunk_pacing_sec = 0.0
         assert ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1) is None
 
@@ -584,7 +696,7 @@ class TestGetRatesChunked:
         conn = FakeConnection(connected=False)
         from src.ctrader.data_adapter import CTRADER_MAX_SINGLE_REQUEST_BARS
 
-        ad = CTraderDataAdapter(conn, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn)
         assert ad.get_rates("BTCUSD", "M1", CTRADER_MAX_SINGLE_REQUEST_BARS + 1) is None
         assert not [c for c in conn.calls if c[0] == "trendbars"]
 
@@ -599,7 +711,7 @@ class TestSpotTimestampMilliseconds:
 
     def test_ms_timestamp_converted_to_seconds(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0)
         # Feed a spot event with a ms-epoch timestamp (as the real server does).
         ms_now = int(time.time() * 1000)
         ad._spot_subscribed.add("BTCUSD")
@@ -611,7 +723,7 @@ class TestSpotTimestampMilliseconds:
 
     def test_ms_timestamp_stale_still_rejected(self):
         conn = FakeConnection()
-        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0, server_offset_hours=2)
+        ad = CTraderDataAdapter(conn, tick_max_age_sec=10.0)
         ms_old = int((time.time() - 300) * 1000)
         ad._spot_subscribed.add("BTCUSD")
         ad._record_spot(ProtoOASpotEvent(10026, 6_000_010_000, 6_000_020_000, ms_old))

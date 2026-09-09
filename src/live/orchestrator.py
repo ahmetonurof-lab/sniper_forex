@@ -2545,7 +2545,15 @@ class Orchestrator:
                 c = float(r.close)
                 v = float(r.tick_volume)
             ts_server = pd.Timestamp(ts, unit="s")
-            ts_utc = pd.Timestamp(server_to_utc_historical(ts_server.to_pydatetime()))
+            # Mirror SignalRunner._rates_to_bars routing exactly (fallback
+            # path must not diverge): ts_semantics="utc" rows are already
+            # canonical UTC; legacy server-time rows keep the historical
+            # server→UTC conversion unchanged.
+            sem = r.get("ts_semantics", "server") if isinstance(r, dict) else "server"
+            if sem == "utc":
+                ts_utc = ts_server
+            else:
+                ts_utc = pd.Timestamp(server_to_utc_historical(ts_server.to_pydatetime()))
             bars.append(
                 Bar(
                     index=i,

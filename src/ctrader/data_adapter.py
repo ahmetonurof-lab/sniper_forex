@@ -23,18 +23,23 @@ help.ctrader.com/open-api/messages/, D155 verification):
 
 TIME SEMANTICS (AGENTS.md §6.3 — single canonical convention):
 
-  cTrader trendbar timestamps are UTC epoch minutes. The canonical live ingest
-  (SignalRunner._rates_to_bars, D15) converts naive MT5 **server time** to UTC via
-  clock.server_to_utc_historical(). To feed the SAME canonical converter, this
-  adapter re-expresses UTC minutes as MT5-server-time seconds using the SAME
-  DST-heuristic offset (clock.server_utc_offset), so the runner's conversion
-  subtracts exactly what this adapter added. Net result: UTC timestamps, one
-  conversion convention, zero parallel converters.
+  cTrader trendbar timestamps are UTC epoch minutes (official proto field
+  utcTimestampInMinutes). The adapter passes them through as raw UTC epoch
+  seconds and declares ts_semantics="utc"; the canonical ingest
+  (SignalRunner._rates_to_bars) skips the MT5 server-time conversion for
+  such rows. The adapter performs NO offset arithmetic of its own — the
+  previous add-then-subtract round-trip resolved the DST heuristic at two
+  different moments (construction time vs the bar's own date) and drifted
+  ±1h across a DST straddle (docs/
+  DESIGN_NOTE_TIMESTAMP_SEMANTICS_UTC_NORMALIZATION.md §3, red test
+  test_roundtrip_dst_straddle_recovers_utc). MT5-shaped rows (no
+  ts_semantics key) keep the legacy server→UTC conversion unchanged.
 
 Output shape: list of dicts with keys
-  {"time": int epoch seconds (server-time, see above), "open", "high", "low",
-   "close", "tick_volume"} — exactly the dict-access path consumed by
-  SignalRunner._rates_to_bars / Orchestrator._rates_to_bars (r["time"], r["open"], ...).
+  {"time": int epoch seconds (UTC — see above), "ts_semantics": "utc",
+   "open", "high", "low", "close", "tick_volume"} — the dict-access path
+  consumed by SignalRunner._rates_to_bars / Orchestrator._rates_to_bars
+  (r["time"], r["open"], ...).
 
 Symbol resolution: name ("BTCUSD") → cTrader symbolId via
 CTraderConnection.request_symbols_list() (ProtoOASymbolsListReq/Res), cached.
@@ -51,8 +56,6 @@ import queue
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
-
-from src.live.clock import server_utc_offset
 
 logger = logging.getLogger(__name__)
 
@@ -95,24 +98,26 @@ class CTraderDataError(RuntimeError):
     """Fail-loud adapter error (AGENTS.md §19): no silent fallbacks."""
 
 
-def trendbar_to_dict(tb: Any, server_offset_hours: int) -> Dict[str, Any]:
+def trendbar_to_dict(tb: Any) -> Dict[str, Any]:
     """Convert a ProtoOATrendbar to the MT5-shaped dict contract.
 
     Price decode (official convention): low is 1/100000-scaled absolute low;
     open/high/close are low + respective delta, all 1/100000-scaled.
-    Time: utcTimestampInMinutes (UTC epoch minutes) re-expressed as MT5
-    server-time epoch seconds so SignalRunner._rates_to_bars's
-    server_to_utc_historical() conversion restores true UTC.
+    Time: utcTimestampInMinutes (UTC epoch minutes) passes through as raw UTC
+    epoch seconds with ts_semantics="utc" — the provider is UTC, so the
+    canonical ingest skips the MT5 server-time conversion for these rows
+    (no synthetic offset round-trip; design-note §2–§3).
     """
     low = float(tb.low)
     o = (low + float(tb.deltaOpen)) / CTRADER_PRICE_SCALE
     h = (low + float(tb.deltaHigh)) / CTRADER_PRICE_SCALE
     lo = low / CTRADER_PRICE_SCALE
     c = (low + float(tb.deltaClose)) / CTRADER_PRICE_SCALE
-    # UTC epoch minutes → UTC seconds → MT5 server-time seconds.
-    ts_server = int(tb.utcTimestampInMinutes) * 60 + server_offset_hours * 3600
+    # UTC epoch minutes → UTC epoch seconds, unchanged (provider is UTC).
+    ts_utc = int(tb.utcTimestampInMinutes) * 60
     return {
-        "time": ts_server,
+        "time": ts_utc,
+        "ts_semantics": "utc",
         "open": o,
         "high": h,
         "low": lo,
@@ -139,16 +144,10 @@ class CTraderDataAdapter:
         connection: Any,
         response_timeout_sec: float = DEFAULT_RESPONSE_TIMEOUT_SEC,
         tick_max_age_sec: float = DEFAULT_TICK_MAX_AGE_SEC,
-        server_offset_hours: Optional[int] = None,
     ) -> None:
         self._conn = connection
         self._timeout = float(response_timeout_sec)
         self._tick_max_age = float(tick_max_age_sec)
-        # Single canonical DST offset (clock.py) — resolved once per adapter
-        # lifetime; a live session has one offset at any moment.
-        self._server_offset = (
-            int(server_offset_hours) if server_offset_hours is not None else server_utc_offset()
-        )
         # name -> symbolId cache, populated from ProtoOASymbolsListRes.
         self._symbol_ids: Dict[str, int] = {}
         self._symbols_resolved = False
@@ -442,7 +441,7 @@ class CTraderDataAdapter:
                 "fetch would silently drop history (S1 fail-loud guard)"
             )
 
-        bars = [trendbar_to_dict(tb, self._server_offset) for tb in res.trendbar]
+        bars = [trendbar_to_dict(tb) for tb in res.trendbar]
         # Server returns bars ascending by time; canonical consumer expects
         # oldest-first ordering (is_closed_m1 + resample_15m assumptions).
         bars.sort(key=lambda b: b["time"])
@@ -551,7 +550,7 @@ class CTraderDataAdapter:
                         "loudly (D162 per-chunk fail-loud guard)"
                     )
                 for tb in res.trendbar:
-                    d = trendbar_to_dict(tb, self._server_offset)
+                    d = trendbar_to_dict(tb)
                     merged[int(d["time"])] = d  # dedupe by bar time
                 chunk_start_ms = chunk_end_ms
 
