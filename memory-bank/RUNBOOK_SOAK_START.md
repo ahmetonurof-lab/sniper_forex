@@ -36,6 +36,13 @@
 - [ ] **Foreground teyidi:** soak process'i başlatan native console'da
   ön-planda çalışıyor ve operatör aynı pencerede Ctrl-C basabilecek
   durumda olmalıdır (arka-plan/servis-start drill'i geçersiz kılar).
+- [ ] **QuickEdit-tuzağı hatırlatması (SOAK-STOP kanıtı, 2026-09-09
+  13:48):** Ctrl-C "işlemiyor"sa ÖNCE pencerede kalmış bir metin-seçimi
+  var mı bak → **ESC ile seçimi bırak → tekrar Ctrl-C.** QuickEdit
+  seçim-modunda Ctrl+C kopyalama olarak yorumlanır, sinyal python'a
+  ulaşmaz. Kanıt: ESC+Ctrl-C → graceful SHUTDOWN (exit=2,
+  kill_switch_during_sleep, lock-release, snapshot) — birebir D181-T4.
+  ESC+Ctrl-C de çalışmazsa STOP TALEP ET — asla pencere-kapatma/taskkill.
 - [ ] **Console-oturum teyidi (RDP/uzak-oturum yasak):** soak, fiziksel
   veya KVM-bağlı console oturumunda başlatılır; RDP/VPS uzak oturumdan
   BAŞLATILMAZ — RDP disconnect, oturuma bağlı console pencerelerini bazı

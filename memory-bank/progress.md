@@ -3095,3 +3095,41 @@ sorusu-canlı-bar-akışının-gerçek-çağrı-yolunu-okumadan-yanıtlanamazdı
 **Stop-beklenen-kayıt:** Reis-push-onayı-verince-soak-STOP-edilecek
 (operatör-Ctrl-C-native-console; runbook-drill-kuralları). STOP-anı:
 progress.md-güncel-HEAD'de-güvenli. Reis-penceresi-açık-kalmalı.
+
+---
+
+## SOAK-STOP (2026-09-09 13:48:28) — kontrollü-graceful, kanıt-zinciri-TAM
+
+**Teşhis-öyküsü (Reis-canlı-rapor):** Reis-soak-penceresinde-Ctrl+C'nin-
+işlemediğini-bildirdi. Teşhis: **QuickEdit-seçim-modu-tuzağı** — console'da-
+kalmış-bir-metin-seçimi-Ctrl+C'yi-kopyalama-olarak-yorumluyor, sinyal-
+python'a-ulaşmıyor. Reis-uyguladı: ESC (seçim-çıkışı) + Ctrl+C → **ÇALIŞTI.**
+Pencere-kapatma/taskkill-TEKLİFYAPILMADI (force-kill-yasağı-korundu).
+
+**Kanıt-zinciri (13:49:53-döllemesi):**
+- python-process: YOK (temiz-çıkış; 3188+16692-ikisi-de-sonlandı)
+- orchestrator.lock: YOK (release-OK)
+- SHUTDOWN-audit: `{"exit": 2, "reason": "kill_switch_during_sleep"}`,
+  ts=1788950908.68 (=13:48:28)
+- Snapshot-yazıldı: EURUSD.json-+EURUSD_lifecycle.json-mtime=13:48
+  (D33-graceful-snapshot)
+- exit=2-BEKLENEN-değer: SAFE_START'ta-kill → code=2 (`not
+  entries_enabled`-dali; orchestrator.run-kill-switch-blok)
+- Birebir-D181-T4-kanıt-şekli: rc=2, SHUTDOWN-audit
+  kill_switch_during_sleep, lock-release — kusursuz.
+
+**Soak-istatistikleri (bölünmüş-gün-1):**
+- Boot: 10:30:36 → Stop: 13:48:28 = **3s 18dk** koşu.
+- Audit-boot-sonrası-sessiz: 3s18dk-boyunca-tek-yeni-event-yok
+  (SOAK-D2-analizinde-kök-neden-çift-kayıtlı: transition-only-SAFETY +
+  STATE-emit-on_bar-içinde-gate-closed-feed-yok).
+- Grid-kanıtı: REPLAY'den-alındı (1905/1905, SOAK-D2).
+- Riskli-olay: SIFIR (ERROR-yok, ladder-yok, crash-yok, ownership-yok).
+
+**§17-durum:** Soak-DURDURULDU (kontrollü) — `src/`/`tests/` kod-
+dokunuşu-artık-serbest AMA Reis-push-onayı-henüz-GELMEDİ. Pulse-ekleme-
+işine-onay-gelince-başlanacak (SOAK-D3-design-kararı-bağlamında:
+orchestrator-canlı-döngüsü-produce_new_bars-yolu).
+
+**Runbook-güncellemesi:** QuickEdit-hatırlatması-Adım-0'a-EKLENDİ
+(bu-commit) — restart-drill'lerinde-aynı-tuzak-tekrarlanmasın.
