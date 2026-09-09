@@ -188,7 +188,13 @@ def test_signal_runner_audit_records_candle_and_signal_events():
 
 
 def test_signal_runner_signal_event_payload_has_expected_fields():
-    """SIGNAL events must carry direction, entry_price, sl, tp at minimum."""
+    """SIGNAL events must carry the canonical builder schema (E1).
+
+    E1 (OBS-P0 karar-kilidi EK-2): warmup SIGNAL artik canli ile ayni
+    ``signal_audit_payload`` semasini tasir — ``entry_price`` DEGIL ``entry``.
+    Assert'ler bilerek gevsek-birakilmis minimum degil, kapali-set kontrolu
+    asagidaki deterministik testte; burada yalniz alan-adlari pin'lenir.
+    """
     mt5 = _make_fake_mt5(["EURUSD"], n_bars=3000)
     runner = SignalRunner(mt5=mt5, risk_manager=RiskManager())
     audit = AuditChain()
@@ -202,9 +208,73 @@ def test_signal_runner_signal_event_payload_has_expected_fields():
     for evt in signal_evts:
         p = evt.payload
         assert "direction" in p
-        assert "entry_price" in p
+        assert "entry" in p
+        assert "entry_price" not in p
         assert "sl" in p
         assert "tp" in p
+
+
+def test_signal_runner_warmup_signal_uses_canonical_builder_schema(monkeypatch):
+    """E1(i) KIRMIZI-TEST: warmup SIGNAL emit-site'i ile canli emit-site'i
+    AYNI builder'dan gecmeli — payload ``signal_audit_payload(sig)`` ile
+    birebir esit ve 12-alanlik kapali set olmali.
+
+    Engine stub'u (StrategyRuntime monkeypatch) yalniz Signal-uretimini
+    deterministikler; iddia edilen DAL (``_run_symbol`` icindeki audit
+    append satiri) GERCEK kod-yoludur (§4.2). Fix oncesi emit inline
+    9-alan dict (``entry_price``) -> FAIL.
+    """
+    import pandas as pd
+
+    from src.live.strategy_runtime import Signal, signal_audit_payload
+
+    synth = Signal(
+        symbol="EURUSD",
+        direction="bearish",
+        side="short",
+        entry_price=1.10300,
+        sl=1.10500,
+        tp=1.09900,
+        entry_bar_index=167,
+        sweep_bar_index=160,
+        zone_index=165,
+        zone_top=1.10515,
+        zone_bottom=1.10475,
+        zone_size=0.00040,
+        timestamp=pd.Timestamp("2026-01-02 19:00:00") + pd.Timedelta(minutes=15 * 167),
+    )
+
+    class _OneShotRuntime:
+        """warmup->warmed; on_bar ilk cagrida synth Signal, sonra None."""
+
+        def __init__(self, symbol):
+            self._warmed = False
+            self._next_idx = 0
+            self._sent = False
+
+        def warmup(self, bars):
+            self._warmed = True
+            self._next_idx = min(101, max(0, len(bars) - 1))
+
+        def on_bar(self, bar):
+            if self._sent:
+                return None
+            self._sent = True
+            return synth
+
+    monkeypatch.setattr("src.live.signal_runner.StrategyRuntime", _OneShotRuntime)
+    mt5 = _make_fake_mt5(["EURUSD"], n_bars=3000)
+    runner = SignalRunner(mt5=mt5, risk_manager=RiskManager())
+    audit = AuditChain()
+    runner.run_session(RunnerConfig(symbols=["EURUSD"], m1_count=3000), audit)
+
+    sig_evts = [e for e in audit.events if e.event_type == EventType.SIGNAL]
+    assert len(sig_evts) == 1, f"tek SIGNAL beklenir; {len(sig_evts)}"
+    p = sig_evts[0].payload
+    assert p == signal_audit_payload(synth), "builder-disi payload (schema fork)"
+    assert "entry_price" not in p
+    assert p["entry"] == pytest.approx(1.10300)
+    assert p["fvg_id"] == "EURUSD:zone165"
 
 
 # ── Per-symbol counts + result shape ────────────────────────────

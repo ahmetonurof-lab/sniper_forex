@@ -43,6 +43,11 @@ SIGNAL_KEYS = {
     "fvg_bottom",
     "fvg_size_pip",
     "direction",
+    # E1(i): kapali set 12 -> 15 (bar-index forensic üçlüsü) — see
+    # test_n2_23_emit_schema.EXPECTED_KEYS for rationale.
+    "entry_bar_index",
+    "sweep_bar_index",
+    "zone_index",
 }
 ARMED_KEYS = {
     "moment",

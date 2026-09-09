@@ -57,6 +57,12 @@ EXPECTED_KEYS = {
     "fvg_bottom",
     "fvg_size_pip",
     "direction",
+    # E1(i) (OBS-P0 karar-kilidi EK-2): kapali set 12 -> 15 — warmup ile
+    # canli emit ayni builder'i kullansin diye bar-index forensic üçlüsü
+    # builder'a taşındı (bilgi kaybı yok, kaynak tekilleşti).
+    "entry_bar_index",
+    "sweep_bar_index",
+    "zone_index",
 }
 
 

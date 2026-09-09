@@ -26,6 +26,8 @@ from src.strategy.models import Bar
 T0 = pd.Timestamp("2026-01-02 19:00:00")  # Cuma 19:00 UTC — CBDR pencere-başı
 WARM = 160
 # N2 #23-b AM-N23-3: kapalı-set 8 → 12 alan (şema-testiyle AYNI sözleşme)
+# E1(i) (OBS-P0): 12 → 15 — bar-index forensic üçlüsü builder'a taşındı
+# (warmup ile canlı emit aynı builder; bkz. test_n2_23_emit_schema).
 EXPECTED_KEYS = {
     "symbol",
     "side",
@@ -39,6 +41,9 @@ EXPECTED_KEYS = {
     "fvg_bottom",
     "fvg_size_pip",
     "direction",
+    "entry_bar_index",
+    "sweep_bar_index",
+    "zone_index",
 }
 
 # k -> (open, high, low, close) — schema testiyle AYNI geometri

@@ -2995,7 +2995,8 @@ class Orchestrator:
 
         Korunan invariantlar:
           - LiveRunner YOK: risk/sizer/execution yapısal olarak yok;
-            üretilen signal ATILIR ve görünür sayılır (SIGNAL audit) —
+            üretilen signal ATILIR ve görünür sayılır (STATE audit,
+            moment=signals_discarded — E1(ii); SIGNAL şeması kirlenmez) —
             asla sessiz değil (R-3 census dersi).
           - Strategy exception → _feed_bars ile birebir D6 semantiği
             (safe-mode persist + CRITICAL alert + loop stop, exit 2).
@@ -3021,11 +3022,16 @@ class Orchestrator:
             if sig is not None:
                 discarded += 1
         if discarded:
+            # E1(ii) (OBS-P0 karar-kilidi EK-2): bu bir SINYAL degil,
+            # toplamsayimdir — SIGNAL tipinde yayinlaninca kapali SIGNAL
+            # semasini ucuncu bir emit ile kirletiyordu. STATE (moment
+            # discriminator'i, bar_pulse deseni) altina tasindi;
+            # gorunurluk invarianti (R-3 census dersi) AYNEN korunur.
             self.audit.append(
                 time.time(),
-                EventType.SIGNAL,
+                EventType.STATE,
                 self._symbol,
-                {"phase": "state_only", "signals_discarded": discarded},
+                {"moment": "signals_discarded", "signals_discarded": discarded},
             )
         return None
 

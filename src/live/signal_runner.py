@@ -38,7 +38,7 @@ from src.live.candle_feed import M1CandleFeed, resample_15m
 from src.live.clock import _utcnow_naive, server_to_utc_historical
 from src.live.risk import Account, RiskManager
 from src.live.sizing import ContractSpec, contract_for_symbol
-from src.live.strategy_runtime import Signal, StrategyRuntime
+from src.live.strategy_runtime import Signal, StrategyRuntime, signal_audit_payload
 from src.strategy.models import Bar
 
 # Default M1 count to pull per symbol (matches the canonical universe
@@ -204,16 +204,10 @@ class SignalRunner:
                     timestamp=time.time(),
                     event_type=EventType.SIGNAL,
                     symbol=symbol,
-                    payload={
-                        "direction": sig.direction,
-                        "side": sig.side,
-                        "entry_price": sig.entry_price,
-                        "sl": sig.sl,
-                        "tp": sig.tp,
-                        "entry_bar_index": sig.entry_bar_index,
-                        "sweep_bar_index": sig.sweep_bar_index,
-                        "zone_index": sig.zone_index,
-                    },
+                    # E1(i) (OBS-P0 karar-kilidi EK-2): canli emit-site ile
+                    # BIREBIR ayni builder — inline 9-alan dict (entry_price
+                    # fork'u) kaldirildi; tek SIGNAL semasi (15 alan, kapali).
+                    payload=signal_audit_payload(sig),
                 )
         return signals
 

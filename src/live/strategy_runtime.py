@@ -95,12 +95,16 @@ def signal_audit_payload(sig: Signal) -> Dict[str, Any]:
     """N2 #23 R-3: SIGNAL audit payload builder (schema test ile sabit).
 
     Şema (pre-reg ``results/N2_23_prereg_R3_R1.md`` v1.1 + Hakem AM-v1.1
-    FVG-id; N2 #23-b AM-N23-3 genişlemesi): ``symbol/side/entry/sl/tp/
-    reason/ts + fvg_id + fvg_top/fvg_bottom/fvg_size_pip/direction`` —
-    KAPALI set (12 alan; fvg_id trace-bağı korunur, ölçüler id-yanda).
+    FVG-id; N2 #23-b AM-N23-3 genişlemesi; E1/OBS-P0 bar-index genişlemesi):
+    ``symbol/side/entry/sl/tp/reason/ts + fvg_id + fvg_top/fvg_bottom/
+    fvg_size_pip/direction + entry_bar_index/sweep_bar_index/zone_index`` —
+    KAPALI set (15 alan; fvg_id trace-bağı korunur, ölçüler id-yanda;
+    bar-index alanları sinyal-yokluğu forensiği için — warmup ile canlı
+    emit'in aynı builder'ı kullanabilmesi bu genişlemeyi gerektirdi).
 
-    Pure: I/O yok, audit-bağımlılığı yok. Emit noktası (LiveRunner.on_bar,
-    runtime-signal-dönüşünün canlı tüketim noktası) adım-2'de bu builder'ı
+    Pure: I/O yok, audit-bağımlılığı yok. Emit noktaları (canlı
+    LiveRunner.on_bar + warmup signal_runner._run_symbol — E1'den beri
+    İKİSI DE bu builder'ı çağırır) adım-2'de bu builder'ı
     çağırır; şema testi (test_n2_23_emit_schema) bu sözleşmeyi sabitler.
     """
     return {
@@ -118,6 +122,12 @@ def signal_audit_payload(sig: Signal) -> Dict[str, Any]:
         "fvg_bottom": sig.zone_bottom,
         "fvg_size_pip": sig.zone_size / _pip_size(sig.symbol),
         "direction": sig.direction,
+        # E1(i) (OBS-P0 karar-kilidi EK-2): bar-index forensic üçlüsü —
+        # warmup inline dict'inde VARDI, builder'a tasinarak bilgi korundu
+        # (sinyal-yoklugu açıklamasında hangi bar'da giriş/sweep/zone şart).
+        "entry_bar_index": sig.entry_bar_index,
+        "sweep_bar_index": sig.sweep_bar_index,
+        "zone_index": sig.zone_index,
     }
 
 

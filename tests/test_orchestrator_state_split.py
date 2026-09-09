@@ -217,20 +217,32 @@ def test_proceed_path_unchanged_entries_run_state_via_runner(tmp_path):
 
 
 def test_state_foot_discarded_signal_is_visible(tmp_path):
-    """Gate kapalıyken üretilen signal ATILIR ama GÖRÜNÜRDÜR (SIGNAL audit,
-    signals_discarded>0) — sessizlik yok (R-3 census dersi)."""
+    """Gate kapalıyken üretilen signal ATILIR ama GÖRÜNÜRDÜR
+    (signals_discarded>0) — sessizlik yok (R-3 census dersi).
+
+    E1(ii) (OBS-P0 karar-kilidi EK-2): sayaç SIGNAL event'i DEĞİLDİR —
+    sinyal-olayı olmayan toplamsayım, SIGNAL şemasını kirletiyordu
+    (üç-SIGNAL-emit çatalı). Sözleşme artık STATE (moment=signals_discarded);
+    görünürlük invariantı AYNEN korunur, yalnız event-tipi düzelir.
+    Fix öncesi kırmızı: STATE yok, SIGNAL-tipi phase=state_only var → FAIL."""
     rt = FakeStateRuntime(signal=True)
     orch = make_orch(tmp_path, runner=None, verdict=StartupVerdict.SAFE_START, recon="MISMATCH")
     orch._runtime = rt
     code = orch._advance_state_only([object(), object()])
     assert code is None
     assert len(rt.on_bar_calls) == 2
-    sig_events = [
+    state_events = [
         e.payload
+        for e in orch.audit.events
+        if e.event_type == EventType.STATE and e.payload.get("moment") == "signals_discarded"
+    ]
+    assert state_events and state_events[-1]["signals_discarded"] == 2
+    # sayaç artık SIGNAL tipinde OLMAMALI (kapalı SIGNAL şeması koruması)
+    assert not [
+        e
         for e in orch.audit.events
         if e.event_type == EventType.SIGNAL and e.payload.get("phase") == "state_only"
     ]
-    assert sig_events and sig_events[-1]["signals_discarded"] == 2
 
 
 def test_state_foot_exception_keeps_d6_semantics(tmp_path):
