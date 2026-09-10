@@ -348,6 +348,62 @@ class StrategyRuntime:
         except Exception:
             _LOG.warning("N2 #23-b: fvg_armed STATE emit failed", exc_info=True)
 
+    def _emit_fvg_rejected(self, fvg, reason: str, i: int) -> None:
+        """STATE emit at an FVG rejection moment (EQ-filter / first-touch).
+
+        Observation layer ONLY (N2 #23/#24 deseni): strategy flow unaffected
+        (emit failures are logged, never raised). Payload AM-N23-3 dilini
+        kullanir (fvg-olculeri + direction + bar_ts). Ts-disiplini AM-N23-2:
+        satir-ts=emit-ani (audit epoch), bar_ts=icerik-momenti (touch bar).
+        """
+        if self.audit is None:
+            return
+        try:
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self.symbol,
+                {
+                    "moment": "fvg_rejected",
+                    "reason": reason,
+                    "fvg_top": float(fvg.top),
+                    "fvg_bottom": float(fvg.bottom),
+                    "direction": fvg.direction,
+                    "sweep_bar_index": int(self.last_sweep.bar_index) if self.last_sweep else None,
+                    "bar_ts": self.bars[i].timestamp.isoformat(),
+                    "bar_index": int(i),
+                },
+            )
+        except Exception:
+            _LOG.warning("fvg_rejected STATE emit failed", exc_info=True)
+
+    def _emit_no_entry(self, i: int, bar: Bar, fvg_count: int, reasons: list) -> None:
+        """STATE emit when the FVG scan loop ends without creating a pending.
+
+        Observation layer ONLY (N2 #23/#24 deseni): strategy flow unaffected
+        (emit failures are logged, never raised). `reasons` = the collected
+        reject-reason strings from the scan loop (before_sweep, eq_filter,
+        no_touch, ...). Ts-disiplini AM-N23-2: satir-ts=emit-ani, bar_ts=
+        icerik-momenti.
+        """
+        if self.audit is None:
+            return
+        try:
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self.symbol,
+                {
+                    "moment": "no_entry",
+                    "fvg_count": fvg_count,
+                    "reject_reasons": reasons,
+                    "bar_ts": bar.timestamp.isoformat(),
+                    "bar_index": int(i),
+                },
+            )
+        except Exception:
+            _LOG.warning("no_entry STATE emit failed", exc_info=True)
+
     # -- N2 #24 V6-hibrit junction ----------------------------------------
     def _v6_junction(
         self,
@@ -653,20 +709,27 @@ class StrategyRuntime:
             max_wick_ratio=FVG_WICK_RATIO_MAX,
         )
 
+        _reject_reasons: List[str] = []
         for fvg in fvgs:
             if fvg.real_index <= self.last_sweep.bar_index:
+                _reject_reasons.append("before_sweep")
                 continue
             if fvg.direction != sweep_direction:
+                _reject_reasons.append("direction_mismatch")
                 continue
             if fvg.invalidated:
+                _reject_reasons.append("invalidated")
                 continue
             if not _is_fresh_fvg(fvg, self.bars, i):
+                _reject_reasons.append("not_fresh")
                 continue
             if i <= self.last_sweep.bar_index:
+                _reject_reasons.append("bar_before_sweep")
                 continue
 
             window = self.bars[self.last_sweep.bar_index : i + 1]
             if not window:
+                _reject_reasons.append("empty_window")
                 continue
             leg_high = max(b.high for b in window)
             leg_low = min(b.low for b in window)
@@ -676,17 +739,25 @@ class StrategyRuntime:
             # C2 EQ filter: entire FVG on correct side of EQ
             if self.last_sweep.direction == Direction.BULLISH:
                 if fvg.top > eq:
+                    self._emit_fvg_rejected(fvg, "eq_filter", i)
+                    _reject_reasons.append("eq_filter")
                     continue
             else:
                 if fvg.bottom < eq:
+                    self._emit_fvg_rejected(fvg, "eq_filter", i)
+                    _reject_reasons.append("eq_filter")
                     continue
 
             # First-touch entry check
             if fvg.direction == "bullish":
                 if not (bar.low <= fvg.top and bar.low >= fvg.bottom - self.atr_val * 0.1):
+                    self._emit_fvg_rejected(fvg, "no_touch", i)
+                    _reject_reasons.append("no_touch")
                     continue
             else:
                 if not (bar.high >= fvg.bottom and bar.high <= fvg.top + self.atr_val * 0.1):
+                    self._emit_fvg_rejected(fvg, "no_touch", i)
+                    _reject_reasons.append("no_touch")
                     continue
 
             # NEXUS parity: next-bar-open execution. In live, the next bar's
@@ -702,6 +773,8 @@ class StrategyRuntime:
             self._next_idx = i + 1
             return None  # signal emitted at fill (next bar)
 
+        if fvgs:
+            self._emit_no_entry(i, bar, len(fvgs), _reject_reasons)
         self._next_idx = i + 1
         return None
 
@@ -776,6 +849,22 @@ class StrategyRuntime:
             # MIN_RISK_DIST failure: reject this pending but KEEP the sweep so
             # scanning continues with the same sweep (canonical parity). The
             # caller falls through to re-scan on the current bar.
+            if self.audit is not None:
+                try:
+                    self.audit.append(
+                        time.time(),
+                        EventType.STATE,
+                        self.symbol,
+                        {
+                            "moment": "pending_rejected",
+                            "reason": "min_risk_dist",
+                            "risk_dist": rd,
+                            "threshold": self.atr_val * MIN_RISK_DIST_ATR_MULT,
+                            "bar_ts": bar.timestamp.isoformat(),
+                        },
+                    )
+                except Exception:
+                    _LOG.warning("pending_rejected STATE emit failed", exc_info=True)
             self.pending_entry = None
             self._last_signal = None
             return False
