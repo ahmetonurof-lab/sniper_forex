@@ -683,6 +683,128 @@ class TestSafeModePersistence:
         orch.clear_safe_mode()
         assert not orch._read_safe_mode()
 
+    def test_dedupe_safe_reason_collapses_preclear_chain(self):
+        """KARAR-Commit-2 (dedupe): the 14× safe_mode_persisted chain
+        observed in state/PRESERVE_20260910_S5_PRECLEAR/orchestrator_safe.json
+        collapses to a single persist tag + a single root cause. Safe-file
+        semantics (persist tag + read path) are unchanged — only the
+        accumulated reason string is bounded."""
+        from src.live.orchestrator import _dedupe_safe_reason
+
+        # Reconstruct the PRECLEAR evidence shape: 14× nested persist tag
+        # chain + 14× repeated recon_blocked entry.
+        chain = "safe_mode_persisted: " * 14 + "recon_blocked: NOT_RUN"
+        reason = chain + "; " + "; ".join(["recon_blocked: NOT_RUN"] * 14)
+
+        out = _dedupe_safe_reason(reason)
+        assert out == "safe_mode_persisted: recon_blocked: NOT_RUN"
+        assert out.count("safe_mode_persisted:") == 1
+        assert out.count("recon_blocked: NOT_RUN") == 1
+
+    def test_safe_reason_dedupe_no_growth_across_boots(
+        self, tmp_state, monkeypatch, synthetic_base_time
+    ):
+        """KARAR-Commit-2 (dedupe): the persisted safe-mode reason string
+        must NOT grow across boots. Each boot used to wrap the previous
+        reason in a new ``safe_mode_persisted:`` layer and re-append the
+        same recon_blocked entry (observed 14× chain in PRECLEAR). After
+        the fix the reason is bounded: one persist tag, one root cause,
+        stable across a second boot."""
+
+        class FakeSI:
+            point = 0.00001
+            digits = 5
+            trade_tick_value = 1.0
+            volume_min = 0.01
+            volume_max = 100.0
+            volume_step = 0.01
+            trade_contract_size = 100000.0
+            trade_stops_level = 10
+            trade_mode = 4  # FULL — MetaTrader5 enum (Bug B fix 2026-09-01)
+
+        class FakeMT5D24:
+            TIMEFRAME_M1 = 1
+
+            @staticmethod
+            def initialize(path=None):
+                return True
+
+            @staticmethod
+            def login(**kw):
+                return True
+
+            @staticmethod
+            def account_info():
+                return _FakeAccount()
+
+            @staticmethod
+            def terminal_info():
+                return _FakeTerminal()
+
+            @staticmethod
+            def symbol_select(s, v=True):
+                return True
+
+            @staticmethod
+            def symbol_info(s):
+                return FakeSI()
+
+            @staticmethod
+            def positions_get(**kw):
+                return []
+
+            @staticmethod
+            def orders_get(**kw):
+                return []
+
+            @staticmethod
+            def copy_rates_from_pos(symbol, tf, start, count):
+                rates = _make_m1_rates_utc(synthetic_base_time, 1600)
+                return rates[-count:] if count <= len(rates) else rates[:]
+
+        sys.modules["MetaTrader5"] = FakeMT5D24
+
+        safe_path = tmp_state / "orchestrator_safe.json"
+        safe_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def _make_orch():
+            return Orchestrator(
+                state_dir=str(tmp_state),
+                configured_symbols=["EURUSD"],
+                config_obj=OrchestratorConfig(
+                    symbols=["EURUSD"],
+                    state_dir=str(tmp_state),
+                    expected_login="53012914",
+                ),
+            )
+
+        # Boot 1: seed a persisted reason as a prior run would leave it.
+        safe_path.write_text(
+            json.dumps({"safe_mode": True, "reason": "recon_blocked: NOT_RUN", "ts": time.time()}),
+            encoding="utf-8",
+        )
+        orch1 = _make_orch()
+        result1 = orch1.startup()
+        assert result1.verdict == StartupVerdict.SAFE_START
+        # Bounded: exactly one persist tag + one root cause.
+        assert result1.reason.count("safe_mode_persisted:") == 1
+        assert result1.reason.count("recon_blocked: NOT_RUN") == 1
+        # SAFE_START holds the lock — release before the second boot so the
+        # same test process can re-acquire (a live same-PID lock is FATAL).
+        orch1.lock.release()
+
+        # Boot 2: the persisted file now carries boot-1's reason.
+        orch2 = _make_orch()
+        result2 = orch2.startup()
+        assert result2.verdict == StartupVerdict.SAFE_START
+        # No growth across boots.
+        assert result2.reason == result1.reason
+        assert result2.reason.count("safe_mode_persisted:") == 1
+        assert result2.reason.count("recon_blocked: NOT_RUN") == 1
+        orch2.lock.release()
+
+        del sys.modules["MetaTrader5"]
+
 
 # ── S3 ContractSpec builder ────────────────────────────────────────
 

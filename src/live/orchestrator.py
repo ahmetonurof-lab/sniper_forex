@@ -100,6 +100,36 @@ def _naive_utc_epoch(ts: Any) -> float:
     return ts.replace(tzinfo=timezone.utc).timestamp()
 
 
+def _dedupe_safe_reason(reason: str) -> str:
+    """Collapse a safe-mode reason string to its root causes.
+
+    Each boot used to wrap the previous persisted reason in a new
+    ``safe_mode_persisted:`` layer and re-append the same recon_blocked
+    entries, so the persisted string grew unboundedly (observed 14× chain
+    in state/PRESERVE_20260910_S5_PRECLEAR/orchestrator_safe.json). This
+    strips nested ``safe_mode_persisted:`` chains and dedupes repeated
+    entries, keeping first-occurrence order and a single persist tag.
+    Safe-file semantics (persist tag + read path) are unchanged — only the
+    accumulated reason string is bounded.
+    """
+    if not reason:
+        return reason
+    had_tag = reason.startswith("safe_mode_persisted: ")
+    seen: List[str] = []
+    for part in reason.split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        while part.startswith("safe_mode_persisted: "):
+            part = part[len("safe_mode_persisted: ") :].strip()
+        if part and part not in seen:
+            seen.append(part)
+    joined = "; ".join(seen)
+    if had_tag and joined:
+        return f"safe_mode_persisted: {joined}"
+    return joined
+
+
 # ── Atomic tmp+rename write (N2 #15 — WinError 5 hardening) ────────
 # The T0 crash (2026-09-01) died at `tmp.replace(...)` with WinError 5
 # (PermissionError) on BOTH the lock heartbeat and the audit shutdown
@@ -1882,7 +1912,13 @@ class Orchestrator:
         # ── S11: READY ──────────────────────────────────────────
         self.lock.set_phase("S11_ready")
         if safe_reasons:
-            self._write_safe_mode("; ".join(safe_reasons))
+            # KARAR-Commit-2 (dedupe): collapse nested safe_mode_persisted:
+            # chains and repeated entries so the persisted reason string is
+            # bounded (observed 14× chain in PRECLEAR). Safe-file semantics
+            # unchanged — the tag is still written once, the read path is
+            # untouched; only the accumulated reason string is deduped.
+            reason = _dedupe_safe_reason("; ".join(safe_reasons))
+            self._write_safe_mode(reason)
             self.audit.append(
                 time.time(),
                 EventType.STARTUP,
@@ -1898,7 +1934,7 @@ class Orchestrator:
             return StartupResult(
                 verdict=StartupVerdict.SAFE_START,
                 phase=StartupPhase.S9_WARMUP,
-                reason="; ".join(safe_reasons),
+                reason=reason,
                 account=account_dict,
                 terminal=terminal_dict,
                 snapshot=snapshot,
