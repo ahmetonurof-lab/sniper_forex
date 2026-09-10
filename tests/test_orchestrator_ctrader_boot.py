@@ -89,6 +89,14 @@ def _make_m1_bars(n, end_utc_min=None):
     return bars
 
 
+class FakeReconcileRes:
+    """ProtoOAReconcileRes-shaped fake for get_positions()."""
+
+    def __init__(self, positions=None):
+        self.position = positions or []
+        self.order = []
+
+
 class FakeCtraderConnection:
     """Scripted fake of CTraderConnection's surface: property-style
     is_connected (real shape), event_queue responses."""
@@ -144,6 +152,11 @@ class FakeCtraderConnection:
                 ProtoOASpotEvent(symbol_id, 60_000_100_000, 60_000_120_000, int(time.time())),
             )
         )
+
+    def reconcile(self):
+        """ProtoOAReconcileReq handler — enqueues empty reconciliation."""
+        self.calls.append(("reconcile", None))
+        self.event_queue.put(("MESSAGE", FakeReconcileRes(positions=[])))
 
 
 @pytest.fixture()
@@ -229,13 +242,17 @@ class TestCtraderBoot:
         assert orch._contract.contract_size == 100000.0
 
     def test_s5_manual_snapshot_no_safe_persist_loop(self, ctrader_orch):
-        """Karar-5: startup_snapshot NOT called (no §7.2 persist loop);
-        manual snapshot carries beyanlı NOT_RUN reconciliation."""
+        """Karar-5: S5 calls _build_ctrader_snapshot() which performs
+        REAL reconciliation via adapter.get_positions() (no more manual
+        NOT_RUN). Snapshot carries beyanlı reconciliation status."""
         orch, conn = ctrader_orch
         result = orch.startup()
         assert result.verdict in (StartupVerdict.PROCEED, StartupVerdict.SAFE_START)
         payload_text = repr([getattr(e, "payload", {}) for e in orch.audit.events])
-        assert "ctrader_snapshot_manual_beyanli" in payload_text
+        # New behavior: real reconciliation via cTrader positions API
+        assert "ctrader_snapshot_reconciled" in payload_text
+        # reconcile() must have been called by get_positions()
+        assert any(c[0] == "reconcile" for c in conn.calls)
         # No safe-mode file persisted by S5 (would force §7.2 degraded boot).
         safe_file = orch._safe_path()
         assert not safe_file.exists() or "ctrader" not in safe_file.read_text(encoding="utf-8")

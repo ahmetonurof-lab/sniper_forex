@@ -40,6 +40,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import pandas as pd
 
 from src.config.mt5_config import get_mt5_config
+from src.ctrader.position_adapter import CTRADER_BOT_LABEL, _to_position_ctrader
 from src.live.atomic_write import (  # noqa: F401 — re-export for tests/compat
     _ATOMIC_WRITE_RUNTIME,
     _CRASH_LOG,
@@ -63,7 +64,7 @@ from src.live.canli_trade_log import (
 )
 from src.live.clock import _utcnow_naive, server_to_utc_historical
 from src.live.console_reporter import ConsoleReporter
-from src.live.reconciliation import ReconcileStatus, ReconciliationDecision
+from src.live.reconciliation import Reconciler, ReconcileStatus, ReconciliationDecision
 from src.live.recovery import RuntimeRecovery, schedule_snapshot
 from src.live.risk import Account, RiskManager
 from src.live.safety import SafetyMonitor
@@ -1762,36 +1763,14 @@ class Orchestrator:
             # module calls inside it would fail on mt5=None and flip
             # safe_mode=True, whose persistence (§7.2) would then force
             # every future boot into SAFE-START (safe-mode persist loop).
-            # Instead we hand-build the snapshot shape: reconciliation is
-            # an explicit beyanlı NOT_RUN (audited below — not silent),
-            # positions/orders empty (cTrader positions are managed in a
-            # later İş item), mt5_connected from the adapter.
+            # Instead we hand-build the snapshot shape. Reconciliation is
+            # now REAL: adapter.get_positions() fetches broker positions via
+            # ProtoOAReconcileReq and the Reconciler compares them against
+            # the local lifecycle state (same pure function the MT5 path
+            # uses — §2.2, no duplicate source of truth). The NOT_RUN
+            # hardcoded string is replaced by the real ReconcileStatus.
             if self._ctrader_mode:
-                snapshot = {
-                    "mt5_connected": bool(
-                        self._mt5_conn.is_connected()
-                        if hasattr(self._mt5_conn, "is_connected")
-                        else False
-                    ),
-                    "reconciliation": {
-                        "status": "NOT_RUN",
-                        "block_trading": True,
-                        "details": ["ctrader_mode_reconciliation_not_run"],
-                    },
-                    "safe_mode": False,
-                    "positions": [],
-                    "pending_orders": [],
-                }
-                self.audit.append(
-                    time.time(),
-                    EventType.SAFETY,
-                    self._symbol,
-                    {
-                        "phase": "S5",
-                        "warning": "ctrader_snapshot_manual_beyanli",
-                        "reconciliation": "NOT_RUN",
-                    },
-                )
+                snapshot = self._build_ctrader_snapshot()
             else:
                 snapshot = self._runner.startup_snapshot(configured_symbols=self.configured_symbols)
         except Exception as e:
@@ -2883,6 +2862,85 @@ class Orchestrator:
             block_trading=bool(rc.get("block_trading", True)),
             details=list(rc.get("details") or []),
         )
+
+    def _build_ctrader_snapshot(self) -> dict:
+        """S5 cTrader-mode snapshot with REAL reconciliation (İş-4a).
+
+        Parallel to the MT5 `LiveRunner.startup_snapshot` path — the MT5
+        branch is untouched. Fetches broker positions via
+        `adapter.get_positions()` (ProtoOAReconcileReq), converts them to
+        `Position` objects, and runs the same `Reconciler.reconcile()`
+        against the local lifecycle state.
+
+        Fail-loud semantics: a transient fetch failure (None) or an
+        exception keeps the gate fail-closed (block_trading=True) with a
+        visible reason — never a silent OK. A clean empty state (no local,
+        no remote) yields OK (matches the MT5 path's empty-state branch).
+        """
+        mt5_connected = bool(
+            self._mt5_conn.is_connected() if hasattr(self._mt5_conn, "is_connected") else False
+        )
+        positions_list: List[Dict[str, Any]] = []
+        remote_positions: Dict[int, Any] = {}
+        recon_status = "NOT_RUN"
+        recon_block = True
+        recon_details: List[str] = []
+        try:
+            contract_size = float(self._contract.contract_size) if self._contract else 100000.0
+            raw_positions = self._mt5_conn.get_positions(contract_size=contract_size)
+            if raw_positions is None:
+                recon_details.append("ctrader_get_positions_transient_failure")
+            else:
+                for d in raw_positions:
+                    positions_list.append(d)
+                    pos = _to_position_ctrader(d, CTRADER_BOT_LABEL)
+                    if pos is not None:
+                        remote_positions[int(pos.ticket)] = pos
+                # Local lifecycle state (persisted via state.py — restored
+                # in S7; at S5 it reflects the pre-restore object, matching
+                # the MT5 path's own S5 timing).
+                local_for_recon: Dict[int, Any] = {}
+                if self._lifecycle is not None:
+                    for pid, ctx in self._lifecycle.open_trades.items():
+                        local_for_recon[pid] = ctx
+                if local_for_recon or remote_positions:
+                    reconciler = Reconciler()
+                    decision = reconciler.reconcile(local_for_recon, remote_positions)
+                    recon_status = decision.status.value
+                    recon_block = decision.block_trading
+                    recon_details = list(decision.details)
+                else:
+                    recon_status = "OK"
+                    recon_block = False
+                    recon_details = []
+        except Exception as e:
+            recon_status = "NOT_RUN"
+            recon_block = True
+            recon_details = [f"ctrader_reconcile_exception: {type(e).__name__}"]
+        snapshot = {
+            "mt5_connected": mt5_connected,
+            "reconciliation": {
+                "status": recon_status,
+                "block_trading": recon_block,
+                "details": recon_details,
+            },
+            "safe_mode": recon_block,
+            "positions": positions_list,
+            "pending_orders": [],
+        }
+        self.audit.append(
+            time.time(),
+            EventType.SAFETY,
+            self._symbol,
+            {
+                "phase": "S5",
+                "warning": "ctrader_snapshot_reconciled",
+                "reconciliation": recon_status,
+                "positions_count": len(positions_list),
+                "block_trading": recon_block,
+            },
+        )
+        return snapshot
 
     def _get_spread_state(self, now_dt: datetime) -> Tuple[bool, float]:
         """(tick_fresh, spread_points). Tick missing/stale → (False, 0.0);

@@ -57,6 +57,12 @@ import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.ctrader.position_adapter import (
+    CTRADER_BOT_LABEL,
+    _to_position_ctrader,
+    position_to_dict,
+)
+
 logger = logging.getLogger(__name__)
 
 # cTrader price encoding: prices are specified in 1/100000 of a price unit
@@ -657,3 +663,77 @@ class CTraderDataAdapter:
                 logger.warning("ctrader_adapter_stale_quote: %s age=%.0fs", symbol, age)
                 return None
         return dict(quote)
+
+    # ------------------------------------------------------------------
+    # get_positions — reconciliation fetch contract (İş-4a / reconciliation)
+    # ------------------------------------------------------------------
+    def _resolve_symbol_name(self, symbol_id: int) -> Optional[str]:
+        """Reverse symbolId → name lookup from the cached symbol map."""
+        for name, sid in self._symbol_ids.items():
+            if int(sid) == int(symbol_id):
+                return name
+        return None
+
+    def get_positions(
+        self,
+        contract_size: float = 100000.0,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Fetch open positions via ProtoOAReconcileReq, MT5-shaped dict list.
+
+        Mirrors get_rates tri-state semantics:
+          - None            → transient/transport failure (ERROR-ladder path)
+          - []              → request succeeded, zero positions
+          - List[dict]      → positions, MT5-shaped (ticket/symbol/side/
+                              volume/entry_price/sl/tp/...)
+
+        Only bot-owned positions (label == CTRADER_BOT_LABEL) are returned,
+        matching the MT5 magic-filter semantics in
+        `LiveRunner.startup_snapshot`. Volume is decoded from protocol units
+        (lot x contract_size x 100) to lots via `position_to_dict`.
+        """
+        if not self.is_connected():
+            raise CTraderDataError("ctrader_not_connected: cannot get_positions")
+        with self._req_lock:
+            try:
+                self._conn.reconcile()
+            except Exception as exc:
+                raise CTraderDataError(
+                    f"reconcile_request_failed: {type(exc).__name__}: {exc}"
+                ) from exc
+            res, leftovers = self._drain_until(
+                lambda kind, payload: (
+                    kind in ("MESSAGE", "RECONCILE_ERROR", "PARSE_ERROR")
+                    and (
+                        (
+                            kind == "MESSAGE"
+                            and payload is not None
+                            and type(payload).__name__ == "ProtoOAReconcileRes"
+                        )
+                        or kind in ("RECONCILE_ERROR", "PARSE_ERROR")
+                    )
+                ),
+                self._timeout,
+            )
+            self._requeue(leftovers)
+            if res is None:
+                raise CTraderDataError("reconcile_response_timeout")
+            if type(res).__name__ != "ProtoOAReconcileRes":
+                raise CTraderDataError(f"reconcile_error: {res}")
+            positions: List[Dict[str, Any]] = []
+            for pos in res.position:
+                trade_data = getattr(pos, "tradeData", None)
+                symbol_id = int(getattr(trade_data, "symbolId", 0))
+                symbol_name = self._resolve_symbol_name(symbol_id)
+                if symbol_name is None:
+                    logger.warning(
+                        "ctrader_adapter_unknown_symbol_id: %s (position skipped)",
+                        symbol_id,
+                    )
+                    continue
+                d = position_to_dict(pos, contract_size, symbol_name)
+                if d is None:
+                    continue
+                if _to_position_ctrader(d, CTRADER_BOT_LABEL) is None:
+                    continue  # not bot-owned — skip (MT5 magic-filter parity)
+                positions.append(d)
+            return positions

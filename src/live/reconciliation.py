@@ -40,6 +40,7 @@ class ReconcileStatus(str, Enum):
     ORPHAN = "ORPHAN"  # local has ticket, MT5 does not
     UNKNOWN_OPEN = "UNKNOWN_OPEN"  # MT5 has ticket, local does not
     MISMATCH = "MISMATCH"  # ticket in both, but state diverges
+    NOT_RUN = "NOT_RUN"  # reconciliation skipped (e.g. cTrader mode)
 
 
 @dataclass
