@@ -93,3 +93,34 @@ def _isolate_n2_17_crash_log(tmp_path, monkeypatch):
     # N2 #21 madde-8: the K2 floor lives in atomic_write.py — patch the
     # canonical location too (orchestrator re-exports the same name).
     monkeypatch.setattr(aw_mod, "_CRASH_LOG", tmp_path / "crash_log.txt")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _hermetic_state_dir(tmp_path_factory):
+    """K4a (Hakem direktifi 2026-09-10): pin SNIPER_STATE_DIR to a pytest
+    temp dir for the whole session.
+
+    run_production tests run with SNIPER_STATE_DIR unset, so
+    `_build_config()` resolves `state_dir` to `os.path.abspath("state")`
+    — the REAL runtime state dir. When a live soak holds
+    `state/orchestrator.lock`, the N2 #17 dual-instance pre-guard in
+    `main()` sees a live owner and returns 0 early, breaking the
+    exit-code mapping tests (TAS4 attribution: environmental, not a code
+    regression). This fixture makes the suite hermetic (§19
+    CWD-dependent-persistence class): the default resolves to a fresh
+    temp dir, so no test can collide with a live soak lock.
+
+    Per-test `monkeypatch.setenv/delenv` (e.g. test_d18_state_dir_policy,
+    test_orchestrator_n2_17) still override this default — the fixture
+    only supplies the session baseline. Assertions are untouched (§4.3).
+    """
+    import os
+
+    state_dir = tmp_path_factory.mktemp("state")
+    saved = os.environ.get("SNIPER_STATE_DIR")
+    os.environ["SNIPER_STATE_DIR"] = str(state_dir)
+    yield
+    if saved is None:
+        os.environ.pop("SNIPER_STATE_DIR", None)
+    else:
+        os.environ["SNIPER_STATE_DIR"] = saved
