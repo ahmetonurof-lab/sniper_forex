@@ -17,6 +17,7 @@ callFromThread ile ana thread ↔ reactor köprüsü.
 """
 
 import json
+import logging
 import queue
 import threading
 import time
@@ -24,6 +25,8 @@ from pathlib import Path
 
 from ctrader_open_api import Client, EndPoints, Protobuf, TcpProtocol
 from twisted.internet import reactor
+
+logger = logging.getLogger(__name__)
 
 # Heartbeat aralığı (saniye) — D126: "en az 10 saniyede bir"
 HEARTBEAT_INTERVAL_SEC = 10.0
@@ -110,12 +113,18 @@ class CTraderConnection:
         self._connected = True
         self._last_message_received = time.time()
         self.event_queue.put(("CONNECTED", None))
+        # İŞ-4/N2#27: reconnect observability — SOAK-2'de reconnect
+        # izlenemezliği kök-nedenlerden biriydi (reconnect olup olmadığı
+        # log'dan anlaşılamıyordu). Davranış değişmez — yalnız log.
+        logger.info("ctrader_connected: account=%s", self.config.get("account_id"))
         # Bağlantı sonrası auth zinciri: uygulama auth → hesap auth
         self._send_application_auth()
 
     def _on_disconnected(self, client, reason):
         self._connected = False
         self.event_queue.put(("DISCONNECTED", str(reason)))
+        # İŞ-4/N2#27: reconnect observability (davranış değişmez).
+        logger.warning("ctrader_disconnected: reason=%s", reason)
 
     def _on_message_received(self, client, message):
         # İŞ-3: her sunucu mesajı liveness probunu tazeler (heartbeat dahil).
@@ -354,18 +363,26 @@ class CTraderConnection:
         Returns True when reconnected (connected AND account-authorized)
         within the bounded wait, False otherwise.
         """
+        # İŞ-4/N2#27: reconnect observability (davranış değişmez).
+        logger.warning("ctrader_reconnect_start: max_attempts=%d", max_attempts)
         if self._thread is None or not self._thread.is_alive():
+            logger.warning("ctrader_reconnect_no_thread")
             return False
         try:
             reactor.callFromThread(self._do_reconnect)
         except Exception:
+            logger.warning("ctrader_reconnect_call_failed", exc_info=True)
             return False
         deadline = time.monotonic() + min(max_attempts, 5) * 2.0
         while time.monotonic() < deadline:
             if self._connected and self._account_authorized:
+                logger.info("ctrader_reconnect_ok")
                 return True
             time.sleep(0.2)
-        return self._connected and self._account_authorized
+        ok = self._connected and self._account_authorized
+        if not ok:
+            logger.warning("ctrader_reconnect_failed")
+        return ok
 
     def _do_reconnect(self):
         """Reactor thread'inde: ClientService'i zorla durdur + yeniden başlat.
@@ -377,6 +394,8 @@ class CTraderConnection:
         """
         from twisted.application.internet import ClientService
 
+        # İŞ-4/N2#27: reconnect observability (davranış değişmez).
+        logger.warning("ctrader_do_reconnect: stopping ClientService")
         try:
             d = ClientService.stopService(self.client)
         except Exception:

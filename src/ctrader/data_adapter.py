@@ -85,6 +85,25 @@ DEFAULT_RESPONSE_TIMEOUT_SEC = 10.0
 # "current" when the market has been closed for days.
 DEFAULT_TICK_MAX_AGE_SEC = 300.0
 
+# İŞ-4/N2#27 (RECONNECT-V2): spot-quote freshness liveness. SOAK-2
+# F1-reopened failure mode: the spot subscription died server-side while
+# TCP stayed healthy — `is_stale()` (TCP/heartbeat) stayed False forever,
+# so `ensure_connected()` never reconnected and the spot stream stayed
+# dead → gate CLOSED. `is_stale()` measures TCP traffic, NOT the
+# spot-quote stream; these pins define the missing spot-freshness liveness
+# (pre-reg results/N2_27_reconnect_v2_prereg.md §2 — FROZEN).
+#
+#   SPOT_FRESHNESS_SEC (90.0): a spot quote older than this is treated as
+#     a dead spot stream (well before the 300s stale-gate) and triggers a
+#     churn-guarded re-subscribe while the quote is still served.
+#   SPOT_RESUBSCRIBE_MIN_INTERVAL_SEC (60.0): churn guard — a stale quote
+#     must not re-subscribe on every tick; attempts are ≥60s apart.
+#   SPOT_ESCALATE_AFTER_N (2): after N re-subscribe attempts the stream is
+#     still stale → escalate to an active reconnect (force-restart).
+SPOT_FRESHNESS_SEC = 90.0
+SPOT_RESUBSCRIBE_MIN_INTERVAL_SEC = 60.0
+SPOT_ESCALATE_AFTER_N = 2
+
 # S1 (İş-4a) / D162: per-request trendbar ceiling. The official docs do
 # not publish a numeric chunkSize for ProtoOAGetTrendbarsRes; the response
 # carries `hasMore` which signals truncation. Counts above this ceiling are
@@ -161,6 +180,11 @@ class CTraderDataAdapter:
         self._last_spot: Dict[str, Dict[str, Any]] = {}
         # Spot subscription requested (once per symbol).
         self._spot_subscribed: set = set()
+        # İŞ-4/N2#27: spot-freshness liveness bookkeeping (per symbol).
+        #   _spot_refresh_ts[symbol]      — monotonic ts of last re-subscribe
+        #   _spot_refresh_attempts[symbol] — consecutive re-subscribe count
+        self._spot_refresh_ts: Dict[str, float] = {}
+        self._spot_refresh_attempts: Dict[str, int] = {}
         # Serialize synchronous request/response cycles (single consumer
         # discipline on the shared event_queue).
         self._req_lock = threading.Lock()
@@ -648,6 +672,16 @@ class CTraderDataAdapter:
             except queue.Empty:
                 break
             drained += 1
+            if kind == "CONNECTED":
+                # İŞ-4/N2#27: a (re)connect invalidates per-connection spot
+                # subscriptions — the server-side subscription is lost on
+                # ANY reconnect (passive ClientService retry OR active
+                # _reconnect; both fire _on_connected → CONNECTED event).
+                # Reset so the next get_tick_data re-subscribes. Single
+                # point — no separate handling for passive vs active.
+                self._spot_subscribed.clear()
+                self._last_spot.clear()
+                continue
             if (
                 kind == "MESSAGE"
                 and payload is not None
@@ -685,6 +719,55 @@ class CTraderDataAdapter:
             "ask": float(ask) / CTRADER_PRICE_SCALE,
             "time": ts,  # UTC epoch seconds (converted from ms — D178)
         }
+
+    def _note_spot_freshness(self, symbol: str, age: float) -> None:
+        """İŞ-4/N2#27: spot-quote liveness — revive a dead spot stream.
+
+        SOAK-2 F1-reopened failure mode: the spot subscription died
+        server-side while TCP stayed healthy — `is_stale()` (TCP/heartbeat)
+        stayed False forever, so `ensure_connected()` never reconnected and
+        the spot stream stayed dead → gate CLOSED. `is_stale()` measures
+        TCP traffic, NOT the spot-quote stream; this is the missing
+        spot-freshness liveness.
+
+        Policy (pre-reg pins, FROZEN — results/N2_27_reconnect_v2_prereg.md):
+          - age > SPOT_FRESHNESS_SEC (90s) but < tick_max_age (300s): the
+            quote is still served (gate stays OPEN) while a re-subscribe is
+            attempted.
+          - churn guard: attempts ≥ SPOT_RESUBSCRIBE_MIN_INTERVAL_SEC (60s)
+            apart — a stale quote must not re-subscribe on every tick.
+          - after SPOT_ESCALATE_AFTER_N (2) attempts the stream is still
+            stale → escalate to an active reconnect (force-restart). NOT
+            ensure_connected(): TCP is healthy so ensure_connected would
+            not reconnect; the spot stream needs a connection restart.
+        """
+        now = time.monotonic()
+        last = self._spot_refresh_ts.get(symbol, 0.0)
+        if now - last < SPOT_RESUBSCRIBE_MIN_INTERVAL_SEC:
+            return  # churn guard — too soon since the last attempt
+        self._spot_refresh_ts[symbol] = now
+        attempts = self._spot_refresh_attempts.get(symbol, 0) + 1
+        self._spot_refresh_attempts[symbol] = attempts
+        logger.warning(
+            "ctrader_adapter_spot_stale: %s age=%.0fs attempt=%d",
+            symbol,
+            age,
+            attempts,
+        )
+        if attempts >= SPOT_ESCALATE_AFTER_N:
+            # Escalate: force a connection restart (TCP may be healthy but
+            # the spot stream is dead — a fresh connection re-subscribes).
+            self._spot_refresh_attempts[symbol] = 0
+            logger.warning("ctrader_adapter_spot_escalate_reconnect: %s", symbol)
+            self._reconnect(max_attempts=3)
+            return
+        # Re-subscribe (server-side subscription is per-connection; a fresh
+        # subscribe may revive the stream without a full reconnect).
+        self._spot_subscribed.discard(symbol)
+        try:
+            self.subscribe_spots(symbol)
+        except CTraderDataError as exc:
+            logger.warning("ctrader_adapter_spot_resubscribe_failed: %s", exc)
 
     def get_tick_data(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Latest spot quote for `symbol`, MT5 tick-shape {bid, ask, time}.
@@ -728,6 +811,12 @@ class CTraderDataAdapter:
                 # reconnect so the next call can recover (MT5 parity).
                 self.ensure_connected()
                 return None
+            if age > SPOT_FRESHNESS_SEC:
+                # İŞ-4/N2#27: the spot stream may be dead while TCP is
+                # healthy (SOAK-2 F1-reopened). Attempt a churn-guarded
+                # re-subscribe (escalating to reconnect after N attempts)
+                # while the quote is still served — the gate stays OPEN.
+                self._note_spot_freshness(symbol, age)
         return dict(quote)
 
     # ------------------------------------------------------------------
