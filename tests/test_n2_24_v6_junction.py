@@ -53,6 +53,29 @@ BRK_BEAR = (1.09900, 1.09910, 1.09600, 1.09700)
 BRK_BULL = (1.10300, 1.10500, 1.10290, 1.10400)
 SWEEP_BEAR = (1.10300, 1.10530, 1.10195, 1.10195)
 
+# N2 #26 fallback-giriş senaryosu (gün-01-05; sweep-yok; HTF bearish-A):
+#   k=220: ayı-breakout (BRK_BEAR) → fallback-kilit (sweep_price=1.09600,
+#          ref=BL=1.10000)
+#   k=221..223: ralli (sweep-tetiklemez; low>1.09895, high<1.10305)
+#   k=224: ralli-tepesi = FVG mum-1 (b_prev; low=1.10250 = FVG top)
+#   k=225: FVG mum-2 (b_curr; real_index=225; wick-ratio 0.077 ≤ 0.75)
+#   k=226: FVG mum-3 (b_next; high=1.10160 = FVG bottom) + touch
+#   k=227: fill (open=1.10000; rd=0.002815 ≥ MIN_RISK_DIST=0.00021)
+# Geometri NEXUS detect_fvgs'de kalibre edildi (nexus-mcp/sniper/src/fvg.py):
+#   gap_bear = b_prev.low - b_next.high = 1.10250-1.10160 = 0.00090 > 0
+#   FVG top=1.10250, bottom=1.10160, size=0.00090 ≥ min_fvg_size=0.000126
+#   EQ: leg_high=1.10280, leg_low=1.09600, leg_mid=1.09940,
+#       eq=(1.09600+1.09940)/2=1.09770 ≤ fvg.bottom=1.10160 ✓
+FALLBACK_ENTRY: dict = {
+    221: (1.09900, 1.10000, 1.09900, 1.09990),
+    222: (1.09990, 1.10080, 1.09980, 1.10070),
+    223: (1.10070, 1.10160, 1.10060, 1.10150),
+    224: (1.10260, 1.10280, 1.10250, 1.10270),  # ralli-tepesi; low=1.10250
+    225: (1.10240, 1.10250, 1.10120, 1.10130),  # FVG mum-2
+    226: (1.10120, 1.10160, 1.10000, 1.10010),  # FVG mum-3; high=1.10160
+    227: (1.10000, 1.10010, 1.09850, 1.09880),  # fill
+}
+
 
 def _mk_bar(k: int, o: float, h: float, l: float, c: float) -> Bar:
     return Bar(
@@ -333,6 +356,7 @@ def test_state_roundtrip_preserves_v6_fields():
     assert rt2._v6_ev_ts == rt._v6_ev_ts
     assert rt2._v6_sweep_price == pytest.approx(rt._v6_sweep_price)
     assert rt2._v6_ref_level == pytest.approx(rt._v6_ref_level)
+    assert rt2._v6_entry_consumed == rt._v6_entry_consumed
     assert rt2._htf_dir == rt._htf_dir
     assert rt2._htf_senaryo == rt._htf_senaryo
     assert rt2._v6_rollback_count == rt._v6_rollback_count
@@ -355,6 +379,32 @@ def test_from_state_pre_n2_24_format_audited_fallback(caplog):
     assert rt2._v6_est is False
     assert rt2._v6_rollback_count == 0
     assert any("v6" in r.message.lower() for r in caplog.records), "audited-fallback uyarısı kayıp"
+
+
+def test_state_roundtrip_preserves_entry_consumed():
+    """N2 #26: fallback-girişi sonrası entry_consumed restart'ta korunur.
+
+    should [restore _v6_entry_consumed=True] when [state is persisted
+    after a fallback-driven entry and restored on a fresh runtime]
+
+    §6 restart-correctness: tüketilmiş-fallback bias'ı restart'ta yeniden
+    aktif olmamalı (aynı günde ikinci giriş yok).
+    """
+    rt = _warmed()
+    _replay(rt, 101, 220)
+    rt.on_bar(_mk_bar(220, *BRK_BEAR))  # fallback-kilit
+    for k in range(221, 228):
+        rt.on_bar(_mk_bar(k, *FALLBACK_ENTRY[k]))
+    assert rt._v6_entry_consumed is True
+
+    state = rt.to_state()
+    assert state["v6"]["entry_consumed"] is True
+
+    rt2 = StrategyRuntime("TEST")
+    rt2.from_state(state)
+    assert rt2._v6_entry_consumed is True
+    # tüketilmiş-bias restart'ta tarayıcıyı AÇMAZ (aynı gün ikinci giriş yok)
+    assert rt2._active_bias() is None
 
 
 # ── V0-parite: junction mevcut davranışı değiştirmez ─────────────────
@@ -388,6 +438,108 @@ def test_v0_parity_sweep_day_signal_flow_unchanged():
     # junction sweep-günü kaydetti (V0-aynen)
     assert rt._v6_source == "sweep"
     assert rt._v6_rollback_count == 0
+
+
+# ── N2 #26: fallback-kilitli-gün FVG tarayıcısını açar ────────────────
+
+
+def test_fallback_lock_day_opens_fvg_scanner():
+    """N2 #26: fallback-kilitli-gün FVG tarayıcısı çalışır (sinyal üretir).
+
+    should [produce a signal from a fallback-locked day] when [a bearish
+    breakout locks htf_fallback_breakout and a bearish FVG forms on the
+    same sweepless day]
+
+    RED-ÖNCE: mevcut kodda gate (sweep_detected) fallback-gününde None
+    döner → 0 sinyal. Bu test kırmızıdır (N2#26 tek-değişken: fallback
+    bias'ı FVG tarayıcısını açar; sweep-günü akışı DEĞİŞMEZ).
+    """
+    rt = _warmed()
+    _replay(rt, 101, 220)  # gün-01-05: sweep-yok; HTF bearish(A)
+    rt.on_bar(_mk_bar(220, *BRK_BEAR))  # ayı-breakout → fallback-kilit
+    assert rt._v6_est is True
+    assert rt._v6_source == "htf_fallback_breakout"
+    assert rt._v6_dir == "bearish"
+    assert rt.sweep_detected is False  # sweep-yok gün
+
+    signals = []
+    for k in range(221, 228):
+        sig = rt.on_bar(_mk_bar(k, *FALLBACK_ENTRY[k]))
+        if sig is not None:
+            signals.append(sig)
+    assert len(signals) == 1, f"fallback-günü TEK sinyal beklenir; geldi: {len(signals)}"
+    sig = signals[0]
+    assert sig.side == "short"
+    assert sig.direction == "bearish"
+    assert sig.entry_bar_index == 227
+    assert sig.sweep_bar_index == 220  # fallback-olay-barı (ev_bar)
+    assert sig.zone_index == 225  # FVG real_index
+    # persist-until-entry: giriş sonrası fallback bias tüketilir (aynı
+    # günde ikinci giriş yok)
+    assert rt._v6_entry_consumed is True
+
+
+def test_fallback_entry_consumed_prevents_second_entry():
+    """N2 #26: fallback-girişi sonrası bias tüketilir (persist-until-entry).
+
+    should [not produce a second signal] when [a second FVG forms after a
+    fallback-driven entry on the same day]
+    """
+    rt = _warmed()
+    _replay(rt, 101, 220)
+    rt.on_bar(_mk_bar(220, *BRK_BEAR))  # fallback-kilit
+    signals = []
+    for k in range(221, 228):
+        sig = rt.on_bar(_mk_bar(k, *FALLBACK_ENTRY[k]))
+        if sig is not None:
+            signals.append(sig)
+    assert len(signals) == 1
+    # aynı gün ikinci FVG (k=228..230) → bias tüketildiği için sinyal YOK
+    second = {
+        228: (1.10000, 1.10100, 1.09950, 1.10090),
+        229: (1.10090, 1.10120, 1.09980, 1.10110),
+        230: (1.10110, 1.10130, 1.10090, 1.10120),
+    }
+    for k in range(228, 231):
+        sig = rt.on_bar(_mk_bar(k, *second[k]))
+        assert sig is None, f"tüketilmiş-fallback bias ikinci sinyal üretmemeli: k={k}"
+    assert rt._v6_entry_consumed is True
+
+
+def test_fallback_entry_then_sweep_takes_over():
+    """N2 #26: fallback-girişi sonrası sweep gelirse sweep devralır.
+
+    should [let the sweep bias take over] when [a sweep arrives after a
+    fallback-driven entry has closed on the same day]
+
+    Rollback-dalı dokunulmaz (D93-birebir): fallback-kilitli-güne sweep
+    gelirse V6-kilidi geri alınır ve sweep bias'ı tarayıcıyı açar.
+    Aktif-trade varken sweep algılanmaz (trade-yönetimi sweep'ten önce
+    çalışır) — bu yüzden önce trade TP ile kapanır, sonra sweep beslenir.
+    """
+    rt = _warmed()
+    _replay(rt, 101, 220)
+    rt.on_bar(_mk_bar(220, *BRK_BEAR))  # fallback-kilit
+    signals = []
+    for k in range(221, 228):
+        sig = rt.on_bar(_mk_bar(k, *FALLBACK_ENTRY[k]))
+        if sig is not None:
+            signals.append(sig)
+    assert len(signals) == 1
+    assert rt._v6_entry_consumed is True
+    # trade'i TP ile kapat (short: low <= tp; trailing tp'yi 1.09230'a
+    # çekmiş olabilir → low=1.09000 güvenli)
+    rt.on_bar(_mk_bar(228, 1.09900, 1.09950, 1.09000, 1.09050))
+    assert rt.active_trade is None
+    # aynı güne sweep gelir → rollback (V6-kilidi geri alınır) + sweep-kilit
+    rt.on_bar(_mk_bar(229, *SWEEP_BEAR))
+    assert rt.sweep_detected is True
+    assert rt.last_sweep is not None
+    assert rt._v6_source == "sweep"
+    assert rt._v6_rollback_count == 1
+    # sweep bias'ı tarayıcıyı açar (V0-kuralı; fallback tüketimi sweep'i
+    # engellemez)
+    assert rt._active_bias() is not None
 
 
 # ── N2 #24 icra-turu: inkremental-fold ≡ tam-rebuild özdeşliği ────────

@@ -245,6 +245,12 @@ class StrategyRuntime:
         self._v6_ev_ts: Optional[str] = None
         self._v6_sweep_price: Optional[float] = None
         self._v6_ref_level: Optional[float] = None
+        # N2 #26: fallback-bias tüketim bayrağı (persist-until-entry).
+        # Sweep-günü akışına DOKUNMAZ (sweep bias'ı _fill_pending'de
+        # sweep_detected/last_sweep temizliğiyle tüketilir; bu bayrak
+        # yalnız htf_fallback_breakout bias'ını kapsar). Gün-değişiminde
+        # sıfırlanır; to_state/from_state ile kalıcıdır (§6 restart).
+        self._v6_entry_consumed: bool = False
         self._htf_daily: Optional[Dict[str, Dict[str, float]]] = None
         self._htf_dir: Optional[str] = None
         self._htf_senaryo: Optional[str] = None
@@ -453,6 +459,10 @@ class StrategyRuntime:
             self._v6_ev_ts = None
             self._v6_sweep_price = None
             self._v6_ref_level = None
+            # N2 #26: yeni gün → fallback-bias tüketimi sıfırlanır (yeni
+            # gün yeni fallback-kilidi kurabilir; persist-until-entry
+            # gün-ölçeklidir).
+            self._v6_entry_consumed = False
             if self._htf_daily is None:
                 # Ilk-gun-veya-restore-durumu (_htf_daily persist edilmez):
                 # o ana kadarki tum listeyi kur (build_daily ile —
@@ -540,6 +550,46 @@ class StrategyRuntime:
             self._emit_state("v6_fallback_lock", bar, in_window=in_w, sweep_tol=sweep_tol)
         else:
             self._v6_ignored_count += 1
+
+    def _active_bias(self) -> Optional[tuple]:
+        """Aktif bias-metadata (sweep VEYA fallback) veya None.
+
+        N2 #26 tek-değişken: FVG tarayıcısının bias kaynağı sweep'ten
+        fallback-kilidine genişler. Sweep yolu V0-aynen (sweep_detected ∧
+        last_sweep); fallback yolu htf_fallback_breakout kilidi
+        (persist-until-entry: _v6_entry_consumed False iken aktif).
+
+        Dönüş: (direction_str, ev_bar, sweep_price, ref_level, is_bullish,
+        source) — FVG tarama gövdesi self.last_sweep.* yerine bu yerelleri
+        kullanır (fallback-gününde last_sweep None'dur).
+        """
+        if self.sweep_detected and self.last_sweep is not None:
+            return (
+                "bullish" if self.last_sweep.direction == Direction.BULLISH else "bearish",
+                self.last_sweep.bar_index,
+                self.last_sweep.sweep_price,
+                self.last_sweep.reference_level,
+                self.last_sweep.direction == Direction.BULLISH,
+                "sweep",
+            )
+        if (
+            self._v6_est
+            and self._v6_source == "htf_fallback_breakout"
+            and not self._v6_entry_consumed
+            and self._v6_dir is not None
+            and self._v6_ev_bar is not None
+            and self._v6_sweep_price is not None
+            and self._v6_ref_level is not None
+        ):
+            return (
+                self._v6_dir,
+                self._v6_ev_bar,
+                self._v6_sweep_price,
+                self._v6_ref_level,
+                self._v6_dir == "bullish",
+                "htf_fallback_breakout",
+            )
+        return None
 
     # -- Warmup -----------------------------------------------------------
     def warmup(self, bars_15m: List[Bar]) -> None:
@@ -692,11 +742,15 @@ class StrategyRuntime:
         # tarayicisi sweep-gated kalir (asagidaki gate AYNEN degismez).
         self._v6_junction(bar, i, sweep, _in_w, _sweep_tol)
 
-        if not self.sweep_detected or self.last_sweep is None:
+        # N2 #26: bias kaynagi sweep VEYA fallback-kilidi (_active_bias).
+        # Sweep-gunu akisi V0-aynen; fallback-gunu (sweep-yok) tarayiciyi
+        # açar. Bias yoksa gate None döner (mevcut davranis).
+        bias = self._active_bias()
+        if bias is None:
             self._next_idx = i + 1
             return None
+        sweep_direction, ev_bar, sweep_price, ref_level, is_bullish, bias_source = bias
 
-        sweep_direction = "bullish" if self.last_sweep.direction == Direction.BULLISH else "bearish"
         lb = min(100, i + 1)
         nexus_bars = self.nexus_bars_full[i + 1 - lb : i + 1]
 
@@ -711,7 +765,7 @@ class StrategyRuntime:
 
         _reject_reasons: List[str] = []
         for fvg in fvgs:
-            if fvg.real_index <= self.last_sweep.bar_index:
+            if fvg.real_index <= ev_bar:
                 _reject_reasons.append("before_sweep")
                 continue
             if fvg.direction != sweep_direction:
@@ -723,21 +777,21 @@ class StrategyRuntime:
             if not _is_fresh_fvg(fvg, self.bars, i):
                 _reject_reasons.append("not_fresh")
                 continue
-            if i <= self.last_sweep.bar_index:
+            if i <= ev_bar:
                 _reject_reasons.append("bar_before_sweep")
                 continue
 
-            window = self.bars[self.last_sweep.bar_index : i + 1]
+            window = self.bars[ev_bar : i + 1]
             if not window:
                 _reject_reasons.append("empty_window")
                 continue
             leg_high = max(b.high for b in window)
             leg_low = min(b.low for b in window)
             leg_mid = (leg_high + leg_low) / 2.0
-            eq = (self.last_sweep.sweep_price + leg_mid) / 2.0
+            eq = (sweep_price + leg_mid) / 2.0
 
             # C2 EQ filter: entire FVG on correct side of EQ
-            if self.last_sweep.direction == Direction.BULLISH:
+            if is_bullish:
                 if fvg.top > eq:
                     self._emit_fvg_rejected(fvg, "eq_filter", i)
                     _reject_reasons.append("eq_filter")
@@ -769,7 +823,7 @@ class StrategyRuntime:
             # passes). If the pending is later rejected at fill (MIN_RISK_DIST
             # failure), the sweep must survive so scanning continues with the
             # same sweep — matching canonical's continue-on-failure behavior.
-            self._create_pending(fvg, i)
+            self._create_pending(fvg, i, bias)
             self._next_idx = i + 1
             return None  # signal emitted at fill (next bar)
 
@@ -779,8 +833,15 @@ class StrategyRuntime:
         return None
 
     # -- Pending entry -----------------------------------------------------
-    def _create_pending(self, fvg, i: int) -> None:
-        """Compute SL/TP at touch bar `i`; store pending entry (no entry_price)."""
+    def _create_pending(self, fvg, i: int, bias: tuple) -> None:
+        """Compute SL/TP at touch bar `i`; store pending entry (no entry_price).
+
+        `bias` = _active_bias() dönüşü: (direction, ev_bar, sweep_price,
+        ref_level, is_bullish, source). Fallback-gününde last_sweep None
+        olduğundan bias-metadata pending'e bias kaynağından yazılır
+        (N2 #26; sweep-gününde değerler V0-aynen).
+        """
+        _, ev_bar, sweep_price, ref_level, _, bias_source = bias
         fh = fvg.top - fvg.bottom
         rp2 = self.atr_val * SL_ATR_MULT
         if fvg.direction == "bullish":
@@ -808,9 +869,10 @@ class StrategyRuntime:
             "fvg": fvg,
             "touch_bar_index": i,
             "entry_bar_index": i + 1,
-            "sweep_bar_index": self.last_sweep.bar_index,
-            "sweep_price": self.last_sweep.sweep_price,
-            "reference_level": self.last_sweep.reference_level,
+            "sweep_bar_index": ev_bar,
+            "sweep_price": sweep_price,
+            "reference_level": ref_level,
+            "bias_source": bias_source,
             "sl": sl,
             "rp2": rp2,
             "fh": fh,
@@ -872,6 +934,11 @@ class StrategyRuntime:
         # Trade created -> clear the sweep (canonical resets it here).
         self.sweep_detected = False
         self.last_sweep = None
+        # N2 #26: fallback-bias tüketimi (persist-until-entry). Sweep-günü
+        # akışına dokunmaz — bu bayrak yalnız htf_fallback_breakout
+        # kaynaklı girişi kapsar (aynı günde ikinci fallback-girişi yok).
+        if p.get("bias_source") == "htf_fallback_breakout":
+            self._v6_entry_consumed = True
 
         self.trade_counter += 1
         self.active_trade = {
@@ -997,6 +1064,7 @@ class StrategyRuntime:
                 "ev_ts": self._v6_ev_ts,
                 "sweep_price": self._v6_sweep_price,
                 "ref_level": self._v6_ref_level,
+                "entry_consumed": self._v6_entry_consumed,
                 "htf_dir": self._htf_dir,
                 "htf_senaryo": self._htf_senaryo,
                 "rollback_count": self._v6_rollback_count,
@@ -1071,6 +1139,7 @@ class StrategyRuntime:
             self._v6_ev_ts = v6.get("ev_ts")
             self._v6_sweep_price = v6.get("sweep_price")
             self._v6_ref_level = v6.get("ref_level")
+            self._v6_entry_consumed = bool(v6.get("entry_consumed", False))
             self._htf_dir = v6.get("htf_dir")
             self._htf_senaryo = v6.get("htf_senaryo")
             self._v6_rollback_count = int(v6.get("rollback_count", 0))
