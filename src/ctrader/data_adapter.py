@@ -206,10 +206,16 @@ class CTraderDataAdapter:
         except Exception:
             return False
 
-    def ensure_connected(self, max_attempts: int = 1) -> bool:
-        """Orchestrator-side liveness check. Reconnection is owned by the
-        connection layer's ClientService reconnect policy; here we only
-        report state and (best-effort) wait briefly for it.
+    def ensure_connected(self, max_attempts: int = 3) -> bool:
+        """Orchestrator-side liveness check — MT5 parity (İŞ-3).
+
+        MT5Connection.ensure_connected → is_connected() (REAL liveness
+        probe) → reconnect(max_attempts=3). cTrader parity: when the
+        connection is dead OR stale (no server message within the liveness
+        window — half-open TCP), actively reconnect via
+        CTraderConnection.reconnect() instead of passively waiting for the
+        ClientService retry policy (which never engages on a half-open
+        connection — the 19:31→20:46 outage root cause).
 
         D178: waits for ACCOUNT authorization, not just TCP. Live evidence
         (2026-09-08): ensure_connected returned True while ACCOUNT_AUTH_RES
@@ -217,14 +223,53 @@ class CTraderDataAdapter:
         pre-auth -> ProtoOAErrorRes 'Trading account is not authorized' ->
         symbols_response_timeout -> warmup_failed -> SAFE_START forever.
         """
-        if self.is_connected():
+        if self.is_connected() and not self._conn_stale():
             return self._wait_account_authorized(6.0)
-        deadline = time.monotonic() + min(max_attempts, 5) * 2.0
-        while time.monotonic() < deadline:
-            if self.is_connected():
-                return self._wait_account_authorized(6.0)
-            time.sleep(0.2)
-        return self.is_connected()
+        return self._reconnect(max_attempts)
+
+    def _conn_stale(self) -> bool:
+        """İŞ-3: half-open TCP liveness probe (duck-typed).
+
+        Delegates to the connection's `is_stale()`; fakes without it are
+        never stale (returns False). A stale connection has the callback
+        flag True but receives no server messages — the passive
+        ClientService policy cannot detect it.
+        """
+        probe = getattr(self._conn, "is_stale", None)
+        if probe is None:
+            return False
+        try:
+            return bool(probe())
+        except Exception:
+            return False
+
+    def _reconnect(self, max_attempts: int) -> bool:
+        """İŞ-3: active reconnect (duck-typed) — MT5 reconnect parity.
+
+        Delegates to the connection's `reconnect(max_attempts=...)`.
+        On success, resets per-connection subscription state (server-side
+        spot subscriptions are per-connection and are lost on reconnect).
+
+        Fakes without `reconnect` fall back to the legacy bounded-wait
+        behavior (wait for the ClientService policy) — visible test seam,
+        NOT a silent production fallback: the real CTraderConnection
+        always exposes reconnect.
+        """
+        reconnect = getattr(self._conn, "reconnect", None)
+        if reconnect is None:
+            deadline = time.monotonic() + min(max_attempts, 5) * 2.0
+            while time.monotonic() < deadline:
+                if self.is_connected():
+                    return self._wait_account_authorized(6.0)
+                time.sleep(0.2)
+            return self.is_connected()
+        ok = reconnect(max_attempts=max_attempts)
+        if ok:
+            # Server-side spot subscriptions are per-connection — the
+            # adapter must re-subscribe after a reconnect.
+            self._spot_subscribed.clear()
+            self._last_spot.clear()
+        return ok
 
     def _wait_account_authorized(self, timeout_sec: float) -> bool:
         """D178: bounded wait for the connection's account-authorized gate.
@@ -369,9 +414,10 @@ class CTraderDataAdapter:
             raise CTraderDataError(f"unsupported_timeframe: {timeframe} (only M1)")
         if count <= 0:
             raise CTraderDataError(f"invalid_count: {count}")
-        if not self.is_connected():
-            # Transient transport state → tri-state None (ERROR-ladder path),
-            # consistent with the disconnected re-check inside the lock below.
+        if not self.ensure_connected():
+            # İŞ-3: per-operation ensure_connected (MT5 parity) — a dead or
+            # stale connection is actively reconnected here, not just
+            # reported. On failure → tri-state None (ERROR-ladder path).
             # Fail-loud is reserved for permanent misconfiguration (unknown
             # symbol, unsupported timeframe) — not for connection state.
             logger.warning("ctrader_adapter_get_rates_not_connected")
@@ -387,7 +433,7 @@ class CTraderDataAdapter:
         symbol_id = self._resolve_symbol_id(symbol)
 
         with self._req_lock:
-            if not self.is_connected():
+            if not self.ensure_connected():
                 logger.warning("ctrader_adapter_get_rates_not_connected")
                 return None
             now_ms = int(time.time() * 1000)
@@ -429,6 +475,13 @@ class CTraderDataAdapter:
 
         if res is None:
             logger.warning("ctrader_adapter_trendbars_timeout: %s", symbol)
+            # İŞ-3: stale-gate → reconnect trigger. A request timeout on a
+            # dead/stale connection must trigger an active reconnect (MT5
+            # parity) instead of leaving the quote stream dead for ~75 min
+            # (19:31→20:46 outage). ensure_connected is a no-op when the
+            # connection is fresh (transient timeout) — it only reconnects
+            # when the liveness probe says the connection is dead/stale.
+            self.ensure_connected()
             return None
         if type(res).__name__ != "ProtoOAGetTrendbarsRes":
             logger.warning("ctrader_adapter_trendbars_error: %s", res)
@@ -483,7 +536,7 @@ class CTraderDataAdapter:
         merged: Dict[int, Dict[str, Any]] = {}
 
         with self._req_lock:
-            if not self.is_connected():
+            if not self.ensure_connected():
                 logger.warning("ctrader_adapter_get_rates_not_connected")
                 return None
             now_ms = int(time.time() * 1000)
@@ -639,7 +692,15 @@ class CTraderDataAdapter:
         Returns None when no quote is available or the last quote is older
         than tick_max_age_sec (caller maps None → connection gate failure —
         the same tri-state semantics MT5Connection.get_tick_data exposes).
+
+        İŞ-3 (MT5 parity): per-operation ensure_connected — a dead/stale
+        connection is actively reconnected before the quote is read, so the
+        quote stream self-recovers after a drop instead of staying dead
+        (19:31→20:46 outage).
         """
+        if not self.ensure_connected():
+            logger.warning("ctrader_adapter_get_tick_not_connected")
+            return None
         self._consume_spot_events()
         if symbol not in self._spot_subscribed:
             try:
@@ -661,6 +722,11 @@ class CTraderDataAdapter:
             age = time.time() - quote["time"]
             if age > self._tick_max_age or age < -self._tick_max_age:
                 logger.warning("ctrader_adapter_stale_quote: %s age=%.0fs", symbol, age)
+                # İŞ-3: stale-gate → reconnect trigger. A stale quote means
+                # the spot stream stopped (dead/half-open connection) — the
+                # CONNECTION gate closes on this path. Trigger an active
+                # reconnect so the next call can recover (MT5 parity).
+                self.ensure_connected()
                 return None
         return dict(quote)
 
@@ -690,8 +756,12 @@ class CTraderDataAdapter:
         matching the MT5 magic-filter semantics in
         `LiveRunner.startup_snapshot`. Volume is decoded from protocol units
         (lot x contract_size x 100) to lots via `position_to_dict`.
+
+        İŞ-3 (MT5 parity): per-operation ensure_connected — a dead/stale
+        connection is actively reconnected before the reconcile instead of
+        raising ctrader_not_connected without recovery.
         """
-        if not self.is_connected():
+        if not self.ensure_connected():
             raise CTraderDataError("ctrader_not_connected: cannot get_positions")
         with self._req_lock:
             try:

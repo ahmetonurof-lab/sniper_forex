@@ -111,6 +111,18 @@ class FakeConnection:
     def is_connected(self) -> bool:
         return self._connected
 
+    def is_stale(self, timeout_sec: float = 60.0) -> bool:
+        """İŞ-3: fakes are never stale (no half-open simulation here)."""
+        return False
+
+    def reconnect(self, max_attempts: int = 3) -> bool:
+        """İŞ-3: scripted reconnect — returns the current connected state
+        (no recovery simulation in this module; the reconnect-parity tests
+        use RecoverableConnection). Keeps disconnected tests fast (no
+        legacy bounded-wait fallback)."""
+        self.calls.append(("reconnect", max_attempts))
+        return self._connected
+
     def request_symbols_list(self, include_archived=False):
         self.calls.append(("symbols", None))
         if not self._connected:

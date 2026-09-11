@@ -30,6 +30,14 @@ HEARTBEAT_INTERVAL_SEC = 10.0
 # Reconcile/istek zaman aşımı (saniye)
 REQUEST_TIMEOUT_SEC = 5.0
 
+# Liveness penceresi (saniye) — İŞ-3 (cTrader reconnect paritesi).
+# Sunucu ProtoHeartbeatEvent gönderir ve SDK idle >20s'de heartbeat yollar
+# (docs/ctrader_openapi_official_research.md C5); sağlıklı bağlantıda
+# mesaj akışı ~10-20s'de bir tazelenir. 60s = 3× idle-heartbeat aralığı:
+# yanlış-pozitif riski olmadan half-open TCP'yi (19:31→20:46 kesintisi)
+# dakikalar yerine ~1dk içinde yakalar.
+STALE_MESSAGE_WINDOW_SEC = 60.0
+
 
 class CTraderConnection:
     """cTrader Open API bağlantı yöneticisi.
@@ -48,6 +56,9 @@ class CTraderConnection:
         self._connected = False
         self._stop = False
         self._thread = None
+        # İŞ-3: son sunucu mesajının alındığı zaman (half-open TCP liveness
+        # probu — is_stale). 0.0 = henüz hiç mesaj alınmadı.
+        self._last_message_received = 0.0
 
         # GERÇEK SDK imzası: Client(host, port, protocol)
         self.client = Client(
@@ -97,6 +108,7 @@ class CTraderConnection:
     # ------------------------------------------------------------------
     def _on_connected(self, client):
         self._connected = True
+        self._last_message_received = time.time()
         self.event_queue.put(("CONNECTED", None))
         # Bağlantı sonrası auth zinciri: uygulama auth → hesap auth
         self._send_application_auth()
@@ -106,6 +118,8 @@ class CTraderConnection:
         self.event_queue.put(("DISCONNECTED", str(reason)))
 
     def _on_message_received(self, client, message):
+        # İŞ-3: her sunucu mesajı liveness probunu tazeler (heartbeat dahil).
+        self._last_message_received = time.time()
         payload_type = message.payloadType
         # Heartbeat'leri log'a boğma — sadece sayaç
         if payload_type == Protobuf.get_type("ProtoHeartbeatEvent"):
@@ -309,6 +323,72 @@ class CTraderConnection:
         path). TCP connect + app-auth do NOT authorize trading-account
         requests — the adapter's ensure_connected waits on this gate."""
         return getattr(self, "_account_authorized", False)
+
+    def is_stale(self, timeout_sec: float = STALE_MESSAGE_WINDOW_SEC) -> bool:
+        """İŞ-3: half-open TCP liveness probu.
+
+        True when no server message has been received within the window.
+        The callback flag (`is_connected`) stays True on a half-open
+        connection (network drop without FIN/RST → Twisted connectionLost
+        never fires → the passive ClientService retry policy never
+        engages — the 19:31→20:46 outage root cause). This probe lets the
+        adapter detect the dead connection and trigger an ACTIVE reconnect.
+
+        Duck-typed contract: fakes without this method are never stale
+        (adapter `_conn_stale` returns False).
+        """
+        if self._last_message_received <= 0:
+            return not self._connected
+        return (time.time() - self._last_message_received) > timeout_sec
+
+    def reconnect(self, max_attempts: int = 3) -> bool:
+        """İŞ-3: aktif reconnect — MT5 `reconnect(max_attempts=3)` paritesi.
+
+        The ClientService retry policy only reconnects on a DETECTED
+        disconnect; a half-open TCP connection never fires connectionLost,
+        so the passive policy never recovers (19:31→20:46: ~75 min dead).
+        This method force-restarts the ClientService (bypassing
+        `Client.stopService`'s isConnected guard) and waits bounded for
+        connected + account-authorized.
+
+        Returns True when reconnected (connected AND account-authorized)
+        within the bounded wait, False otherwise.
+        """
+        if self._thread is None or not self._thread.is_alive():
+            return False
+        try:
+            reactor.callFromThread(self._do_reconnect)
+        except Exception:
+            return False
+        deadline = time.monotonic() + min(max_attempts, 5) * 2.0
+        while time.monotonic() < deadline:
+            if self._connected and self._account_authorized:
+                return True
+            time.sleep(0.2)
+        return self._connected and self._account_authorized
+
+    def _do_reconnect(self):
+        """Reactor thread'inde: ClientService'i zorla durdur + yeniden başlat.
+
+        `Client.stopService` override'ı `isConnected` guard'ına bakar
+        (disconnected iken no-op) — bu yüzden doğrudan
+        `ClientService.stopService` çağrılır (guard bypass). Auth zinciri
+        yeni bağlantıda yeniden çalışır (app auth → account auth).
+        """
+        from twisted.application.internet import ClientService
+
+        try:
+            d = ClientService.stopService(self.client)
+        except Exception:
+            d = None
+        self._connected = False
+        self._account_authorized = False
+        self._last_message_received = 0.0
+        if d is not None and hasattr(d, "addCallback"):
+            d.addCallback(lambda _: self.client.startService())
+            d.addErrback(lambda _: self.client.startService())
+        else:
+            self.client.startService()
 
     def drain_events(self):
         """Ana thread'den event kuyruğunu boşalt — (tip, veri) listesi döner.
