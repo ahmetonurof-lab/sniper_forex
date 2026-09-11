@@ -78,6 +78,7 @@ class LiveRunner:
         symbol: str,
         mt5: Any = None,
         execution: Optional[Execution] = None,
+        mt5_conn: Any = None,
         lifecycle: Optional[TradeLifecycle] = None,
         risk_manager: Optional[RiskManager] = None,
         sizer: Optional[PositionSizer] = None,
@@ -101,6 +102,9 @@ class LiveRunner:
             self.execution = execution or Execution(mt5=mt5, signal_only=signal_only)
         self.symbol = symbol
         self.magic = magic
+        # İŞ-8: cTrader-mode broker truth (adapter). MT5 mode'da None kalır
+        # → _symbol_entry_locked/_positions_get mevcut MT5 yolunu kullanır.
+        self.mt5_conn = mt5_conn
         self.lifecycle = lifecycle or TradeLifecycle(
             portfolio_dd=PortfolioDD(starting_balance_r=starting_balance_r)
         )
@@ -155,20 +159,41 @@ class LiveRunner:
         "assume open" convention. Positions without a ``symbol`` attribute
         (test seams) are attributed to this runner's symbol; positions
         without the bot magic are never bot-owned.
+
+        İŞ-8 (Hakem-kararı): cTrader mode'da broker truth adapter'dan
+        (``mt5_conn.get_positions`` — label-filtered, bot-owned only).
+        Adapter fail (None/exception) → lock-fail-closed (True). MT5
+        semantiği birebir korunur (MT5 yolu değişmez).
         """
-        if self.mt5 is None or not hasattr(self.mt5, "positions_get"):
+        if self.mt5 is not None and hasattr(self.mt5, "positions_get"):
+            # MT5 path (unchanged)
+            try:
+                positions = self.mt5.positions_get() or []
+            except Exception:
+                return True  # transient failure -> do NOT admit a new entry
+            for p in positions:
+                if int(getattr(p, "magic", 0) or 0) != self.magic:
+                    continue
+                sym = getattr(p, "symbol", None)
+                if sym is not None and str(sym) != self.symbol:
+                    continue
+                return True
+        elif self.mt5_conn is not None:
+            # İŞ-8: cTrader path — adapter broker truth (label-filtered)
+            contract_size = float(self.contract.contract_size) if self.contract else 100000.0
+            try:
+                positions = self.mt5_conn.get_positions(contract_size=contract_size)
+            except Exception:
+                return True  # adapter fail -> lock-fail-closed
+            if positions is None:
+                return True  # transient -> lock-fail-closed
+            for d in positions:
+                sym = d.get("symbol")
+                if sym is not None and str(sym) != self.symbol:
+                    continue
+                return True
+        else:
             return True  # no broker truth available -> conservative lock
-        try:
-            positions = self.mt5.positions_get() or []
-        except Exception:
-            return True  # transient failure -> do NOT admit a new entry
-        for p in positions:
-            if int(getattr(p, "magic", 0) or 0) != self.magic:
-                continue
-            sym = getattr(p, "symbol", None)
-            if sym is not None and str(sym) != self.symbol:
-                continue
-            return True
         for ctx in self._position_to_ctx.values():
             if getattr(ctx, "symbol", self.symbol) != self.symbol:
                 continue

@@ -1795,6 +1795,9 @@ class Orchestrator:
             self._runner = LiveRunner(
                 symbol=self._symbol,
                 mt5=self._mt5,
+                # İŞ-8: cTrader mode → adapter broker truth (C2 entry-lock
+                # paritesi). MT5 mode'da None → mevcut MT5 yolu korunur.
+                mt5_conn=self._mt5_conn if self._ctrader_mode else None,
                 execution=execution,
                 audit=self.audit,
                 magic=self.magic,
