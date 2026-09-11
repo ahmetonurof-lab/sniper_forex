@@ -259,7 +259,10 @@ class TestGetPositions:
         ad = _make_adapter(conn)
         assert ad.get_positions(contract_size=100000.0) == []
 
-    def test_unknown_symbol_id_skipped(self):
+    def test_unknown_symbol_id_kept_as_unknown_marker(self):
+        """İŞ-5 PARÇA-B (N2#28): silent skip is FORBIDDEN — an unresolvable
+        symbolId must surface as an UNKNOWN marker position (fail-closed
+        UNKNOWN_OPEN downstream), never disappear."""
         conn = FakeConnection()
         conn.event_queue.put(
             (
@@ -268,7 +271,12 @@ class TestGetPositions:
             )
         )
         ad = _make_adapter(conn)
-        assert ad.get_positions(contract_size=100000.0) == []
+        positions = ad.get_positions(contract_size=100000.0)
+        assert positions is not None
+        assert len(positions) == 1
+        assert positions[0]["ticket"] == 1001
+        assert positions[0]["symbol"] == "<unknown:999999>"
+        assert positions[0]["unknown_symbol_id"] == 999999
 
     def test_reconcile_error_raises_fail_loud(self):
         conn = FakeConnection()
@@ -288,6 +296,104 @@ class TestGetPositions:
         ad = _make_adapter(conn)
         with pytest.raises(CTraderDataError):
             ad.get_positions(contract_size=100000.0)
+
+
+# ---------------------------------------------------------------------------
+# İŞ-5 / N2#28 — ADAPTER-GAP fix (DİREKTİF-13): red tests
+#
+# §4.1 lesson from ADIM-1: every existing test above pre-populates
+# _symbol_ids via _make_adapter — that is exactly why the production
+# empty-map bug (S5 is the FIRST cTrader data op) was never caught.
+# These tests must NOT pre-populate.
+# ---------------------------------------------------------------------------
+class TestAdapterGapFix:
+    def test_red1_empty_map_populates_symbols_before_reconcile(self):
+        """RED-1 (PARÇA-A): with an EMPTY symbol map (production S5 state),
+        get_positions() must call request_symbols_list() first so position
+        symbolIds resolve — the Reis-position must become visible instead of
+        being skipped. Today RED: map stays empty → position skipped → []."""
+        conn = FakeConnection()
+        # Reconcile response pre-queued FIRST; the symbols response is
+        # enqueued by FakeConnection.request_symbols_list() at call time.
+        # _drain_until matches by message type name, so queue order is safe
+        # (leftovers are re-queued).
+        conn.event_queue.put(
+            (
+                "MESSAGE",
+                ProtoOAReconcileRes(
+                    [_bot_position(pid=1001, symbol_id=3, volume_lots=0.01, side=2)]
+                ),
+            )
+        )
+        ad = CTraderDataAdapter(conn, response_timeout_sec=2.0)
+        assert ad._symbol_ids == {}  # production S5 state: never populated
+        positions = ad.get_positions(contract_size=100000.0)
+        assert positions is not None
+        assert [p["ticket"] for p in positions] == [1001]
+        assert positions[0]["symbol"] == "EURUSD"  # resolved via prefetched map
+        assert positions[0]["volume"] == pytest.approx(0.01)
+        assert positions[0]["side"] == "short"
+        kinds = [c[0] for c in conn.calls]
+        assert "symbols" in kinds, "request_symbols_list must be called on empty map"
+        assert kinds.index("symbols") < kinds.index("reconcile")
+
+    def test_red1_populated_map_skips_symbols_request(self):
+        """PARÇA-A guard: the symbols prefetch fires ONLY when the map is
+        empty (cached path must not add an extra round-trip per poll)."""
+        conn = FakeConnection()
+        conn.event_queue.put(("MESSAGE", ProtoOAReconcileRes([])))
+        ad = _make_adapter(conn)  # pre-populated map
+        assert ad.get_positions(contract_size=100000.0) == []
+        assert [c[0] for c in conn.calls] == ["reconcile"]
+
+    def test_red2_unresolvable_symbol_id_kept_despite_symbols_fetch(self):
+        """RED-2 (PARÇA-B): even AFTER the PARÇA-A prefetch, a symbolId that
+        is still unresolvable (not in broker list) must NOT be silently
+        skipped — it is returned with an UNKNOWN marker + unknown_symbol_id."""
+        conn = FakeConnection()
+        conn.event_queue.put(
+            (
+                "MESSAGE",
+                ProtoOAReconcileRes([_bot_position(pid=1001, symbol_id=999999)]),
+            )
+        )
+        ad = CTraderDataAdapter(conn, response_timeout_sec=2.0)
+        positions = ad.get_positions(contract_size=100000.0)
+        assert positions is not None
+        assert len(positions) == 1
+        assert positions[0]["symbol"] == "<unknown:999999>"
+        assert positions[0]["unknown_symbol_id"] == 999999
+
+    def test_red2_fail_closed_regardless_of_label(self):
+        """PARÇA-B defense-in-depth: an unresolvable symbolId means the
+        position's SYMBOL (and therefore its ownership scope) is unknown —
+        it surfaces as UNKNOWN marker even with a non-bot/empty label.
+        Known-symbol non-bot filtering is unchanged (red-4)."""
+        conn = FakeConnection()
+        conn.event_queue.put(
+            (
+                "MESSAGE",
+                ProtoOAReconcileRes([_bot_position(pid=1001, symbol_id=999999, label="")]),
+            )
+        )
+        ad = _make_adapter(conn)
+        positions = ad.get_positions(contract_size=100000.0)
+        assert positions is not None
+        assert len(positions) == 1
+        assert positions[0]["unknown_symbol_id"] == 999999
+
+    def test_red4_known_symbol_non_bot_label_still_skipped(self):
+        """RED-4 regression pin: MT5 magic-parity filter must stay intact —
+        a RESOLVED symbol with a non-bot label is still skipped."""
+        conn = FakeConnection()
+        conn.event_queue.put(
+            (
+                "MESSAGE",
+                ProtoOAReconcileRes([_bot_position(pid=2001, symbol_id=3, label="MANUAL_TRADE")]),
+            )
+        )
+        ad = _make_adapter(conn)
+        assert ad.get_positions(contract_size=100000.0) == []
 
 
 # ---------------------------------------------------------------------------

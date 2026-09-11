@@ -822,6 +822,58 @@ class CTraderDataAdapter:
     # ------------------------------------------------------------------
     # get_positions — reconciliation fetch contract (İş-4a / reconciliation)
     # ------------------------------------------------------------------
+    def _fetch_symbols_map_locked(self) -> None:
+        """Populate `_symbol_ids` from ProtoOASymbolsListRes.
+
+        İŞ-5/N2#28 (DİREKTİF-13 PARÇA-A): S5 is the FIRST cTrader data
+        operation in boot, so the map that `_resolve_symbol_id` fills
+        (via get_rates/subscribe_spots, which run later) is still empty
+        when `get_positions` resolves position symbolIds — every broker
+        position was silently skipped (ADAPTER-GAP, misleading OK).
+
+        Caller MUST already hold `_req_lock`: it is a plain Lock, NOT
+        reentrant, so delegating to `_resolve_symbol_id` here would
+        deadlock. Fail-soft by design: a symbols-fetch failure leaves the
+        map as-is; unresolved symbolIds then surface through the PARÇA-B
+        UNKNOWN marker (fail-closed downstream), never a silent skip.
+        """
+        try:
+            self._conn.request_symbols_list()
+        except Exception as exc:
+            logger.warning(
+                "ctrader_adapter_symbols_prefetch_failed: %s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return
+        res, leftovers = self._drain_until(
+            lambda kind, payload: (
+                kind in ("MESSAGE", "SYMBOLS_ERROR", "PARSE_ERROR")
+                and (
+                    (
+                        kind == "MESSAGE"
+                        and payload is not None
+                        and type(payload).__name__ == "ProtoOASymbolsListRes"
+                    )
+                    or kind in ("SYMBOLS_ERROR", "PARSE_ERROR")
+                )
+            ),
+            self._timeout,
+        )
+        self._requeue(leftovers)
+        if res is None:
+            logger.warning("ctrader_adapter_symbols_prefetch_timeout")
+            return
+        if type(res).__name__ != "ProtoOASymbolsListRes":
+            logger.warning("ctrader_adapter_symbols_prefetch_error: %s", res)
+            return
+        for light in res.symbol:
+            name = str(getattr(light, "symbolName", ""))
+            if name:
+                self._symbol_ids[name] = int(light.symbolId)
+        if self._symbol_ids:
+            self._symbols_resolved = True
+
     def _resolve_symbol_name(self, symbol_id: int) -> Optional[str]:
         """Reverse symbolId → name lookup from the cached symbol map."""
         for name, sid in self._symbol_ids.items():
@@ -853,6 +905,11 @@ class CTraderDataAdapter:
         if not self.ensure_connected():
             raise CTraderDataError("ctrader_not_connected: cannot get_positions")
         with self._req_lock:
+            # İŞ-5 PARÇA-A (N2#28): empty map → fetch the symbols list
+            # BEFORE reconciling so position symbolIds resolve (S5-first-
+            # data-op ordering made the map empty in production).
+            if not self._symbol_ids:
+                self._fetch_symbols_map_locked()
             try:
                 self._conn.reconcile()
             except Exception as exc:
@@ -884,10 +941,22 @@ class CTraderDataAdapter:
                 symbol_id = int(getattr(trade_data, "symbolId", 0))
                 symbol_name = self._resolve_symbol_name(symbol_id)
                 if symbol_name is None:
+                    # İŞ-5 PARÇA-B (N2#28): silent skip is FORBIDDEN — an
+                    # unresolvable symbolId means an unknown SYMBOL, so the
+                    # position's ownership scope cannot even be established
+                    # (label filtering is meaningless on it). Surface it with
+                    # an UNKNOWN marker: the Reconciler then sees a remote
+                    # position with no local match → UNKNOWN_OPEN →
+                    # block_trading=True (defense-in-depth for partial maps).
+                    d = position_to_dict(pos, contract_size, f"<unknown:{symbol_id}>")
+                    if d is None:
+                        continue  # non-OPEN / malformed — not a recon target
+                    d["unknown_symbol_id"] = symbol_id
                     logger.warning(
-                        "ctrader_adapter_unknown_symbol_id: %s (position skipped)",
+                        "ctrader_adapter_unknown_symbol_id: %s (kept as UNKNOWN — fail-closed)",
                         symbol_id,
                     )
+                    positions.append(d)
                     continue
                 d = position_to_dict(pos, contract_size, symbol_name)
                 if d is None:

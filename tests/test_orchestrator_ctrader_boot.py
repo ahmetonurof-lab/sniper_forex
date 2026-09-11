@@ -89,23 +89,79 @@ def _make_m1_bars(n, end_utc_min=None):
     return bars
 
 
-class FakeReconcileRes:
-    """ProtoOAReconcileRes-shaped fake for get_positions()."""
+class ProtoOAReconcileRes:
+    """ProtoOAReconcileRes-shaped fake for get_positions().
+
+    İŞ-5 note: the class NAME must mirror the real protobuf message — the
+    adapter matches responses via type(payload).__name__. The previous name
+    (FakeReconcileRes) never matched, so the S5 boot test silently passed
+    through the 2s-timeout/exception path instead of the real reconcile
+    path (§4.1 lesson). Renamed so these tests exercise production.
+    """
 
     def __init__(self, positions=None):
         self.position = positions or []
         self.order = []
 
 
+class FakeTradeData:
+    def __init__(self, symbol_id, volume, trade_side, label, comment="", open_ts=0):
+        self.symbolId = symbol_id
+        self.volume = volume  # protocol volume = lot x contract_size x 100
+        self.tradeSide = trade_side
+        self.openTimestamp = open_ts
+        self.label = label
+        self.comment = comment
+
+
+class FakePosition:
+    def __init__(
+        self,
+        position_id,
+        trade_data,
+        status=1,
+        price=1.09619,
+        stop_loss=0.0,
+        take_profit=0.0,
+        swap=0,
+    ):
+        self.positionId = position_id
+        self.tradeData = trade_data
+        self.positionStatus = status
+        self.price = price
+        self.stopLoss = stop_loss
+        self.takeProfit = take_profit
+        self.swap = swap
+
+
+def _bot_position(
+    pid: int,
+    symbol_id: int = 999999,
+    volume_lots: float = 0.01,
+    side: int = 2,
+) -> FakePosition:
+    """Bot-labelled open position (protocol volume = lots x 100000 x 100)."""
+    return FakePosition(
+        position_id=pid,
+        trade_data=FakeTradeData(
+            symbol_id=symbol_id,
+            volume=int(round(volume_lots * 100000 * 100)),
+            trade_side=side,
+            label="SNIPER_FOREX",
+        ),
+    )
+
+
 class FakeCtraderConnection:
     """Scripted fake of CTraderConnection's surface: property-style
     is_connected (real shape), event_queue responses."""
 
-    def __init__(self, m1_bars=None):
+    def __init__(self, m1_bars=None, reconcile_positions=None):
         self.event_queue: queue.Queue = queue.Queue()
         self._connected = True
         self.calls: List[Dict[str, Any]] = []
         self._m1_bars = m1_bars if m1_bars is not None else _make_m1_bars(120)
+        self._reconcile_positions = reconcile_positions or []
 
     @property
     def is_connected(self) -> bool:
@@ -154,9 +210,11 @@ class FakeCtraderConnection:
         )
 
     def reconcile(self):
-        """ProtoOAReconcileReq handler — enqueues empty reconciliation."""
+        """ProtoOAReconcileReq handler — enqueues scripted reconciliation."""
         self.calls.append(("reconcile", None))
-        self.event_queue.put(("MESSAGE", FakeReconcileRes(positions=[])))
+        self.event_queue.put(
+            ("MESSAGE", ProtoOAReconcileRes(positions=list(self._reconcile_positions)))
+        )
 
 
 @pytest.fixture()
@@ -287,6 +345,44 @@ class TestCtraderBoot:
         assert acc is not None
         assert acc.balance == 0.0
         assert acc.equity == 0.0
+
+
+class TestAdapterGapFailClosed:
+    """İŞ-5 / N2#28 RED-3 (DİREKTİF-13): the full production chain —
+    an unresolvable-symbolId bot position on the broker must surface at S5
+    as positions_count=1 + UNKNOWN_OPEN + block_trading=True +
+    unknown_symbol_ids, and the boot must land in SAFE_START (gate closed).
+    Today RED: the position is silently skipped → misleading OK → PROCEED.
+    """
+
+    def test_red3_unknown_symbol_position_forces_safe_start(self, tmp_path):
+        conn = FakeCtraderConnection(reconcile_positions=[_bot_position(pid=5001)])
+        adapter = CTraderDataAdapter(conn, response_timeout_sec=2.0)
+        orch = Orchestrator(
+            state_dir=str(tmp_path / "state"),
+            magic=9007001,
+            configured_symbols=["EURUSD"],
+            mt5_conn=adapter,
+        )
+        result = orch.startup()
+
+        # S5 audit must be beyanlı AND fail-closed (DİREKTİF-13 PARÇA-B).
+        s5 = [
+            e
+            for e in orch.audit.events
+            if isinstance(getattr(e, "payload", None), dict)
+            and e.payload.get("warning") == "ctrader_snapshot_reconciled"
+        ]
+        assert s5, "S5 reconciliation audit event missing"
+        payload = s5[0].payload
+        assert payload["positions_count"] == 1
+        assert payload["reconciliation"] == "UNKNOWN_OPEN"
+        assert payload["block_trading"] is True
+        assert payload["unknown_symbol_ids"] == [999999]
+
+        # Fail-closed chain: S8 recon_blocked → SAFE_START (gate closed).
+        assert result.verdict == StartupVerdict.SAFE_START
+        assert "recon_blocked: UNKNOWN_OPEN" in result.reason
 
 
 class TestCtraderFailLoud:

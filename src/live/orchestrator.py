@@ -2918,6 +2918,7 @@ class Orchestrator:
         )
         positions_list: List[Dict[str, Any]] = []
         remote_positions: Dict[int, Any] = {}
+        unknown_symbol_ids: List[int] = []
         recon_status = "NOT_RUN"
         recon_block = True
         recon_details: List[str] = []
@@ -2929,7 +2930,17 @@ class Orchestrator:
             else:
                 for d in raw_positions:
                     positions_list.append(d)
-                    pos = _to_position_ctrader(d, CTRADER_BOT_LABEL)
+                    if d.get("unknown_symbol_id") is not None:
+                        # İŞ-5 PARÇA-B (N2#28): symbol unresolvable → the
+                        # ownership scope of this position cannot even be
+                        # established (label filtering is meaningless on an
+                        # unknown symbol). Feed it to the Reconciler as a
+                        # remote position (no label filter) → UNKNOWN_OPEN →
+                        # block_trading=True. Silent skip is FORBIDDEN.
+                        unknown_symbol_ids.append(int(d["unknown_symbol_id"]))
+                        pos = _to_position_ctrader(d, label_filter="")
+                    else:
+                        pos = _to_position_ctrader(d, CTRADER_BOT_LABEL)
                     if pos is not None:
                         remote_positions[int(pos.ticket)] = pos
                 # Local lifecycle state (persisted via state.py — restored
@@ -2974,6 +2985,7 @@ class Orchestrator:
                 "reconciliation": recon_status,
                 "positions_count": len(positions_list),
                 "block_trading": recon_block,
+                "unknown_symbol_ids": unknown_symbol_ids,
             },
         )
         return snapshot
