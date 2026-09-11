@@ -91,13 +91,16 @@ class LiveRunner:
         configured_symbols: Optional[List[str]] = None,
     ):
         if mt5 is None and execution is None:
-            import MetaTrader5 as mt5_mod  # type: ignore
-
-            mt5 = mt5_mod
+            # İŞ-7 guard: no broker module (cTrader mode) → NO silent MT5
+            # fallback (§19). Fail-closed: execution stays None → on_bar
+            # blocks with a visible reason (execution_unavailable_fail_closed).
+            self.mt5 = None
+            self.execution = None
+        else:
+            self.mt5 = mt5
+            self.execution = execution or Execution(mt5=mt5, signal_only=signal_only)
         self.symbol = symbol
-        self.mt5 = mt5
         self.magic = magic
-        self.execution = execution or Execution(mt5=mt5, signal_only=signal_only)
         self.lifecycle = lifecycle or TradeLifecycle(
             portfolio_dd=PortfolioDD(starting_balance_r=starting_balance_r)
         )
@@ -435,6 +438,16 @@ class LiveRunner:
         # Emits BEFORE the entry-lock/risk gating so a blocked signal stays
         # visible as a SIGNAL -> RISK(approved=False) pair, never silent.
         self._audit(EventType.SIGNAL, signal_audit_payload(sig))
+        if self.execution is None:
+            # İŞ-7 fail-closed: no execution wired → NO order can be sent.
+            # Checked BEFORE the C2 lock so the reason is truthful (there is
+            # no active trade — there is no execution at all).
+            res.blocked_reason = "execution_unavailable_fail_closed"
+            self._audit(
+                EventType.RISK,
+                {"approved": False, "reason": res.blocked_reason, "symbol": self.symbol},
+            )
+            return res
         if entry_locked:
             res.blocked_reason = "c2_symbol_entry_lock_active_trade"
             self._audit(

@@ -428,6 +428,11 @@ class CTraderDataAdapter:
         self._symbols_resolved = True
         return resolved
 
+    def resolve_symbol_id(self, symbol: str) -> int:
+        """Public wrapper for _resolve_symbol_id (İŞ-7: CTraderExecution
+        symbol_meta construction — orchestrator needs symbolId per symbol)."""
+        return self._resolve_symbol_id(symbol)
+
     # ------------------------------------------------------------------
     # get_rates — orchestrator fetch contract (M1 trendbars)
     # ------------------------------------------------------------------

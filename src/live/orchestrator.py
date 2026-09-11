@@ -1787,9 +1787,15 @@ class Orchestrator:
             # D38: retain the REAL LiveRunner instance on the orchestrator
             # so the process-lifetime loop uses the SAME object identity.
             # No second LiveRunner is ever reconstructed.
+            # İŞ-7 (SEÇENEK-C): cTrader mode → CTraderExecution inject edilir
+            # (MT5-Execution ASLA kullanılmaz — sessiz-fallback yasağı §19).
+            # Fail-closed: _build_ctrader_execution() başarısızsa execution=None
+            # → LiveRunner.on_bar emir gönderemez (execution_unavailable_fail_closed).
+            execution = self._build_ctrader_execution() if self._ctrader_mode else None
             self._runner = LiveRunner(
                 symbol=self._symbol,
                 mt5=self._mt5,
+                execution=execution,
                 audit=self.audit,
                 magic=self.magic,
                 signal_only=self.config.signal_only,
@@ -2921,6 +2927,55 @@ class Orchestrator:
             block_trading=bool(rc.get("block_trading", True)),
             details=list(rc.get("details") or []),
         )
+
+    def _build_ctrader_execution(self) -> Optional[Any]:
+        """İŞ-7 (SEÇENEK-C): build CTraderExecution for cTrader mode.
+
+        Fail-closed: returns None on any failure → LiveRunner.on_bar blocks
+        (execution_unavailable_fail_closed). NEVER falls back to MT5
+        Execution (§19 silent-fallback yasağı). symbol_meta carries
+        symbol_id + pip_position for the configured symbols; a symbol whose
+        symbol_id cannot be resolved is excluded (no order can be built).
+        """
+        try:
+            from src.ctrader.execution import CTraderExecution
+
+            symbol_meta = self._build_ctrader_symbol_meta()
+            if not symbol_meta:
+                return None
+            return CTraderExecution(
+                connection=self._mt5_conn,
+                audit=self.audit,
+                symbol_meta=symbol_meta,
+                signal_only=self.config.signal_only,
+            )
+        except Exception:
+            return None
+
+    def _build_ctrader_symbol_meta(self) -> Dict[str, Dict[str, Any]]:
+        """İŞ-7: symbol_meta for CTraderExecution.
+
+        symbol_id resolved via the adapter (public resolve_symbol_id);
+        pip_position derived from the FX-major contract preset digits
+        (EURUSD 5, JPY 3 — D169-§4 dynamic scale). A symbol whose symbol_id
+        cannot be resolved is EXCLUDED (fail-closed: no meta → no order).
+        """
+        meta: Dict[str, Dict[str, Any]] = {}
+        symbols = self.configured_symbols or [self._symbol]
+        for symbol in symbols:
+            symbol_id = None
+            try:
+                symbol_id = self._mt5_conn.resolve_symbol_id(symbol)
+            except Exception:
+                symbol_id = None
+            if symbol_id is None:
+                continue
+            digits = int(self._contract.digits) if self._contract else 5
+            meta[symbol] = {
+                "symbol_id": int(symbol_id),
+                "pip_position": digits,
+            }
+        return meta
 
     def _build_ctrader_snapshot(self) -> dict:
         """S5 cTrader-mode snapshot with REAL reconciliation (İş-4a).
