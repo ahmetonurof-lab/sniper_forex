@@ -1189,6 +1189,9 @@ class Orchestrator:
         self._pending_feed: List[Any] = []
         self._feed_cap_alerted: bool = False
         self._ladder_alerted: bool = False
+        # İŞ-6 (DİREKTİF-14): first-failure-only audit for the cTrader
+        # account fetch fail-soft path (avoids per-bar audit spam).
+        self._account_fail_soft_alerted: bool = False
         self._safety: Optional[Any] = None
         # D53: Telegram transport when TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are
         # configured; visible console fallback otherwise (single audit WARN).
@@ -1548,17 +1551,21 @@ class Orchestrator:
             # İŞ-4a S1: cTrader-mode skips the MT5 initialize/login chain
             # AND the S2 account_info/terminal_info reads (they are MT5
             # module calls). Identity is established by the cTrader
-            # account-auth inside ensure_connected(); the account snapshot
-            # fields are filled with explicit zeros and surfaced in the
-            # audit chain (visible, not silent — §19).
+            # account-auth inside ensure_connected().
+            # İŞ-6 (DİREKTİF-14): the account snapshot is now FETCHED via
+            # ProtoOATrader (real balance/equity/leverage/currency) instead
+            # of explicit zeros. Fail-soft: fetch failure → explicit zeros
+            # (existing fail-safe semantics preserved) + audit/uyarı-beyanlı.
+            account_state = self._fetch_ctrader_account_state()
             account_dict = {
                 "login": str(self._mt5_conn.config.get("account_id", "")),
                 "server": str(self._mt5_conn.config.get("host", "")),
-                "balance": 0.0,
-                "equity": 0.0,
-                "currency": "USD",
-                "leverage": 0,
+                "balance": account_state["balance"],
+                "equity": account_state["equity"],
+                "currency": account_state["currency"],
+                "leverage": account_state["leverage"],
                 "margin_level": 0.0,
+                "account_source": account_state["source"],
             }
             terminal_dict = None
             self.audit.append(
@@ -1569,7 +1576,11 @@ class Orchestrator:
                     "transport": "ctrader",
                     "phase": "S2_identity",
                     "account": account_dict,
-                    "note": "account_info_skipped_ctrader_mode",
+                    "note": (
+                        "account_state_fetched_ctrader_mode"
+                        if account_state["source"] == "real"
+                        else "account_state_fail_soft_ctrader_mode"
+                    ),
                 },
             )
             # D12 identity check: MT5_EXPECTED_LOGIN is an MT5-path flag.
@@ -1929,6 +1940,12 @@ class Orchestrator:
                     "safe_reasons": safe_reasons,
                     "warmup_bars": warmup_bars,
                     "restored": self._restored,
+                    # İŞ-6 (DİREKTİF-14): boot-beyanı — account-state
+                    # (real values or fail-soft 0.0, source-tagged).
+                    "account_state": {
+                        k: account_dict.get(k)
+                        for k in ("balance", "equity", "leverage", "currency", "account_source")
+                    },
                 },
             )
             return StartupResult(
@@ -1953,6 +1970,12 @@ class Orchestrator:
                 "warmup_bars": warmup_bars,
                 "contract": contract_dict.get("symbol") if contract_dict else None,
                 "restored": self._restored,
+                # İŞ-6 (DİREKTİF-14): boot-beyanı — account-state
+                # (real values or fail-soft 0.0, source-tagged).
+                "account_state": {
+                    k: account_dict.get(k)
+                    for k in ("balance", "equity", "leverage", "currency", "account_source")
+                },
             },
         )
         return StartupResult(
@@ -3024,15 +3047,67 @@ class Orchestrator:
             return False, 0.0
         return True, max(0.0, (ask - bid) / point)
 
+    def _fetch_ctrader_account_state(self) -> Dict[str, Any]:
+        """İŞ-6 (DİREKTİF-14): real account state via ProtoOATrader fetch.
+
+        Returns {balance, equity, leverage, currency, source} where source
+        is "real" (successful fetch) or "fail_soft_0.0" (fetch failed —
+        existing 0.0 fail-safe semantics preserved; kaynak-yükseltme,
+        gevşetme yok). The fail-soft audit is emitted once per session
+        (first failure) to avoid per-bar spam.
+        """
+        try:
+            state = self._mt5_conn.get_account_state()
+        except Exception as exc:
+            if not self._account_fail_soft_alerted:
+                self._account_fail_soft_alerted = True
+                self.audit.append(
+                    time.time(),
+                    EventType.SAFETY,
+                    self.configured_symbols[0] if self.configured_symbols else None,
+                    {
+                        "phase": "account_state",
+                        "warning": "ctrader_account_fetch_failed_fail_soft",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    },
+                )
+            return {
+                "balance": 0.0,
+                "equity": 0.0,
+                "leverage": 0,
+                "currency": "USD",
+                "source": "fail_soft_0.0",
+            }
+        if not state:
+            return {
+                "balance": 0.0,
+                "equity": 0.0,
+                "leverage": 0,
+                "currency": "USD",
+                "source": "fail_soft_0.0",
+            }
+        return {
+            "balance": float(state.get("balance", 0.0)),
+            "equity": float(state.get("equity", 0.0)),
+            "leverage": int(state.get("leverage", 0)),
+            "currency": str(state.get("currency", "USD")),
+            "source": "real",
+        }
+
     def _get_account(self) -> Optional[Account]:
         """D4/D14: FRESH account per bar cycle; never cache across ticks."""
-        # İŞ-4a S1 (D159, karar-7): cTrader-mode has no MT5 account_info.
-        # We return an explicit ZERO account (beyanlı — audited once at
-        # boot, not per-bar): sizing sees balance=0/equity=0 → risk checks
-        # reject sizing → no order can ever be built. This is the second
-        # lock (with signal_only=1 default) on the no-real-orders path.
+        # İŞ-6 (DİREKTİF-14): cTrader-mode now fetches REAL account state
+        # via ProtoOATrader (was explicit 0.0-beyan-pini — İŞ-4a-S1,
+        # karar-7/D159). Fail-soft: fetch failure → 0.0-beyan (existing
+        # lock semantics preserved — sizing sees balance=0 → rejects → no
+        # order can ever be built; kaynak-yükseltme, gevşetme yok).
         if self._ctrader_mode:
-            return Account(balance=0.0, equity=0.0)
+            state = self._fetch_ctrader_account_state()
+            return Account(
+                balance=state["balance"],
+                equity=state["equity"],
+                currency=state["currency"],
+            )
         try:
             acc = self._mt5.account_info() if self._mt5 is not None else None
         except Exception:

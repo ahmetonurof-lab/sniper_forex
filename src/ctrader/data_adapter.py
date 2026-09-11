@@ -118,6 +118,22 @@ CTRADER_MAX_SINGLE_REQUEST_BARS = 5000
 # is orders of magnitude below any stale-ownership window.
 CTRADER_CHUNK_PACING_SEC = 0.25
 
+# İŞ-6 (DİREKTİF-14): cTrader depositAssetId → ISO currency. Only the
+# common majors are mapped; unknown IDs fall back to "USD" (beyanlı — the
+# demo account is USD-funded per ADIM-2 Reis-beyanı). Documented lookup,
+# NOT a silent invention: the Account dataclass defaults to USD and the
+# orchestrator surfaces the source in the audit chain.
+_ASSET_ID_TO_CURRENCY: Dict[int, str] = {
+    1: "USD",
+    2: "EUR",
+    3: "GBP",
+    4: "JPY",
+    5: "CHF",
+    6: "AUD",
+    7: "CAD",
+    8: "NZD",
+}
+
 
 class CTraderDataError(RuntimeError):
     """Fail-loud adapter error (AGENTS.md §19): no silent fallbacks."""
@@ -965,3 +981,67 @@ class CTraderDataAdapter:
                     continue  # not bot-owned — skip (MT5 magic-filter parity)
                 positions.append(d)
             return positions
+
+    def get_account_state(self) -> Dict[str, Any]:
+        """Fetch account state via ProtoOATraderReq (İŞ-6 / DİREKTİF-14).
+
+        Returns a dict {balance, equity, leverage, currency} decoded from
+        the ProtoOATrader snapshot. Fail-loud: raises CTraderDataError on
+        timeout/error/disconnect — the orchestrator maps that to the 0.0
+        fail-soft Account (existing lock semantics preserved; kaynak-
+        yükseltme, gevşetme yok).
+
+        Decode conventions (cTrader Open API, verified via SDK proto
+        introspection):
+          - balance_raw is scaled by 10^moneyDigits → balance = raw / 10^moneyDigits
+          - ProtoOATrader has NO equity field → equity = balance (documented
+            assumption: a flat account has equity == balance; the demo
+            account is flat at boot — ADIM-2).
+          - leverageInCents / 100 → leverage (e.g. 10000 cents = 1:100)
+          - depositAssetId → currency via _ASSET_ID_TO_CURRENCY (unknown →
+            "USD" default, beyanlı).
+        """
+        if not self.ensure_connected():
+            raise CTraderDataError("ctrader_not_connected: cannot get_account_state")
+        with self._req_lock:
+            try:
+                self._conn.request_trader()
+            except Exception as exc:
+                raise CTraderDataError(
+                    f"trader_request_failed: {type(exc).__name__}: {exc}"
+                ) from exc
+            res, leftovers = self._drain_until(
+                lambda kind, payload: (
+                    kind in ("MESSAGE", "TRADER_ERROR", "PARSE_ERROR")
+                    and (
+                        (
+                            kind == "MESSAGE"
+                            and payload is not None
+                            and type(payload).__name__ == "ProtoOATraderRes"
+                        )
+                        or kind in ("TRADER_ERROR", "PARSE_ERROR")
+                    )
+                ),
+                self._timeout,
+            )
+            self._requeue(leftovers)
+            if res is None:
+                raise CTraderDataError("trader_response_timeout")
+            if type(res).__name__ != "ProtoOATraderRes":
+                raise CTraderDataError(f"trader_error: {res}")
+            trader = getattr(res, "trader", None)
+            if trader is None:
+                raise CTraderDataError("trader_missing_in_response")
+            money_digits = int(getattr(trader, "moneyDigits", 0) or 0)
+            balance_raw = float(getattr(trader, "balance", 0.0) or 0.0)
+            balance = balance_raw / (10**money_digits)
+            leverage_cents = int(getattr(trader, "leverageInCents", 0) or 0)
+            leverage = leverage_cents // 100
+            asset_id = int(getattr(trader, "depositAssetId", 0) or 0)
+            currency = _ASSET_ID_TO_CURRENCY.get(asset_id, "USD")
+            return {
+                "balance": balance,
+                "equity": balance,  # documented: no equity field in trader snapshot
+                "leverage": leverage,
+                "currency": currency,
+            }

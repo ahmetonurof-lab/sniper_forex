@@ -205,6 +205,19 @@ class CTraderConnection:
         deferred.addErrback(lambda f: self.event_queue.put(("RECONCILE_ERROR", str(f))))
 
     # ------------------------------------------------------------------
+    # Hesap durumu (İŞ-6 / DİREKTİF-14): ProtoOATraderReq → balance/leverage.
+    # Yanıt ProtoOATraderRes (event_queue, MESSAGE); errback TRADER_ERROR.
+    # data_adapter.get_account_state() bu kuyruğu tüketir.
+    # ------------------------------------------------------------------
+    def request_trader(self):
+        """ProtoOATraderReq — hesap durumu (balance/leverage) iste (İŞ-6)."""
+        req = Protobuf.get("ProtoOATraderReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addErrback(lambda f: self.event_queue.put(("TRADER_ERROR", str(f))))
+        return deferred
+
+    # ------------------------------------------------------------------
     # Sembol keşfi (Adım A.3)
     # ------------------------------------------------------------------
     def request_symbols_list(self, include_archived=False):

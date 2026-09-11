@@ -79,6 +79,31 @@ class ProtoOASymbolsListRes:
         self.symbol = symbols
 
 
+class FakeTrader:
+    """ProtoOATrader-shaped fake (balance/moneyDigits/leverageInCents)."""
+
+    def __init__(
+        self,
+        balance_raw,
+        money_digits=2,
+        leverage_in_cents=10000,
+        deposit_asset_id=1,
+    ):
+        self.ctidTraderAccountId = 48407657
+        self.balance = balance_raw
+        self.moneyDigits = money_digits
+        self.leverageInCents = leverage_in_cents
+        self.depositAssetId = deposit_asset_id
+
+
+class ProtoOATraderRes:
+    """ProtoOATraderRes-shaped fake — name mirrors the real protobuf
+    message (adapter matches via type(payload).__name__)."""
+
+    def __init__(self, trader):
+        self.trader = trader
+
+
 class FakeConnection:
     """Scripted fake of CTraderConnection's surface the adapter touches."""
 
@@ -105,6 +130,14 @@ class FakeConnection:
 
     def reconcile(self):
         self.calls.append(("reconcile", None))
+        if not self._connected:
+            raise RuntimeError("not connected")
+
+    def request_trader(self):
+        """ProtoOATraderReq handler — records the call only (matches the
+        reconcile pattern). Tests enqueue the ProtoOATraderRes explicitly
+        so the timeout path (RED-2) is actually exercisable."""
+        self.calls.append(("trader", None))
         if not self._connected:
             raise RuntimeError("not connected")
 
@@ -394,6 +427,45 @@ class TestAdapterGapFix:
         )
         ad = _make_adapter(conn)
         assert ad.get_positions(contract_size=100000.0) == []
+
+
+# ---------------------------------------------------------------------------
+# İŞ-6 / DİREKTİF-14 — ACCOUNT-STATE: ProtoOATrader fetch (red tests)
+#
+# mode-0-canlı, İŞ-6'sız ANLAMSIZDIR: _get_account 0.0-pini kalkmadan
+# sizing-0.0-bakiyeyi-reject-eder → SIGNAL/RISK-sonrası-zincir-ölür.
+# Bu testler adapter'ın get_account_state() yüzeyini tanımlar (red-test-ÖNCE).
+# ---------------------------------------------------------------------------
+class TestGetAccountState:
+    def test_red1_real_balance_decoded_from_trader(self):
+        """RED-1: ProtoOATraderRes → balance/moneyDigits decode → real
+        balance. Today RED: adapter has no get_account_state()."""
+        conn = FakeConnection()
+        conn.event_queue.put(
+            ("MESSAGE", ProtoOATraderRes(FakeTrader(balance_raw=1_000_000, money_digits=2)))
+        )
+        ad = _make_adapter(conn)
+        state = ad.get_account_state()
+        assert state["balance"] == pytest.approx(10000.0)  # 1_000_000 / 10^2
+        assert state["equity"] == pytest.approx(10000.0)
+        assert state["leverage"] == 100  # 10000 cents / 100
+        assert state["currency"] == "USD"
+
+    def test_red2_timeout_raises_fail_loud(self):
+        """RED-2: no ProtoOATraderRes within timeout → CTraderDataError
+        (fail-loud; orchestrator maps to 0.0 fail-soft)."""
+        conn = FakeConnection()
+        ad = _make_adapter(conn, response_timeout_sec=0.2)
+        with pytest.raises(CTraderDataError):
+            ad.get_account_state()
+
+    def test_red3_error_response_raises_fail_loud(self):
+        """RED-3: TRADER_ERROR on the queue → CTraderDataError (fail-loud)."""
+        conn = FakeConnection()
+        conn.event_queue.put(("TRADER_ERROR", "boom"))
+        ad = _make_adapter(conn)
+        with pytest.raises(CTraderDataError):
+            ad.get_account_state()
 
 
 # ---------------------------------------------------------------------------

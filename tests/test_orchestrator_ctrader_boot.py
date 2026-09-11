@@ -104,6 +104,31 @@ class ProtoOAReconcileRes:
         self.order = []
 
 
+class FakeTrader:
+    """ProtoOATrader-shaped fake (balance/moneyDigits/leverageInCents)."""
+
+    def __init__(
+        self,
+        balance_raw,
+        money_digits=2,
+        leverage_in_cents=10000,
+        deposit_asset_id=1,
+    ):
+        self.ctidTraderAccountId = 48407657
+        self.balance = balance_raw
+        self.moneyDigits = money_digits
+        self.leverageInCents = leverage_in_cents
+        self.depositAssetId = deposit_asset_id
+
+
+class ProtoOATraderRes:
+    """ProtoOATraderRes-shaped fake — name mirrors the real protobuf
+    message (adapter matches via type(payload).__name__)."""
+
+    def __init__(self, trader):
+        self.trader = trader
+
+
 class FakeTradeData:
     def __init__(self, symbol_id, volume, trade_side, label, comment="", open_ts=0):
         self.symbolId = symbol_id
@@ -170,6 +195,12 @@ class FakeCtraderConnection:
     def ensure_connected(self, max_attempts: int = 1) -> bool:
         return self._connected
 
+    def reconnect(self, max_attempts: int = 1) -> bool:
+        """İŞ-6: mirror the real connection surface (always exposes
+        reconnect) so the adapter's fail-soft path returns fast instead of
+        the 6s bounded-wait fallback."""
+        return self._connected
+
     def stop(self):
         self.calls.append(("stop", None))
 
@@ -214,6 +245,13 @@ class FakeCtraderConnection:
         self.calls.append(("reconcile", None))
         self.event_queue.put(
             ("MESSAGE", ProtoOAReconcileRes(positions=list(self._reconcile_positions)))
+        )
+
+    def request_trader(self):
+        """ProtoOATraderReq handler — enqueues scripted trader data (İŞ-6)."""
+        self.calls.append(("trader", None))
+        self.event_queue.put(
+            ("MESSAGE", ProtoOATraderRes(FakeTrader(balance_raw=1_000_000, money_digits=2)))
         )
 
 
@@ -278,14 +316,17 @@ class TestCtraderBoot:
         ]
         assert connect_events, "cTrader transport audit event missing"
 
-    def test_s2_account_skip_audit(self, ctrader_orch):
-        """Karar-4: cTrader-mode skips account_info; account dict is
-        explicit zeros + audited (beyanlı, not silent)."""
+    def test_s2_account_state_fetched_audit(self, ctrader_orch):
+        """Karar-4 + İŞ-6 (DİREKTİF-14): cTrader-mode account snapshot is
+        FETCHED via ProtoOATrader (real balance) and audited (beyanlı, not
+        silent). The old explicit-zeros note (account_info_skipped_ctrader_mode)
+        was replaced by the İŞ-6 real-fetch note — §4.3-documented behavior
+        change (pin-flip)."""
         orch, conn = ctrader_orch
         result = orch.startup()
         assert result.verdict in (StartupVerdict.PROCEED, StartupVerdict.SAFE_START)
         payload_text = repr([getattr(e, "payload", {}) for e in orch.audit.events])
-        assert "account_info_skipped_ctrader_mode" in payload_text
+        assert "account_state_fetched_ctrader_mode" in payload_text
 
     def test_s3_contract_preset_built(self, ctrader_orch):
         """Karar-3-S3: cTrader-mode contract comes from the FX-major preset
@@ -335,16 +376,28 @@ class TestCtraderBoot:
         orch.shutdown(exit_code=0, reason="test")
         assert any(c[0] == "stop" for c in conn.calls)
 
-    def test_get_account_zero_beyanli(self, ctrader_orch):
-        """Karar-7: _get_account returns explicit zero Account in cTrader
-        mode → sizing rejects → no order can ever be built."""
+    def test_get_account_ctrader_real_balance_and_fail_soft(self, ctrader_orch):
+        """DİREKTİF-14 İŞ-6 PIN-FLIP (eski: test_get_account_zero_beyanli):
+        cTrader _get_account fetches REAL balance via ProtoOATrader; on
+        fetch failure → 0.0 fail-soft (existing lock semantics preserved —
+        kaynak-yükseltme, gevşetme yok)."""
         orch, conn = ctrader_orch
         orch.startup()
         orch._ctrader_mode = True
+
+        # Path A: successful fetch → real balance (1_000_000 / 10^2 = 10000)
         acc = orch._get_account()
         assert acc is not None
-        assert acc.balance == 0.0
-        assert acc.equity == 0.0
+        assert acc.balance == pytest.approx(10000.0)
+        assert acc.equity == pytest.approx(10000.0)
+        assert any(c[0] == "trader" for c in conn.calls)
+
+        # Path B: fetch failure → 0.0 fail-soft (lock semantics preserved)
+        conn._connected = False
+        acc_soft = orch._get_account()
+        assert acc_soft is not None
+        assert acc_soft.balance == 0.0
+        assert acc_soft.equity == 0.0
 
 
 class TestAdapterGapFailClosed:
