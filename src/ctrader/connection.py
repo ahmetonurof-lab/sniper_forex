@@ -229,6 +229,20 @@ class CTraderConnection:
         deferred.addErrback(lambda f: self.event_queue.put(("SYMBOLS_ERROR", str(f))))
         return deferred
 
+    def request_symbol_by_id(self, symbol_id: int):
+        """ProtoOASymbolByIdReq — tek sembolün full spec'ini iste (İŞ-9).
+
+        ProtoOASymbolByIdRes döner (ProtoOAAssetSymbol listesi):
+          symbolId, symbolName, digits, contractSize, lotSize,
+          pipPosition, pipSize, minVolume, maxVolume, volumeStep, ...
+        """
+        req = Protobuf.get("ProtoOASymbolByIdReq")
+        req.ctidTraderAccountId = int(self.config["account_id"])
+        req.symbolId.append(int(symbol_id))
+        deferred = self.client.send(req, responseTimeoutInSeconds=REQUEST_TIMEOUT_SEC)
+        deferred.addErrback(lambda f: self.event_queue.put(("SYMBOL_BY_ID_ERROR", str(f))))
+        return deferred
+
     # ------------------------------------------------------------------
     # Veri-istekleri (İş-4a — D155): trendbar + spot abonelik.
     # Yanıtlar event_queue'ya MESSAGE olarak düşer (mevcut

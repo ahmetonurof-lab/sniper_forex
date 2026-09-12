@@ -434,6 +434,94 @@ class CTraderDataAdapter:
         return self._resolve_symbol_id(symbol)
 
     # ------------------------------------------------------------------
+    # Symbol full spec (İŞ-9: broker-truth contract)
+    # ------------------------------------------------------------------
+
+    def get_symbol_spec(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch full symbol spec from broker via ProtoOASymbolByIdReq (İŞ-9).
+
+        Returns a dict with broker-truth fields:
+          symbol_id, symbol_name, digits, contract_size, pip_position,
+          pip_size, min_volume, max_volume, volume_step
+        or None on transient failure (caller falls back to preset).
+
+        Fail-loud for unknown symbol (CTraderDataError); fail-soft (None)
+        for transient connection/timeout issues — the caller
+        (_build_contract) uses a safe default preset in that case.
+        """
+        try:
+            symbol_id = self._resolve_symbol_id(symbol)
+        except CTraderDataError:
+            raise  # unknown_symbol = fail-loud
+        except Exception:
+            return None  # transient — caller uses preset
+
+        with self._req_lock:
+            try:
+                self._conn.request_symbol_by_id(symbol_id)
+            except Exception as exc:
+                logger.warning(
+                    "ctrader_symbol_spec_request_failed: %s %s: %s",
+                    symbol,
+                    symbol_id,
+                    exc,
+                )
+                return None
+            res, leftovers = self._drain_until(
+                lambda kind, payload: (
+                    kind in ("MESSAGE", "SYMBOL_BY_ID_ERROR", "PARSE_ERROR")
+                    and (
+                        (
+                            kind == "MESSAGE"
+                            and payload is not None
+                            and type(payload).__name__ == "ProtoOASymbolByIdRes"
+                        )
+                        or kind in ("SYMBOL_BY_ID_ERROR", "PARSE_ERROR")
+                    )
+                ),
+                self._timeout,
+            )
+            self._requeue(leftovers)
+
+        if res is None:
+            logger.warning("ctrader_symbol_spec_timeout: %s", symbol)
+            return None
+        if type(res).__name__ != "ProtoOASymbolByIdRes":
+            logger.warning(
+                "ctrader_symbol_spec_unexpected_response: %s %s", symbol, type(res).__name__
+            )
+            return None
+
+        # ProtoOASymbolByIdRes.symbol is a repeated ProtoOAAssetSymbol.
+        # We requested exactly one symbolId, so take the first match.
+        for sym in getattr(res, "symbol", []) or []:
+            if int(getattr(sym, "symbolId", 0)) == symbol_id:
+                digits = int(getattr(sym, "digits", 5))
+                contract_size = float(getattr(sym, "contractSize", 100000.0))
+                # pipPosition: cTrader reports the number of decimal places
+                # for the pip (e.g. EURUSD digits=5 pipPosition=4 → pip=0.0001;
+                # BTCUSD digits=2 pipPosition=1 → pip=0.1).
+                pip_position = int(getattr(sym, "pipPosition", digits - 1))
+                pip_size_raw = getattr(sym, "pipSize", None)
+                if pip_size_raw is not None:
+                    pip_size = float(pip_size_raw)
+                else:
+                    pip_size = 10.0 ** (-pip_position) if pip_position > 0 else 1.0
+                return {
+                    "symbol_id": symbol_id,
+                    "symbol_name": str(getattr(sym, "symbolName", symbol)),
+                    "digits": digits,
+                    "contract_size": contract_size,
+                    "pip_position": pip_position,
+                    "pip_size": pip_size,
+                    "min_volume": int(getattr(sym, "minVolume", 1)),
+                    "max_volume": int(getattr(sym, "maxVolume", 10000000)),
+                    "volume_step": int(getattr(sym, "stepVolume", 1)),
+                }
+        logger.warning("ctrader_symbol_spec_not_found: %s id=%s", symbol, symbol_id)
+        return None
+
+    # ------------------------------------------------------------------
     # get_rates — orchestrator fetch contract (M1 trendbars)
     # ------------------------------------------------------------------
     def get_rates(

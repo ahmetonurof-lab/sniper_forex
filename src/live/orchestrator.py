@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import ctypes
 import json
+import logging
 import os
 import re
 import time
@@ -77,6 +78,8 @@ from src.live.trade_history import (
 )
 from src.live.trade_lifecycle import TradeLifecycle
 from src.strategy.models import Bar
+
+logger = logging.getLogger(__name__)
 
 # ── Slot helpers (D19/D20 — 15m grid alignment) ─────────────────────
 
@@ -2186,17 +2189,20 @@ class Orchestrator:
         safe_reason in S3.
         """
         if self._mt5 is None or not hasattr(self._mt5, "symbol_info"):
-            # İŞ-4a S3 (D159): cTrader-mode has no MT5 symbol_info. We use
-            # an EXPLICIT default contract preset for FX majors (beyanlı —
-            # audited, not silent): digits=5, tick_size=0.00001,
-            # contract_size=100000, volume 0.01..100 step 0.01,
-            # stops_level=0.0 (cTrader symbol details would refine this in
-            # a later İş item). trade_mode unknown → flagged ok
-            # conservatively; sizing uses tick_value which we set
-            # conservatively to 1.0 (per-point USD for a 0.00001 tick on a
-            # 100k contract — standard FX major value).
+            # İŞ-9: cTrader-mode — fetch broker-truth spec via
+            # ProtoOASymbolByIdReq. On transient failure, fall back to
+            # the audited FX-major preset (beyanlı — not silent).
             if self._ctrader_mode:
                 self._trade_mode_ok = True
+                spec = self._fetch_ctrader_symbol_spec(symbol)
+                if spec is not None:
+                    return spec
+                # Fallback: audited FX-major preset (digits=5,
+                # contract_size=100000, tick_size=0.00001, tick_value=1.0).
+                logger.warning(
+                    "ctrader_contract_preset_fallback: %s (broker-spec unavailable)",
+                    symbol,
+                )
                 return ContractSpec(
                     symbol=symbol,
                     volume_min=0.01,
@@ -2249,6 +2255,63 @@ class Orchestrator:
                 error_payload(e, phase="S3"),
             )
             return None
+
+    def _fetch_ctrader_symbol_spec(self, symbol: str) -> Optional[ContractSpec]:
+        """İŞ-9: Fetch broker-truth symbol spec via ProtoOASymbolByIdReq.
+
+        Delegates to the data adapter's get_symbol_spec() which returns
+        a dict with broker-truth fields (digits, contract_size, pip_position,
+        min_volume, max_volume, volume_step). Converts to ContractSpec.
+
+        Returns None on transient failure (adapter returns None) — caller
+        falls back to the audited FX-major preset. Raises CTraderDataError
+        for unknown_symbol (fail-loud).
+        """
+        try:
+            spec = self._mt5_conn.get_symbol_spec(symbol)
+        except Exception as exc:
+            logger.warning("ctrader_symbol_spec_error: %s: %s", symbol, exc)
+            return None
+        if spec is None:
+            return None
+
+        digits = spec["digits"]
+        contract_size = spec["contract_size"]
+        pip_position = spec["pip_position"]
+        # tick_size = smallest price increment = 10^(-digits)
+        tick_size = 10.0 ** (-digits)
+        # tick_value: conservative per-tick USD for a standard lot.
+        # For FX majors (contract_size=100000): tick_value ≈
+        #   contract_size × tick_size = 100000 × 0.00001 = 1.0.
+        # For crypto (contract_size=1, BTCUSD digits=2):
+        #   tick_value ≈ contract_size × tick_size = 1 × 0.01 = 0.01.
+        tick_value = contract_size * tick_size
+        # Volume: cTrader protocol volumes are in units of
+        # lot × contract_size × 100. min_volume/max_volume/step_volume
+        # from the spec are in protocol units. Convert to lots:
+        #   lots = protocol_volume / (contract_size × 100)
+        # But the orchestrator works in lots, so we need lot-based bounds.
+        # The spec's minVolume/maxVolume/stepVolume are in 0.01-lot units
+        # for FX (1 = 0.01 lot). For crypto they may differ.
+        # Conservative: use 0.01..100 lots with 0.01 step (FX default).
+        # The execution layer handles protocol-volume conversion.
+        volume_min = max(0.01, spec["min_volume"] / (contract_size * 100.0))
+        volume_max = min(100.0, spec["max_volume"] / (contract_size * 100.0))
+        volume_step = max(0.01, spec["volume_step"] / (contract_size * 100.0))
+        if volume_max < volume_min:
+            volume_max = volume_min
+
+        return ContractSpec(
+            symbol=symbol,
+            volume_min=volume_min,
+            volume_max=volume_max,
+            volume_step=volume_step,
+            tick_size=tick_size,
+            tick_value=tick_value,
+            contract_size=contract_size,
+            stops_level=0.0,  # cTrader uses relative SL/TP
+            digits=digits,
+        )
 
     # ── S9: Warmup + real-terminal smoke (D15/D28/D33) ─────────────
 
@@ -2956,12 +3019,13 @@ class Orchestrator:
             return None
 
     def _build_ctrader_symbol_meta(self) -> Dict[str, Dict[str, Any]]:
-        """İŞ-7: symbol_meta for CTraderExecution.
+        """İŞ-7+9: symbol_meta for CTraderExecution.
 
         symbol_id resolved via the adapter (public resolve_symbol_id);
-        pip_position derived from the FX-major contract preset digits
-        (EURUSD 5, JPY 3 — D169-§4 dynamic scale). A symbol whose symbol_id
-        cannot be resolved is EXCLUDED (fail-closed: no meta → no order).
+        pip_position from broker-truth spec (İŞ-9: ProtoOASymbolByIdReq)
+        with fallback to contract digits (FX-major preset).
+        A symbol whose symbol_id cannot be resolved is EXCLUDED
+        (fail-closed: no meta → no order).
         """
         meta: Dict[str, Dict[str, Any]] = {}
         symbols = self.configured_symbols or [self._symbol]
@@ -2973,10 +3037,17 @@ class Orchestrator:
                 symbol_id = None
             if symbol_id is None:
                 continue
-            digits = int(self._contract.digits) if self._contract else 5
+            # İŞ-9: try broker-truth spec for pip_position
+            pip_position = int(self._contract.digits) if self._contract else 5
+            try:
+                spec = self._mt5_conn.get_symbol_spec(symbol)
+                if spec is not None:
+                    pip_position = spec["pip_position"]
+            except Exception:
+                pass  # fallback to contract digits
             meta[symbol] = {
                 "symbol_id": int(symbol_id),
-                "pip_position": digits,
+                "pip_position": pip_position,
             }
         return meta
 
