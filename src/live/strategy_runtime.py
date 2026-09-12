@@ -463,6 +463,13 @@ class StrategyRuntime:
             # gün yeni fallback-kilidi kurabilir; persist-until-entry
             # gün-ölçeklidir).
             self._v6_entry_consumed = False
+            # CYCLE-BOUNDARY sweep-state reset: her CBDR cycle bağımsız
+            # başlar. Session/CBDRState zaten resetlenir; runtime sweep
+            # state'i de burada sıfırlanır — tüketilmemiş sweep yeni
+            # cycle'a taşınamaz, _active_bias() eski sweep'i döndüremez.
+            # V6 alanlarına, precedence'e, FVG/EQ/entry'ye dokunulmaz.
+            self.sweep_detected = False
+            self.last_sweep = None
             if self._htf_daily is None:
                 # Ilk-gun-veya-restore-durumu (_htf_daily persist edilmez):
                 # o ana kadarki tum listeyi kur (build_daily ile —
