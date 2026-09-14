@@ -470,14 +470,24 @@ class LiveRunner:
             res.blocked_reason = "execution_unavailable_fail_closed"
             self._audit(
                 EventType.RISK,
-                {"approved": False, "reason": res.blocked_reason, "symbol": self.symbol},
+                {
+                    "approved": False,
+                    "reason": res.blocked_reason,
+                    "symbol": self.symbol,
+                    "trade_id": sig.trade_id,
+                },
             )
             return res
         if entry_locked:
             res.blocked_reason = "c2_symbol_entry_lock_active_trade"
             self._audit(
                 EventType.RISK,
-                {"approved": False, "reason": res.blocked_reason, "symbol": self.symbol},
+                {
+                    "approved": False,
+                    "reason": res.blocked_reason,
+                    "symbol": self.symbol,
+                    "trade_id": sig.trade_id,
+                },
             )
             return res
 
@@ -488,7 +498,14 @@ class LiveRunner:
         # Current DD — journal-authoritative; unreliable DD pauses scaling.
         if not self.lifecycle.dd_is_reliable():
             res.blocked_reason = "portfolio_dd_unreliable_pause"
-            self._audit(EventType.RISK, {"approved": False, "reason": res.blocked_reason})
+            self._audit(
+                EventType.RISK,
+                {
+                    "approved": False,
+                    "reason": res.blocked_reason,
+                    "trade_id": sig.trade_id,
+                },
+            )
             return res
         current_dd_r = self.lifecycle.portfolio_dd.current_dd_r()
 
@@ -509,6 +526,7 @@ class LiveRunner:
                     "approved": False,
                     "reason": res.blocked_reason,
                     "lot_multiplier": decision.lot_multiplier,
+                    "trade_id": sig.trade_id,
                 },
             )
             return res
@@ -524,20 +542,46 @@ class LiveRunner:
         if final_lot <= 0:
             # Includes the min-lot BLOCK semantics (reduction unachievable).
             res.blocked_reason = "scaled_lot_zero_minlot_block"
-            self._audit(EventType.RISK, {"approved": False, "reason": res.blocked_reason})
+            self._audit(
+                EventType.RISK,
+                {
+                    "approved": False,
+                    "reason": res.blocked_reason,
+                    "trade_id": sig.trade_id,
+                },
+            )
             return res
 
         res.approved = True
         order = OrderRequest(signal=sig, lot=final_lot, contract=contract)
+        # ORDER_REQUEST (logging-parity, additive): pre-send intent with the
+        # correlation key. Emitted BEFORE execution.send so a send that never
+        # returns (exception/timeout) still leaves the intent on the journal.
+        self._audit(
+            EventType.ORDER_REQUEST,
+            {
+                "trade_id": sig.trade_id,
+                "symbol": sig.symbol,
+                "side": sig.side,
+                "lot": final_lot,
+                "entry": sig.entry_price,
+                "sl": sig.sl,
+                "tp": sig.tp,
+            },
+        )
         exec_result = self.execution.send(order)
         res.order_sent = exec_result.sent
         self._audit(
             EventType.ORDER,
             {
+                "trade_id": sig.trade_id,
                 "sent": exec_result.sent,
                 "filled": exec_result.filled,
                 "retcode": exec_result.retcode,
                 "lot": final_lot,
+                "order_id": getattr(exec_result, "order_id", None),
+                "deal_id": getattr(exec_result, "deal_id", None),
+                "reason": getattr(exec_result, "reason", ""),
             },
         )
         if not exec_result.filled:
@@ -566,19 +610,52 @@ class LiveRunner:
             lot_multiplier=decision.lot_multiplier,
             initial_risk_cash_total=risk_cash,
             initial_risk_cash_per_unit=(risk_cash / filled_volume if filled_volume > 0 else 0.0),
+            trade_id=sig.trade_id,
         )
         self.lifecycle.register_open_context(ctx)
         self._position_to_ctx[position_id] = ctx
         self._known_position_ids.add(position_id)
         self.bridge.register_position(position_id, sig.sl, sig.tp)
         res.context_registered = ctx
+        # FILL (logging-parity, additive): broker-confirmed fill with the
+        # correlation key + broker ticket ids. POSITION keeps its shape
+        # (existing consumers untouched); the join key is trade_id.
+        self._audit(
+            EventType.FILL,
+            {
+                "trade_id": sig.trade_id,
+                "position_id": position_id,
+                "order_id": int(exec_result.order_id or 0),
+                "entry_deal_id": int(exec_result.deal_id or 0),
+                "entry": fill_price,
+                "volume": filled_volume,
+                "side": sig.side,
+            },
+        )
         self._audit(
             EventType.POSITION,
             {
+                "trade_id": sig.trade_id,
                 "position_id": position_id,
                 "entry": fill_price,
                 "volume": filled_volume,
                 "initial_risk_cash_total": risk_cash,
+            },
+        )
+        # SLTP_PLACED at entry (logging-parity, additive): the entry order
+        # carried relative SL/TP in its broker payload (cTrader) — the
+        # broker-confirmed fill binds them to this position_id. Values are
+        # the signal SL/TP the broker accepted with the fill; trailing
+        # modifies emit their own SLTP_PLACED via sync_trailing.
+        self._audit(
+            EventType.SLTP_PLACED,
+            {
+                "trade_id": sig.trade_id,
+                "position_id": position_id,
+                "sl": sig.sl,
+                "tp": sig.tp,
+                "confirmed": True,
+                "at": "entry",
             },
         )
         return res
@@ -600,7 +677,24 @@ class LiveRunner:
         if trade is None or trade.get("closed"):
             return events
         for position_id in list(self._position_to_ctx.keys()):
-            events.append(self.bridge.sync(self.runtime, position_id))
+            ev = self.bridge.sync(self.runtime, position_id)
+            events.append(ev)
+            # SLTP_PLACED (logging-parity, additive): broker-confirmed
+            # SL/TP placement only (action == "sent" + confirmed). Skips,
+            # no-change and stale outcomes stay silent — they carry no
+            # broker-side proof.
+            if getattr(ev, "action", "") == "sent" and getattr(ev, "confirmed", False):
+                ctx = self._position_to_ctx.get(position_id)
+                self._audit(
+                    EventType.SLTP_PLACED,
+                    {
+                        "trade_id": (getattr(ctx, "trade_id", "") or ""),
+                        "position_id": int(position_id),
+                        "sl": getattr(ev, "desired_sl", None),
+                        "tp": getattr(ev, "desired_tp", None),
+                        "confirmed": True,
+                    },
+                )
         return events
 
     # ── Exit path: broker deal history ─────────────────────────────
@@ -687,6 +781,7 @@ class LiveRunner:
                 self._audit(
                     EventType.EXIT,
                     {
+                        "trade_id": (ctx.trade_id if ctx is not None else ""),
                         "deal_id": deal_id,
                         "position_id": position_id,
                         "status": status,

@@ -60,9 +60,12 @@ EXPECTED_KEYS = {
     # E1(i) (OBS-P0 karar-kilidi EK-2): kapali set 12 -> 15 — warmup ile
     # canli emit ayni builder'i kullansin diye bar-index forensic üçlüsü
     # builder'a taşındı (bilgi kaybı yok, kaynak tekilleşti).
+    # Logging-parity: 15 -> 16 — trade_id (SIGNAL→RISK→ORDER→FILL→
+    # POSITION→EXIT zincir korelasyon anahtarı).
     "entry_bar_index",
     "sweep_bar_index",
     "zone_index",
+    "trade_id",
 }
 
 

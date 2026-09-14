@@ -48,9 +48,11 @@ class EventType(str, Enum):
     CANDLE = "CANDLE"  # closed 15m bar received
     SIGNAL = "SIGNAL"  # StrategyRuntime produced a Signal
     RISK = "RISK"  # RiskManager evaluated (approved/blocked)
+    ORDER_REQUEST = "ORDER_REQUEST"  # OrderRequest built + about to send (pre-send intent)
     ORDER = "ORDER"  # Execution sent (or attempted) an order
     FILL = "FILL"  # Broker confirmed fill (filled=True)
     POSITION = "POSITION"  # PositionManager observed an open position
+    SLTP_PLACED = "SLTP_PLACED"  # broker-confirmed SL/TP placement (entry or trailing modify)
     EXIT = "EXIT"  # Position closed (ClosedTrade emitted)
     SAFETY = "SAFETY"  # SafetyMonitor blocked a trade
     RECONCILE = "RECONCILE"  # Reconciler produced a decision

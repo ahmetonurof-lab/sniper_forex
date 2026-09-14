@@ -28,6 +28,7 @@ WARM = 160
 # N2 #23-b AM-N23-3: kapalı-set 8 → 12 alan (şema-testiyle AYNI sözleşme)
 # E1(i) (OBS-P0): 12 → 15 — bar-index forensic üçlüsü builder'a taşındı
 # (warmup ile canlı emit aynı builder; bkz. test_n2_23_emit_schema).
+# Logging-parity: 15 → 16 — trade_id (zincir korelasyon anahtarı).
 EXPECTED_KEYS = {
     "symbol",
     "side",
@@ -44,6 +45,7 @@ EXPECTED_KEYS = {
     "entry_bar_index",
     "sweep_bar_index",
     "zone_index",
+    "trade_id",
 }
 
 # k -> (open, high, low, close) — schema testiyle AYNI geometri

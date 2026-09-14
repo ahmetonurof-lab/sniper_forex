@@ -45,9 +45,11 @@ SIGNAL_KEYS = {
     "direction",
     # E1(i): kapali set 12 -> 15 (bar-index forensic üçlüsü) — see
     # test_n2_23_emit_schema.EXPECTED_KEYS for rationale.
+    # Logging-parity: 15 -> 16 — trade_id (zincir korelasyon anahtarı).
     "entry_bar_index",
     "sweep_bar_index",
     "zone_index",
+    "trade_id",
 }
 ARMED_KEYS = {
     "moment",

@@ -3140,6 +3140,23 @@ class Orchestrator:
                 "unknown_symbol_ids": unknown_symbol_ids,
             },
         )
+        # RECONCILE (logging-parity, additive): machine-readable mirror of
+        # the S5 reconciliation decision. The SAFETY event above stays the
+        # human/gate record; this event closes the SIGNAL→…→RECONCILIATION
+        # chain with a typed event (previously enum-only, never emitted).
+        self.audit.append(
+            time.time(),
+            EventType.RECONCILE,
+            self._symbol,
+            {
+                "phase": "S5",
+                "status": recon_status,
+                "block_trading": recon_block,
+                "details": recon_details,
+                "positions_count": len(positions_list),
+                "unknown_symbol_ids": unknown_symbol_ids,
+            },
+        )
         return snapshot
 
     def _get_spread_state(self, now_dt: datetime) -> Tuple[bool, float]:

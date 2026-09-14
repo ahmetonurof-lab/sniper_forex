@@ -32,6 +32,9 @@ class OpenTradeContext:
     entry_deal_id: int = 0
     symbol: str = ""
     side: str = "long"
+    # Correlation key for the SIGNAL→RISK→ORDER→FILL→POSITION→EXIT chain
+    # (logging-parity, additive). Empty only for pre-trade_id constructions.
+    trade_id: str = ""
     entry_price: float = 0.0
     initial_sl: float = 0.0
     base_lot: float = 0.0
@@ -85,6 +88,7 @@ def build_open_context_from_fill(
     lot_multiplier: float,
     initial_risk_cash_total: float,
     initial_risk_cash_per_unit: float,
+    trade_id: str = "",
 ) -> OpenTradeContext:
     """Build an OpenTradeContext from BROKER-CONFIRMED entry fill data.
 
@@ -101,6 +105,7 @@ def build_open_context_from_fill(
         entry_deal_id=int(entry_deal_id),
         symbol=symbol,
         side=side,
+        trade_id=str(trade_id or ""),
         entry_price=float(entry_price),
         initial_sl=float(initial_sl),
         base_lot=float(base_lot),

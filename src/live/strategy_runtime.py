@@ -89,6 +89,12 @@ class Signal:
     # keyword constructors (backtest parity paths, paper, signal_runner,
     # tests) are untouched. 0.0 = "no width info" -> risk gate stays NEUTRAL.
     cbdr_width_pct: float = 0.0
+    # Correlation key for the SIGNAL→RISK→ORDER→FILL→POSITION→EXIT chain
+    # (logging-parity, additive). Set at creation in _fill_pending as
+    # f"{symbol}:{trade_counter}" — deterministic, unique per runtime.
+    # Default "" keeps every existing keyword construction (tests, paper,
+    # signal_runner, backtest parity) untouched; builder emits it always.
+    trade_id: str = ""
 
 
 def signal_audit_payload(sig: Signal) -> Dict[str, Any]:
@@ -115,6 +121,10 @@ def signal_audit_payload(sig: Signal) -> Dict[str, Any]:
         "tp": sig.tp,
         "reason": "cbdr_sweep_fvg_fill",
         "ts": sig.timestamp.isoformat(),
+        # Correlation key for the SIGNAL→RISK→ORDER→FILL→POSITION→EXIT
+        # chain (logging-parity, additive). Empty only for pre-trade_id
+        # constructions (tests); live signals always carry it.
+        "trade_id": sig.trade_id,
         "fvg_id": f"{sig.symbol}:zone{sig.zone_index}",
         # N2 #23-b AM-N23-3: insan-okunur fvg-ölçüleri (id-yanda; trace-bağı
         # korunur). fvg_size_pip: sembol-pip-boyutuna normalize ölçü.
@@ -312,6 +322,14 @@ class StrategyRuntime:
                     "htf_dir": self._v6_dir,
                     "htf_senaryo": self._htf_senaryo,
                     "rollback_count": self._v6_rollback_count,
+                    # Bias-telemetry ayrıştırması (additive, mevcut alanlar
+                    # AYNEN): "bias"/"bias_locked" session-bias'ı taşır
+                    # (sweep'e ait). Fallback gününde _active_bias() yön
+                    # döndürür ama session kilidi kurulmaz — bu üç alan
+                    # o ayrımı görünür kılar, paralel-truth YOK.
+                    "active_bias": self._active_bias_dir(),
+                    "active_bias_source": self._active_bias_source(),
+                    "session_bias_locked": bool(c.bias_locked),
                 },
             )
         except Exception:
@@ -597,6 +615,20 @@ class StrategyRuntime:
                 "htf_fallback_breakout",
             )
         return None
+
+    def _active_bias_dir(self) -> Optional[str]:
+        """Aktif bias yönü (telemetry-only): sweep VEYA fallback, yoksa None.
+
+        Observation helper — _active_bias() kararını değiştirmez, yalnızca
+        yön bileşenini STATE payload'ı için çıkarır. Paralel-truth YOK.
+        """
+        bias = self._active_bias()
+        return bias[0] if bias is not None else None
+
+    def _active_bias_source(self) -> Optional[str]:
+        """Aktif bias kaynağı (telemetry-only): "sweep" | "htf_fallback_breakout" | None."""
+        bias = self._active_bias()
+        return bias[5] if bias is not None else None
 
     # -- Warmup -----------------------------------------------------------
     def warmup(self, bars_15m: List[Bar]) -> None:
@@ -989,6 +1021,9 @@ class StrategyRuntime:
             zone_bottom=fvg.bottom,
             zone_size=fvg.size,
             timestamp=bar.timestamp,
+            # Correlation key (logging-parity): deterministic per-runtime
+            # unique id, bound to the just-incremented trade_counter.
+            trade_id=f"{self.symbol}:{self.trade_counter}",
         )
         self.pending_entry = None
         return True

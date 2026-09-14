@@ -307,6 +307,14 @@ def test_state_payload_v6_fields_additive():
     assert p["htf_dir"] == "bearish"
     assert p["htf_senaryo"] == "A"
     assert p["rollback_count"] == 0
+    # Bias-telemetry ayrıştırması (additive): fallback gününde session
+    # kilidi kurulmaz ama active bias yön döndürür — üç alan o ayrımı
+    # görünür kılar.
+    for field in ("active_bias", "active_bias_source", "session_bias_locked"):
+        assert field in p, f"bias-telemetry-alanı eksik: {field}"
+    assert p["active_bias"] == "bearish"
+    assert p["active_bias_source"] == "htf_fallback_breakout"
+    assert p["session_bias_locked"] is False
 
 
 def test_v6_moments_emitted():

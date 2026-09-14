@@ -356,6 +356,26 @@ class TestCtraderBoot:
         safe_file = orch._safe_path()
         assert not safe_file.exists() or "ctrader" not in safe_file.read_text(encoding="utf-8")
 
+    def test_s5_reconcile_typed_event_emitted(self, ctrader_orch):
+        """Logging-parity: S5 emits a typed RECONCILE event mirroring the
+        SAFETY snapshot record (previously enum-only, never emitted)."""
+        from src.live.audit import EventType
+
+        orch, conn = ctrader_orch
+        result = orch.startup()
+        assert result.verdict in (StartupVerdict.PROCEED, StartupVerdict.SAFE_START)
+        rec = [
+            e
+            for e in orch.audit.events
+            if getattr(e, "event_type", None) == EventType.RECONCILE
+        ]
+        assert len(rec) == 1, "tek RECONCILE emit beklenir"
+        p = rec[0].payload
+        assert p["phase"] == "S5"
+        assert p["status"] in ("OK", "UNKNOWN_OPEN", "ORPHAN", "MISMATCH", "NOT_RUN")
+        assert isinstance(p["block_trading"], bool)
+        assert isinstance(p["details"], list)
+
     def test_warmup_reaches_s9_not_no_mt5_connection(self, ctrader_orch):
         """Karar-6: _warmup must NOT return no_mt5_connection in cTrader
         mode; the D28 smoke runs over the adapter (real S9 path)."""
