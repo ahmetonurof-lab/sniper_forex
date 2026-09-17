@@ -3348,6 +3348,55 @@ class Orchestrator:
                 return 2
             if sig is not None:
                 discarded += 1
+                # Per-signal observability for gate-closed discards.
+                # Reuses existing STATE event type; does not emit SIGNAL
+                # (signal never enters LiveRunner.on_bar).
+                bias_source = None
+                bias_dir = None
+                cbdr_key = None
+                if self._runtime is not None:
+                    cbdr_key = getattr(self._runtime.session, "current_cbdr_key", None)
+                    bias_source = self._runtime._active_bias_source()
+                    bias_dir = self._runtime._active_bias_dir()
+                # Gate close reason from the most recent safety check.
+                # `decision` is available from the enclosing run() loop scope.
+                gate_reason = ""
+                failing_check = None
+                if hasattr(self, "_last_safety_decision"):
+                    gate_reason = getattr(self._last_safety_decision, "reason", "") or ""
+                    fc = getattr(self._last_safety_decision, "failing_check", None)
+                    failing_check = fc.value if fc is not None else None
+                self.audit.append(
+                    time.time(),
+                    EventType.STATE,
+                    self._symbol,
+                    {
+                        "moment": "signal_discarded",
+                        "gate_reason": gate_reason,
+                        "failing_check": failing_check,
+                        "cbdr_key": cbdr_key,
+                        "bias_source": bias_source,
+                        "bias_dir": bias_dir,
+                        "signal": {
+                            "symbol": sig.symbol,
+                            "direction": sig.direction,
+                            "side": sig.side,
+                            "entry_price": sig.entry_price,
+                            "sl": sig.sl,
+                            "tp": sig.tp,
+                            "entry_bar_index": sig.entry_bar_index,
+                            "sweep_bar_index": sig.sweep_bar_index,
+                            "zone_index": sig.zone_index,
+                            "zone_top": sig.zone_top,
+                            "zone_bottom": sig.zone_bottom,
+                            "zone_size": sig.zone_size,
+                            "timestamp": sig.timestamp.isoformat(),
+                            "cbdr_width_pct": sig.cbdr_width_pct,
+                            "trade_id": sig.trade_id,
+                            "fvg_id": f"{sig.symbol}:zone{sig.zone_index}",
+                        },
+                    },
+                )
         if discarded:
             # E1(ii) (OBS-P0 karar-kilidi EK-2): bu bir SINYAL degil,
             # toplamsayimdir — SIGNAL tipinde yayinlaninca kapali SIGNAL
@@ -3614,6 +3663,8 @@ class Orchestrator:
                 spread_points=spread_points,
                 reconciliation=recon_decision,
             )
+            # Store for _advance_state_only() signal_discarded observability.
+            self._last_safety_decision = decision
             gate_allowed = bool(
                 decision.allowed and entries_enabled and not self._runtime_safe and not monitor_only
             )
