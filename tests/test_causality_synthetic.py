@@ -17,7 +17,7 @@ absolute-R reading and are superseded here.
 
 import sys
 
-sys.path.insert(0, "C:/Users/Administrator/Desktop/sniper_forex")
+sys.path.insert(0, "C:/Users/lazol/OneDrive/Desktop/sniper_forex")
 from experiment.main_research_c_v1_0 import BenchmarkTrade
 from experiment.main_research_c_v1_1 import (
     _to_float_ts,

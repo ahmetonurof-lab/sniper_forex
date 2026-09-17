@@ -3,7 +3,7 @@
 import sys
 
 sys.path.insert(0, ".")
-sys.path.insert(0, "C:/Users/Administrator/Desktop/nexus-mcp/sniper/src")
+sys.path.insert(0, "C:/Users/lazol/OneDrive/Desktop/nexus-mcp/sniper/src")
 
 from experiment.exp5d_fvg_mitigation import (
     S0,

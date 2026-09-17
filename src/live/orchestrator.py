@@ -3355,9 +3355,15 @@ class Orchestrator:
                 bias_dir = None
                 cbdr_key = None
                 if self._runtime is not None:
-                    cbdr_key = getattr(self._runtime.session, "current_cbdr_key", None)
-                    bias_source = self._runtime._active_bias_source()
-                    bias_dir = self._runtime._active_bias_dir()
+                    _session = getattr(self._runtime, "session", None)
+                    if _session is not None:
+                        cbdr_key = getattr(_session, "current_cbdr_key", None)
+                    _bias_src_fn = getattr(self._runtime, "_active_bias_source", None)
+                    if callable(_bias_src_fn):
+                        bias_source = _bias_src_fn()
+                    _bias_dir_fn = getattr(self._runtime, "_active_bias_dir", None)
+                    if callable(_bias_dir_fn):
+                        bias_dir = _bias_dir_fn()
                 # Gate close reason from the most recent safety check.
                 # `decision` is available from the enclosing run() loop scope.
                 gate_reason = ""
@@ -3379,21 +3385,23 @@ class Orchestrator:
                         "bias_dir": bias_dir,
                         "signal": {
                             "symbol": sig.symbol,
-                            "direction": sig.direction,
-                            "side": sig.side,
-                            "entry_price": sig.entry_price,
-                            "sl": sig.sl,
-                            "tp": sig.tp,
-                            "entry_bar_index": sig.entry_bar_index,
-                            "sweep_bar_index": sig.sweep_bar_index,
-                            "zone_index": sig.zone_index,
-                            "zone_top": sig.zone_top,
-                            "zone_bottom": sig.zone_bottom,
-                            "zone_size": sig.zone_size,
-                            "timestamp": sig.timestamp.isoformat(),
-                            "cbdr_width_pct": sig.cbdr_width_pct,
-                            "trade_id": sig.trade_id,
-                            "fvg_id": f"{sig.symbol}:zone{sig.zone_index}",
+                            "direction": getattr(sig, "direction", None),
+                            "side": getattr(sig, "side", None),
+                            "entry_price": getattr(sig, "entry_price", None),
+                            "sl": getattr(sig, "sl", None),
+                            "tp": getattr(sig, "tp", None),
+                            "entry_bar_index": getattr(sig, "entry_bar_index", None),
+                            "sweep_bar_index": getattr(sig, "sweep_bar_index", None),
+                            "zone_index": getattr(sig, "zone_index", None),
+                            "zone_top": getattr(sig, "zone_top", None),
+                            "zone_bottom": getattr(sig, "zone_bottom", None),
+                            "zone_size": getattr(sig, "zone_size", None),
+                            "timestamp": (lambda ts: ts.isoformat() if ts is not None else None)(
+                                getattr(sig, "timestamp", None)
+                            ),
+                            "cbdr_width_pct": getattr(sig, "cbdr_width_pct", None),
+                            "trade_id": getattr(sig, "trade_id", None),
+                            "fvg_id": f"{sig.symbol}:zone{getattr(sig, 'zone_index', None)}",
                         },
                     },
                 )

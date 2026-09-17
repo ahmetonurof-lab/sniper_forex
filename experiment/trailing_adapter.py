@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import List, Optional
 
 # ── Import NEXUS fvg module (for detect_fvgs + fvg_close_confirmed) ──
-_NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
+_NEXUS_SNIPER_SRC = str(Path("C:/Users/lazol/OneDrive/Desktop/nexus-mcp/sniper/src"))
 if _NEXUS_SNIPER_SRC not in sys.path:
     sys.path.insert(0, _NEXUS_SNIPER_SRC)
 

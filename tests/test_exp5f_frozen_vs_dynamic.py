@@ -12,7 +12,7 @@ import pytest
 
 _ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_ROOT))
-_NEXUS_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
+_NEXUS_SRC = str(Path("C:/Users/lazol/OneDrive/Desktop/nexus-mcp/sniper/src"))
 sys.path.insert(0, _NEXUS_SRC)
 
 from experiment.exp5f_frozen_vs_dynamic_eq import (

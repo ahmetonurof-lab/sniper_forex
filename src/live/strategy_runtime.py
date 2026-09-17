@@ -58,7 +58,7 @@ from src.strategy.models import Bar, Direction, SweepEvent
 from src.strategy.session import SessionManager
 
 # ── Nexus FVG (external dependency, same as frozen engine) ──
-_NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
+_NEXUS_SNIPER_SRC = str(Path("C:/Users/lazol/OneDrive/Desktop/nexus-mcp/sniper/src"))
 if _NEXUS_SNIPER_SRC not in sys.path:
     sys.path.insert(0, _NEXUS_SNIPER_SRC)
 
@@ -334,6 +334,118 @@ class StrategyRuntime:
             )
         except Exception:
             _LOG.warning("N2 #23 R-1: CBDR STATE emit failed", exc_info=True)
+
+    def _emit_fvg_detected(self, fvgs, i: int, bar: Bar, bias_source: Optional[str]) -> None:
+        """STATE emit with the raw FVG-detector output for this bar.
+
+        Observation layer ONLY (N2 #23/#24 deseni): strategy flow unaffected
+        (emit failures are logged, never raised). Fires once per bar when the
+        detector returns a non-empty list — BEFORE any canonical filtering —
+        so "detector silent" vs "detector found but all filtered" stays
+        distinguishable. `no_entry` only fires when the loop ends WITHOUT a
+        pending; this fires in both cases (detection visibility).
+        Payload carries the top-5 candidates (top/bottom/direction/real_index)
+        plus session_key for the CBDR join.
+        """
+        if self.audit is None:
+            return
+        try:
+            cands = []
+            for fvg in list(fvgs)[:5]:
+                cands.append(
+                    {
+                        "top": float(fvg.top),
+                        "bottom": float(fvg.bottom),
+                        "direction": fvg.direction,
+                        "real_index": int(fvg.real_index),
+                    }
+                )
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self.symbol,
+                {
+                    "moment": "fvg_detected",
+                    "fvg_count": int(len(fvgs)),
+                    "candidates": cands,
+                    "bias_source": bias_source,
+                    "session_key": self.session.current_cbdr_key,
+                    "bar_ts": bar.timestamp.isoformat(),
+                    "bar_index": int(i),
+                },
+            )
+        except Exception:
+            _LOG.warning("fvg_detected STATE emit failed", exc_info=True)
+
+    def _emit_fvg_touch(self, fvg, i: int, bar: Bar, bias_source: Optional[str]) -> None:
+        """STATE emit at the first-touch pass point (pre-pending).
+
+        Observation layer ONLY: fires when the touch check PASSES, right
+        before `_create_pending` — separating "touch observed" from "pending
+        stored" (`fvg_armed`/`entry_pending`). Touch price is the bar extreme
+        that entered the zone (low for bullish, high for bearish).
+        """
+        if self.audit is None:
+            return
+        try:
+            touch_price = float(bar.low) if fvg.direction == "bullish" else float(bar.high)
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self.symbol,
+                {
+                    "moment": "fvg_touch",
+                    "fvg_top": float(fvg.top),
+                    "fvg_bottom": float(fvg.bottom),
+                    "fvg_size_pip": float(fvg.size) / _pip_size(self.symbol),
+                    "direction": fvg.direction,
+                    "real_index": int(fvg.real_index),
+                    "touch_price": touch_price,
+                    "bar_high": float(bar.high),
+                    "bar_low": float(bar.low),
+                    "bar_close": float(bar.close),
+                    "bias_source": bias_source,
+                    "session_key": self.session.current_cbdr_key,
+                    "bar_ts": bar.timestamp.isoformat(),
+                    "bar_index": int(i),
+                },
+            )
+        except Exception:
+            _LOG.warning("fvg_touch STATE emit failed", exc_info=True)
+
+    def _emit_entry_pending(self, fvg, i: int, bias_source: Optional[str]) -> None:
+        """STATE emit when the pending entry is stored (post-touch, pre-fill).
+
+        Observation layer ONLY: fires inside `_create_pending` after the
+        pending dict is stored. `fvg_armed` (legacy, untouched) marks the same
+        instant; this event carries the pending-specific detail (sl_pre,
+        entry_bar_index, bias_source) for the ENTRY_PENDING link of the
+        FVG→TOUCH→PENDING→SIGNAL chain.
+        """
+        if self.audit is None:
+            return
+        try:
+            self.audit.append(
+                time.time(),
+                EventType.STATE,
+                self.symbol,
+                {
+                    "moment": "entry_pending",
+                    "fvg_top": float(fvg.top),
+                    "fvg_bottom": float(fvg.bottom),
+                    "direction": fvg.direction,
+                    "real_index": int(fvg.real_index),
+                    "touch_bar_index": int(i),
+                    "entry_bar_index": int(i + 1),
+                    "sl_pre": float(self.pending_entry["sl"]) if self.pending_entry else None,
+                    "bias_source": bias_source,
+                    "session_key": self.session.current_cbdr_key,
+                    "bar_ts": self.bars[i].timestamp.isoformat(),
+                    "bar_index": int(i),
+                },
+            )
+        except Exception:
+            _LOG.warning("entry_pending STATE emit failed", exc_info=True)
 
     def _emit_fvg_armed(self, fvg, i: int) -> None:
         """N2 #23-b: STATE emit at the FVG arm moment (pending entry created).
@@ -801,6 +913,12 @@ class StrategyRuntime:
             min_fvg_size=min_fvg_size,
             max_wick_ratio=FVG_WICK_RATIO_MAX,
         )
+        # FVG-DETECTED visibility (observation-only): raw detector output
+        # per bar, before canonical filtering. Lets "no FVGs found" be told
+        # apart from "FVGs found but all filtered" (no_entry only covers
+        # the latter).
+        if fvgs:
+            self._emit_fvg_detected(fvgs, i, bar, bias_source)
 
         _reject_reasons: List[str] = []
         for fvg in fvgs:
@@ -862,6 +980,9 @@ class StrategyRuntime:
             # passes). If the pending is later rejected at fill (MIN_RISK_DIST
             # failure), the sweep must survive so scanning continues with the
             # same sweep — matching canonical's continue-on-failure behavior.
+            # FVG-TOUCH visibility (observation-only): touch check passed,
+            # pending about to be stored. Canonical flow unchanged.
+            self._emit_fvg_touch(fvg, i, bar, bias_source)
             self._create_pending(fvg, i, bias)
             self._next_idx = i + 1
             return None  # signal emitted at fill (next bar)
@@ -921,6 +1042,10 @@ class StrategyRuntime:
         # arasındaki sessizlik-delik kapanır (pre-reg: observation-layer,
         # akış-değişmez; emit fail=logged never raised).
         self._emit_fvg_armed(fvg, i)
+        # ENTRY-PENDING visibility (observation-only): pending stored,
+        # awaiting next-bar fill. `fvg_armed` (legacy) marks the same
+        # instant; this carries the pending detail for the chain link.
+        self._emit_entry_pending(fvg, i, bias_source)
 
     def _fill_pending(self, bar: Bar) -> bool:
         """Fill pending entry at `bar.open`; create active_trade + Signal.

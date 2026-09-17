@@ -18,7 +18,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Add NEXUS sniper src for SwingPoint
-_NEXUS_SNIPER_SRC = str(Path("C:/Users/Administrator/Desktop/nexus-mcp/sniper/src"))
+_NEXUS_SNIPER_SRC = str(Path("C:/Users/lazol/OneDrive/Desktop/nexus-mcp/sniper/src"))
 if _NEXUS_SNIPER_SRC not in sys.path:
     sys.path.insert(0, _NEXUS_SNIPER_SRC)
 
