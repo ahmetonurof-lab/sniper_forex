@@ -2595,6 +2595,13 @@ class Orchestrator:
         # CBDR STATE observation layer survives the identity swap.
         self._runtime = StrategyRuntime(self._symbol, audit=self.audit)
         self._runtime_restored = False
+        # RUNTIME-REF (cold-rebuild fork fix): the LiveRunner was handed the
+        # pre-rebuild runtime by reference at S5 and is never reconstructed
+        # (D38) — point it at the rebuilt object so the S9-replayed session
+        # is the state the live loop feeds. Same objects, no second
+        # runtime/runner, no replay change.
+        if self._runner is not None:
+            self._runner.runtime = self._runtime
 
     # ── D33 restore seeding helpers (redelivery 2) ──────────────────
 
